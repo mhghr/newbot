@@ -1,0 +1,296 @@
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from bot.config import CHANNEL_URL, ADMIN_IDS
+from urllib.parse import urlparse
+
+
+def _rows(buttons: list, per_row: int = 2) -> list:
+    return [buttons[i:i + per_row] for i in range(0, len(buttons), per_row)]
+
+
+def _app_label(url: str) -> str:
+    host = urlparse(url).hostname or url
+    return host[:40]
+
+
+def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(text="🛒 خرید کانفیگ", callback_data="main:buy"),
+        InlineKeyboardButton(text="📋 کانفیگ های من", callback_data="main:my_configs"),
+        InlineKeyboardButton(text="📖 آموزش اتصال", callback_data="main:tutorial"),
+        InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="main:apps"),
+        InlineKeyboardButton(text="💵 عودت وجه", callback_data="main:refund"),
+    ]
+    if user_id in ADMIN_IDS:
+        buttons.append(InlineKeyboardButton(text="⚙️ مدیریت", callback_data="main:admin"))
+    return InlineKeyboardMarkup(inline_keyboard=_rows(buttons))
+
+
+def refund_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
+    buttons = []
+    for c in configs:
+        label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
+        buttons.append(InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"refund_cfg:{c['id']}"))
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def refund_approval_keyboard(refund_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ تایید عودت", callback_data=f"refund_ok:{refund_id}"),
+            InlineKeyboardButton(text="❌ عدم تایید", callback_data=f"refund_no:{refund_id}"),
+        ]
+    ])
+
+
+def refund_upload_keyboard(refund_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📎 آپلود فیش واریز", callback_data=f"refund_upload:{refund_id}")]
+    ])
+
+
+APP_PLATFORMS = (("android", "📱 اندروید"), ("ios", "🍎 آیفون"), ("windows", "💻 ویندوز"))
+
+
+def user_apps_platforms_keyboard() -> InlineKeyboardMarkup:
+    rows = _rows([
+        InlineKeyboardButton(text=label, callback_data=f"apps:{code}")
+        for code, label in APP_PLATFORMS
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def user_apps_list_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=f"⬇️ {_app_label(a['url'])}", url=a["url"])] for a in apps]
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:apps")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_apps_platforms_keyboard() -> InlineKeyboardMarkup:
+    rows = _rows([
+        InlineKeyboardButton(text=label, callback_data=f"admin:applist:{code}")
+        for code, label in APP_PLATFORMS
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_apps_list_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text=f"🗑 {_app_label(a['url'])}", callback_data=f"admin:app_del:{platform}:{a['id']}")]
+        for a in apps
+    ]
+    rows.append([InlineKeyboardButton(text="➕ افزودن لینک", callback_data=f"admin:app_add:{platform}")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:apps")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def back_to_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")],
+    ])
+
+
+def join_channel_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📢 عضویت در کانال", url=CHANNEL_URL)],
+        [InlineKeyboardButton(text="✅ عضو شدم، بررسی کن", callback_data="check_membership")],
+    ])
+
+
+def plans_keyboard(plans: list) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(
+            text=f"{plan['name']} | {plan['price']:,} تومان",
+            callback_data=f"buy_plan:{plan['id']}"
+        )
+        for plan in plans
+    ]
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="cancel_buy")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def order_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ تایید", callback_data=f"approve_order:{order_id}"),
+            InlineKeyboardButton(text="❌ رد", callback_data=f"reject_order:{order_id}"),
+        ]
+    ])
+
+
+def configs_keyboard(configs: list) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(
+            text=f"📍 {config['location']} | {config['server_name']}",
+            callback_data=f"view_config:{config['id']}"
+        )
+        for config in configs
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=_rows(buttons))
+
+
+def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
+    buttons = []
+    for c in configs:
+        label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
+        buttons.append(InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"cfg:{c['id']}"))
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def config_detail_keyboard(config_id: int, show_renew: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if show_renew:
+        rows.append([InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:my_configs")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def renew_choice_keyboard(config_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="♻️ پلن فعلی", callback_data=f"renew_same:{config_id}"),
+            InlineKeyboardButton(text="🔀 تغییر پلن", callback_data=f"renew_change:{config_id}"),
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"cfg:{config_id}")],
+    ])
+
+
+def renew_plans_keyboard(config_id: int, plans: list) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(
+            text=f"{plan['name']} | {plan['price']:,} تومان",
+            callback_data=f"renew_plan:{config_id}:{plan['id']}"
+        )
+        for plan in plans
+    ]
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"renew:{config_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def cancel_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_action")],
+    ])
+
+
+def tutorial_platforms_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=_rows([
+        InlineKeyboardButton(text="📱 اندروید", callback_data="tutorial:android"),
+        InlineKeyboardButton(text="🍎 iOS", callback_data="tutorial:ios"),
+        InlineKeyboardButton(text="💻 ویندوز", callback_data="tutorial:windows"),
+    ]))
+
+
+def admin_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=_rows([
+        InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:servers"),
+        InlineKeyboardButton(text="📦 مدیریت پلن‌ها", callback_data="admin:plans"),
+        InlineKeyboardButton(text="🛠 ساخت اکانت", callback_data="admin:create_account"),
+        InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:card"),
+        InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="admin:apps"),
+        InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:search_user"),
+        InlineKeyboardButton(text="📖 مدیریت آموزش", callback_data="admin:tutorials"),
+        InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),
+    ]))
+
+
+def create_account_plans_keyboard(plans: list) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(
+            text=f"{plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز",
+            callback_data=f"acc_plan:{plan['id']}"
+        )
+        for plan in plans
+    ]
+    buttons.append(InlineKeyboardButton(text="🎛 پلن دلخواه", callback_data="acc_plan:custom"))
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_servers_keyboard() -> InlineKeyboardMarkup:
+    rows = _rows([
+        InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server"),
+        InlineKeyboardButton(text="📋 لیست سرورها", callback_data="admin:list_servers"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_plans_keyboard() -> InlineKeyboardMarkup:
+    rows = _rows([
+        InlineKeyboardButton(text="➕ افزودن پلن", callback_data="admin:add_plan"),
+        InlineKeyboardButton(text="📋 لیست پلن‌ها", callback_data="admin:list_plans"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def server_actions_keyboard(server_id: int, is_active: bool) -> InlineKeyboardMarkup:
+    toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
+    rows = _rows([
+        InlineKeyboardButton(text="📡 اینباندها", callback_data=f"admin:inbounds:{server_id}"),
+        InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{server_id}"),
+        InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{server_id}"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def server_delete_confirm_keyboard(server_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ بله، حذف شود", callback_data=f"admin:delete_server_confirm:{server_id}"),
+            InlineKeyboardButton(text="❌ انصراف", callback_data=f"admin:server_detail:{server_id}"),
+        ],
+    ])
+
+
+def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboardMarkup:
+    del_buttons = [
+        InlineKeyboardButton(text=f"🗑 {iid}", callback_data=f"admin:inbound_del:{server_id}:{iid}")
+        for iid in inbound_ids
+    ]
+    rows = _rows(del_buttons)
+    rows.append([
+        InlineKeyboardButton(text="➕ افزودن اینباند", callback_data=f"admin:inbound_add:{server_id}"),
+        InlineKeyboardButton(text="✏️ ویرایش لیست", callback_data=f"admin:set_inbounds:{server_id}"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:server_detail:{server_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def plan_actions_keyboard(plan_id: int, is_active: bool) -> InlineKeyboardMarkup:
+    toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
+    rows = _rows([
+        InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{plan_id}"),
+        InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{plan_id}"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_settings_keyboard() -> InlineKeyboardMarkup:
+    rows = _rows([
+        InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:set_card_number"),
+        InlineKeyboardButton(text="👤 نام صاحب کارت", callback_data="admin:set_card_holder"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_tutorial_keyboard() -> InlineKeyboardMarkup:
+    rows = _rows([
+        InlineKeyboardButton(text="📱 اندروید", callback_data="admin:edit_tutorial:android"),
+        InlineKeyboardButton(text="🍎 iOS", callback_data="admin:edit_tutorial:ios"),
+        InlineKeyboardButton(text="💻 ویندوز", callback_data="admin:edit_tutorial:windows"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

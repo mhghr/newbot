@@ -1,0 +1,1258 @@
+2026-07-07 15:55:56,968 INFO bot.services.subserver: Subscription server started on 0.0.0.0:8080
+2026-07-07 15:55:57,963 INFO root: Bot starting...
+2026-07-07 15:55:57,963 INFO aiogram.dispatcher: Start polling
+2026-07-07 15:55:59,330 INFO aiogram.dispatcher: Run polling for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-07 16:01:22,310 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 16:01:22,311 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:01:31,322 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 16:01:31,322 WARNING aiogram.dispatcher: Sleep for 1.421377 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 16:01:43,358 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 16:01:49,018 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 16:01:49,018 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:02:00,942 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 16:02:00,942 WARNING aiogram.dispatcher: Sleep for 1.449544 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 16:02:13,948 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 16:17:34,073 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 16:17:34,078 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:17:49,858 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 16:18:04,954 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 16:18:04,968 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:18:10,603 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 16:18:10,623 WARNING aiogram.dispatcher: Sleep for 1.303130 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 16:18:23,063 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 16:18:30,955 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 16:18:30,956 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:18:43,757 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 16:26:06,299 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 16:26:06,299 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:26:18,831 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 16:36:47,320 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 16:36:47,325 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:36:59,086 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 16:44:47,198 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 16:44:47,974 INFO aiogram.event: Update id=34586227 is handled. Duration 1578 ms by bot id=7352975179
+2026-07-07 16:44:49,873 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 16:44:50,313 INFO aiogram.event: Update id=34586228 is handled. Duration 593 ms by bot id=7352975179
+2026-07-07 16:44:52,024 INFO aiogram.event: Update id=34586229 is handled. Duration 702 ms by bot id=7352975179
+2026-07-07 16:45:26,751 ERROR bot.handlers.buy: Failed to send receipt to admin 6245412936: 
+2026-07-07 16:45:26,768 ERROR bot.handlers.buy: Order #4 receipt reached 0 admins. Make sure each admin has started the bot and the proxy is stable.
+2026-07-07 16:45:33,141 INFO aiogram.event: Update id=34586230 is handled. Duration 14436 ms by bot id=7352975179
+2026-07-07 16:54:47,720 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 16:54:47,720 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 16:55:00,015 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 17:12:29,930 INFO aiogram.event: Update id=34586231 is handled. Duration 4593 ms by bot id=7352975179
+2026-07-07 17:12:35,562 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:12:35,965 INFO aiogram.event: Update id=34586232 is handled. Duration 608 ms by bot id=7352975179
+2026-07-07 17:12:37,401 INFO aiogram.event: Update id=34586233 is handled. Duration 421 ms by bot id=7352975179
+2026-07-07 17:12:52,419 INFO aiogram.event: Update id=34586234 is handled. Duration 2250 ms by bot id=7352975179
+2026-07-07 17:13:00,305 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order5 "HTTP/1.1 200 OK"
+2026-07-07 17:13:00,309 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order5: 200
+2026-07-07 17:13:00,527 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-07 17:13:00,529 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-07 17:13:01,387 INFO aiogram.event: Update id=34586235 is handled. Duration 1875 ms by bot id=7352975179
+2026-07-07 17:20:52,314 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 17:20:52,314 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 17:21:02,600 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 17:21:02,600 WARNING aiogram.dispatcher: Sleep for 1.306355 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 17:21:11,918 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 17:21:11,919 WARNING aiogram.dispatcher: Sleep for 1.812790 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-07 17:21:23,916 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 17:21:23,916 WARNING aiogram.dispatcher: Sleep for 2.340606 seconds and try again... (tryings = 3, bot id = 7352975179)
+2026-07-07 17:21:35,539 INFO aiogram.dispatcher: Connection established (tryings = 4, bot id = 7352975179)
+2026-07-07 17:21:36,933 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:21:37,797 INFO aiogram.event: Update id=34586236 is handled. Duration 2266 ms by bot id=7352975179
+2026-07-07 17:21:48,533 INFO aiogram.event: Update id=34586237 is handled. Duration 358 ms by bot id=7352975179
+2026-07-07 17:27:37,302 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 17:27:37,303 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 17:27:46,318 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 17:27:46,318 WARNING aiogram.dispatcher: Sleep for 1.304363 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 17:27:59,548 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 17:34:16,083 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 17:34:16,084 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 17:34:28,141 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 17:37:38,094 WARNING bot.handlers.buy: network error (attempt 1/4): HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 17:37:47,605 ERROR bot.handlers.buy: Failed to send receipt to admin 6245412936: 
+2026-07-07 17:37:47,607 ERROR bot.handlers.buy: Order #6 receipt reached 0 admins. Make sure each admin has started the bot and the proxy is stable.
+2026-07-07 17:37:50,414 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:37:51,608 INFO aiogram.event: Update id=34586239 is handled. Duration 3594 ms by bot id=7352975179
+2026-07-07 17:37:55,611 ERROR bot.handlers.buy: Failed to confirm receipt to user 5942407257: 
+2026-07-07 17:37:55,611 INFO aiogram.event: Update id=34586238 is handled. Duration 25359 ms by bot id=7352975179
+2026-07-07 17:38:22,594 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:38:24,309 INFO aiogram.event: Update id=34586240 is handled. Duration 4047 ms by bot id=7352975179
+2026-07-07 17:38:26,281 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:38:26,660 INFO aiogram.event: Update id=34586241 is handled. Duration 858 ms by bot id=7352975179
+2026-07-07 17:38:37,710 INFO aiogram.event: Update id=34586242 is not handled. Duration 10360 ms by bot id=7352975179
+2026-07-07 17:38:37,710 ERROR aiogram.event: Cause exception while process update id=34586242 by bot id=7352975179
+TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 690, in _request
+    await resp.start(conn)
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client_reqrep.py", line 1059, in start
+    message, payload = await protocol.read()  # type: ignore[union-attr]
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\streams.py", line 644, in read
+    await self._waiter
+aiohttp.client_exceptions.ServerDisconnectedError: Server disconnected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\buy.py", line 76, in select_plan
+    card_holder = await db.get_setting("card_holder", "تنظیم نشده")
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 188, in make_request
+    raise TelegramNetworkError(method=method, message=f"{type(e).__name__}: {e}")
+aiogram.exceptions.TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 17:38:52,716 INFO aiogram.event: Update id=34586243 is handled. Duration 3108 ms by bot id=7352975179
+2026-07-07 17:38:59,421 INFO aiogram.event: Update id=34586244 is handled. Duration 1343 ms by bot id=7352975179
+2026-07-07 17:39:04,372 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order7 "HTTP/1.1 200 OK"
+2026-07-07 17:39:04,379 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order7: 200
+2026-07-07 17:39:04,607 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-07 17:39:04,610 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-07 17:39:05,708 INFO aiogram.event: Update id=34586245 is handled. Duration 1875 ms by bot id=7352975179
+2026-07-07 17:51:56,125 INFO aiogram.event: Update id=34586246 is handled. Duration 1265 ms by bot id=7352975179
+2026-07-07 17:51:58,023 INFO aiogram.event: Update id=34586247 is handled. Duration 342 ms by bot id=7352975179
+2026-07-07 17:51:59,284 INFO aiogram.event: Update id=34586248 is handled. Duration 391 ms by bot id=7352975179
+2026-07-07 17:53:40,599 ERROR bot.handlers.buy: Failed to send receipt to admin 6245412936: 
+2026-07-07 17:53:40,599 ERROR bot.handlers.buy: Order #8 receipt reached 0 admins. Make sure each admin has started the bot and the proxy is stable.
+2026-07-07 17:53:41,887 INFO aiogram.event: Update id=34586249 is handled. Duration 9311 ms by bot id=7352975179
+2026-07-07 17:54:09,919 ERROR bot.middlewares.membership: Membership check failed for 5942407257:  (is the bot an admin of the channel? is CHANNEL_ID correct?)
+2026-07-07 17:54:11,874 INFO aiogram.event: Update id=34586250 is handled. Duration 9968 ms by bot id=7352975179
+2026-07-07 17:54:19,751 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:54:20,003 INFO aiogram.event: Update id=34586251 is handled. Duration 437 ms by bot id=7352975179
+2026-07-07 17:54:21,736 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-07 17:54:22,150 INFO aiogram.event: Update id=34586252 is handled. Duration 546 ms by bot id=7352975179
+2026-07-07 17:54:23,615 INFO aiogram.event: Update id=34586253 is handled. Duration 687 ms by bot id=7352975179
+2026-07-07 17:54:54,526 INFO aiogram.event: Update id=34586254 is handled. Duration 1436 ms by bot id=7352975179
+2026-07-07 17:55:03,581 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order9 "HTTP/1.1 200 OK"
+2026-07-07 17:55:03,583 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order9: 200
+2026-07-07 17:55:04,255 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-07 17:55:04,258 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-07 17:55:04,976 INFO aiogram.event: Update id=34586255 is handled. Duration 2139 ms by bot id=7352975179
+2026-07-07 18:16:29,757 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 18:16:29,758 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 18:16:38,762 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 18:16:38,763 WARNING aiogram.dispatcher: Sleep for 1.301741 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 18:16:51,817 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 18:16:51,817 WARNING aiogram.dispatcher: Sleep for 1.750598 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-07 18:17:05,043 INFO aiogram.dispatcher: Connection established (tryings = 3, bot id = 7352975179)
+2026-07-07 18:17:31,790 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 18:17:31,790 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 18:17:43,698 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 18:18:10,646 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 18:18:10,646 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 18:18:22,200 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 18:24:44,706 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 18:24:44,710 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 18:24:59,738 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 18:25:10,983 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 18:25:10,992 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 18:25:23,935 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 18:26:34,321 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 18:26:34,323 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 18:27:17,853 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 18:53:08,811 INFO aiogram.event: Update id=34586256 is handled. Duration 718 ms by bot id=7352975179
+2026-07-07 20:57:29,874 INFO aiogram.event: Update id=34586257 is handled. Duration 687 ms by bot id=7352975179
+2026-07-07 20:57:33,314 INFO aiogram.event: Update id=34586258 is handled. Duration 1093 ms by bot id=7352975179
+2026-07-07 20:57:34,706 INFO aiogram.event: Update id=34586259 is handled. Duration 531 ms by bot id=7352975179
+2026-07-07 20:57:40,968 INFO aiogram.event: Update id=34586260 is handled. Duration 546 ms by bot id=7352975179
+2026-07-07 20:57:48,868 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/6245412936-order10 "HTTP/1.1 200 OK"
+2026-07-07 20:57:48,871 INFO bot.services.xui: API POST /panel/api/clients/del/6245412936-order10: 200
+2026-07-07 20:57:49,256 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-07 20:57:49,258 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-07 20:57:50,618 INFO aiogram.event: Update id=34586261 is handled. Duration 2594 ms by bot id=7352975179
+2026-07-07 21:28:47,338 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:28:47,349 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:28:55,203 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:28:55,204 WARNING aiogram.dispatcher: Sleep for 1.294703 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 21:29:02,347 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:29:02,347 WARNING aiogram.dispatcher: Sleep for 1.757794 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-07 21:29:15,484 INFO aiogram.dispatcher: Connection established (tryings = 3, bot id = 7352975179)
+2026-07-07 21:29:41,749 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:29:41,758 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:29:51,655 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:29:51,657 WARNING aiogram.dispatcher: Sleep for 1.204617 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 21:30:04,646 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 21:30:52,543 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:30:52,605 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:31:00,563 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:31:00,565 WARNING aiogram.dispatcher: Sleep for 1.285339 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 21:31:04,132 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:31:04,148 WARNING aiogram.dispatcher: Sleep for 1.538640 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-07 21:31:15,634 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:31:15,635 WARNING aiogram.dispatcher: Sleep for 1.835741 seconds and try again... (tryings = 3, bot id = 7352975179)
+2026-07-07 21:31:28,200 INFO aiogram.dispatcher: Connection established (tryings = 4, bot id = 7352975179)
+2026-07-07 21:32:34,599 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:32:34,614 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:32:46,812 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 21:33:08,208 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:33:08,232 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:33:18,779 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:33:18,783 WARNING aiogram.dispatcher: Sleep for 1.309932 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 21:33:27,322 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:33:27,326 WARNING aiogram.dispatcher: Sleep for 1.580763 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-07 21:33:50,750 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:33:50,753 WARNING aiogram.dispatcher: Sleep for 2.033041 seconds and try again... (tryings = 3, bot id = 7352975179)
+2026-07-07 21:34:05,225 INFO aiogram.dispatcher: Connection established (tryings = 4, bot id = 7352975179)
+2026-07-07 21:34:13,442 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:34:13,451 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:34:27,074 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 21:34:29,824 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:34:29,833 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:34:43,223 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 21:34:53,470 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 21:34:53,472 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:35:10,908 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 21:40:08,310 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 21:40:08,310 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:40:21,803 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 21:41:12,744 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:41:12,744 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:41:25,690 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 21:57:20,780 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 21:57:20,781 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 21:57:32,335 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 22:19:21,312 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 22:19:21,312 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:19:33,819 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 22:23:23,847 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 22:23:23,847 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:23:36,261 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 22:44:34,832 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 22:44:34,838 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:45:00,664 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 22:54:31,951 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 22:54:31,961 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:54:41,489 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 22:54:41,489 WARNING aiogram.dispatcher: Sleep for 1.228794 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 22:54:53,292 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 22:55:44,487 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 22:55:44,494 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:55:57,039 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 22:57:17,396 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-07 22:57:17,402 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:57:29,244 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 22:57:29,244 WARNING aiogram.dispatcher: Sleep for 1.300593 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 22:57:43,110 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-07 22:58:44,789 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 22:58:44,789 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 22:58:54,282 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 22:58:54,282 WARNING aiogram.dispatcher: Sleep for 1.312728 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-07 22:59:03,612 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-07 22:59:03,612 WARNING aiogram.dispatcher: Sleep for 1.737419 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-07 22:59:14,396 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 22:59:14,396 WARNING aiogram.dispatcher: Sleep for 2.319359 seconds and try again... (tryings = 3, bot id = 7352975179)
+2026-07-07 22:59:27,490 INFO aiogram.dispatcher: Connection established (tryings = 4, bot id = 7352975179)
+2026-07-07 23:08:14,915 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 23:08:14,915 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 23:08:27,346 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 23:08:37,442 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 23:08:37,443 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 23:08:51,237 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 23:31:20,315 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 23:31:20,315 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 23:31:32,193 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 23:40:19,317 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-07 23:40:19,387 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 23:40:33,667 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-07 23:41:21,826 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-07 23:41:22,000 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-07 23:41:42,391 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:00:06,318 INFO bot.services.subserver: Subscription server started on 0.0.0.0:8080
+2026-07-08 17:00:06,988 INFO root: Bot starting...
+2026-07-08 17:00:06,988 INFO aiogram.dispatcher: Start polling
+2026-07-08 17:00:07,907 INFO aiogram.dispatcher: Run polling for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-08 17:00:58,266 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 17:00:58,691 INFO aiogram.event: Update id=34586262 is handled. Duration 1264 ms by bot id=7352975179
+2026-07-08 17:01:00,692 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 17:01:01,108 INFO aiogram.event: Update id=34586263 is handled. Duration 858 ms by bot id=7352975179
+2026-07-08 17:01:04,932 INFO aiogram.event: Update id=34586264 is handled. Duration 468 ms by bot id=7352975179
+2026-07-08 17:01:45,200 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:01:45,204 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:02:04,655 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:02:21,920 INFO aiogram.event: Update id=34586265 is handled. Duration 11985 ms by bot id=7352975179
+2026-07-08 17:04:23,389 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order11 "HTTP/1.1 200 OK"
+2026-07-08 17:04:23,392 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order11: 200
+2026-07-08 17:04:23,677 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-08 17:04:23,680 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-08 17:04:23,681 ERROR bot.handlers.admin.payments: Order approval failed for #11: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+Traceback (most recent call last):
+  File "D:\newbot\bot\handlers\admin\payments.py", line 105, in approve_order
+    await xui.add_client_full(
+  File "D:\newbot\bot\services\xui.py", line 143, in add_client_full
+    raise Exception(f"Failed to add client: {data}")
+Exception: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+2026-07-08 17:04:25,381 INFO aiogram.event: Update id=34586266 is handled. Duration 3094 ms by bot id=7352975179
+2026-07-08 17:06:35,317 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-08 17:06:35,318 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:06:37,639 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:06:45,929 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order11 "HTTP/1.1 200 OK"
+2026-07-08 17:06:45,931 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order11: 200
+2026-07-08 17:06:46,629 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-08 17:06:46,631 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-08 17:06:46,633 ERROR bot.handlers.admin.payments: Order approval failed for #11: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+Traceback (most recent call last):
+  File "D:\newbot\bot\handlers\admin\payments.py", line 105, in approve_order
+    await xui.add_client_full(
+  File "D:\newbot\bot\services\xui.py", line 143, in add_client_full
+    raise Exception(f"Failed to add client: {data}")
+Exception: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+2026-07-08 17:06:48,011 INFO aiogram.event: Update id=34586267 is not handled. Duration 10360 ms by bot id=7352975179
+2026-07-08 17:06:48,011 ERROR aiogram.event: Cause exception while process update id=34586267 by bot id=7352975179
+TelegramBadRequest: Telegram server says - Bad Request: query is too old and response timeout expired or query ID is invalid
+Traceback (most recent call last):
+  File "D:\newbot\bot\handlers\admin\payments.py", line 105, in approve_order
+    await xui.add_client_full(
+  File "D:\newbot\bot\services\xui.py", line 143, in add_client_full
+    raise Exception(f"Failed to add client: {data}")
+Exception: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\admin\payments.py", line 157, in approve_order
+    await callback.answer("❌ خطا! دوباره تلاش کنید.", show_alert=True)
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 189, in make_request
+    response = self.check_response(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 120, in check_response
+    raise TelegramBadRequest(method=method, message=description)
+aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: query is too old and response timeout expired or query ID is invalid
+2026-07-08 17:06:57,132 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:06:57,132 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:07:08,824 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:07:08,824 WARNING aiogram.dispatcher: Sleep for 1.294678 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 17:07:21,666 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-08 17:07:37,432 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:07:37,432 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:07:46,435 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-08 17:07:46,435 WARNING aiogram.dispatcher: Sleep for 1.244142 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 17:08:01,837 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-08 17:08:40,641 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:08:40,641 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:08:53,164 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:16:14,336 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:16:14,336 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:16:25,922 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:22:36,231 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order11 "HTTP/1.1 200 OK"
+2026-07-08 17:22:36,255 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order11: 200
+2026-07-08 17:22:36,535 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-08 17:22:36,537 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-08 17:22:36,538 ERROR bot.handlers.admin.payments: Order approval failed for #11: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+Traceback (most recent call last):
+  File "D:\newbot\bot\handlers\admin\payments.py", line 105, in approve_order
+    email = f"{tg_id}"
+  File "D:\newbot\bot\services\xui.py", line 143, in add_client_full
+    json={
+Exception: Failed to add client: {'success': False, 'msg': 'Something went wrong (subId already in use: 2598dd79b8e7cdf9d2b8f595c138f99a\n)', 'obj': None}
+2026-07-08 17:22:37,016 INFO aiogram.event: Update id=34586268 is handled. Duration 2031 ms by bot id=7352975179
+2026-07-08 17:23:26,567 INFO aiogram.dispatcher: Polling stopped
+2026-07-08 17:23:26,828 INFO aiogram.dispatcher: Polling stopped for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-08 17:23:33,822 INFO bot.services.subserver: Subscription server started on 0.0.0.0:8080
+2026-07-08 17:23:34,477 INFO root: Bot starting...
+2026-07-08 17:23:34,477 INFO aiogram.dispatcher: Start polling
+2026-07-08 17:23:35,137 INFO aiogram.dispatcher: Run polling for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-08 17:23:44,698 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257 "HTTP/1.1 200 OK"
+2026-07-08 17:23:44,701 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257: 200
+2026-07-08 17:23:44,952 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order11 "HTTP/1.1 200 OK"
+2026-07-08 17:23:44,955 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order11: 200
+2026-07-08 17:23:45,522 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order9 "HTTP/1.1 200 OK"
+2026-07-08 17:23:45,524 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order9: 200
+2026-07-08 17:23:45,768 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order7 "HTTP/1.1 200 OK"
+2026-07-08 17:23:45,772 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order7: 200
+2026-07-08 17:23:47,514 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order6 "HTTP/1.1 200 OK"
+2026-07-08 17:23:47,516 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order6: 200
+2026-07-08 17:23:48,759 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:23:48,759 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:23:49,382 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order5 "HTTP/1.1 200 OK"
+2026-07-08 17:23:49,385 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order5: 200
+2026-07-08 17:23:49,658 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order4 "HTTP/1.1 200 OK"
+2026-07-08 17:23:49,661 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order4: 200
+2026-07-08 17:23:50,432 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order3 "HTTP/1.1 200 OK"
+2026-07-08 17:23:50,435 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order3: 200
+2026-07-08 17:23:50,701 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order2 "HTTP/1.1 200 OK"
+2026-07-08 17:23:50,703 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order2: 200
+2026-07-08 17:23:50,998 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-08 17:23:51,000 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-08 17:23:51,254 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/inbounds/list "HTTP/1.1 200 OK"
+2026-07-08 17:23:51,257 INFO bot.services.xui: API GET /panel/api/inbounds/list: 200
+2026-07-08 17:23:52,958 INFO aiogram.event: Update id=34586269 is handled. Duration 11438 ms by bot id=7352975179
+2026-07-08 17:23:59,919 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:34:08,812 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:34:08,854 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:34:22,805 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:34:22,805 WARNING aiogram.dispatcher: Sleep for 1.446908 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 17:34:35,163 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-08 17:34:40,152 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:34:40,153 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:34:53,680 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:35:42,500 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:35:42,500 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:35:54,113 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:37:32,868 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 17:37:34,308 INFO aiogram.event: Update id=34586270 is handled. Duration 3046 ms by bot id=7352975179
+2026-07-08 17:38:29,914 INFO aiogram.event: Update id=34586271 is handled. Duration 1202 ms by bot id=7352975179
+2026-07-08 17:43:05,305 INFO aiogram.event: Update id=34586272 is handled. Duration 17781 ms by bot id=7352975179
+2026-07-08 17:43:07,366 INFO aiogram.event: Update id=34586273 is handled. Duration 4265 ms by bot id=7352975179
+2026-07-08 17:43:09,095 INFO aiogram.event: Update id=34586274 is handled. Duration 343 ms by bot id=7352975179
+2026-07-08 17:43:35,786 INFO aiogram.event: Update id=34586275 is not handled. Duration 8015 ms by bot id=7352975179
+2026-07-08 17:43:35,786 ERROR aiogram.event: Cause exception while process update id=34586275 by bot id=7352975179
+ConnectionResetError: 
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\admin\settings.py", line 39, in card_start
+    await callback.message.edit_text(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 663, in _request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 538, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1050, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1353, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 72, in _wrap_create_connection
+    return await self._connect_via_proxy(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 135, in _connect_via_proxy
+    stream = await proxy.connect(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 79, in connect
+    return await self._connect(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 137, in _connect
+    stream = await stream.start_tls(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_stream.py", line 41, in start_tls
+    await self._writer.start_tls(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\streams.py", line 402, in start_tls
+    new_transport = await self._loop.start_tls(  # type: ignore
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1314, in start_tls
+    await waiter
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\sslproto.py", line 581, in _on_handshake_complete
+    raise handshake_exc
+ConnectionResetError
+2026-07-08 17:44:10,409 INFO aiogram.event: Update id=34586276 is not handled. Duration 8015 ms by bot id=7352975179
+2026-07-08 17:44:10,410 ERROR aiogram.event: Cause exception while process update id=34586276 by bot id=7352975179
+ConnectionResetError: 
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\admin\settings.py", line 39, in card_start
+    await callback.message.edit_text(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 663, in _request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 538, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1050, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1353, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 72, in _wrap_create_connection
+    return await self._connect_via_proxy(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 135, in _connect_via_proxy
+    stream = await proxy.connect(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 79, in connect
+    return await self._connect(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 137, in _connect
+    stream = await stream.start_tls(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_stream.py", line 41, in start_tls
+    await self._writer.start_tls(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\streams.py", line 402, in start_tls
+    new_transport = await self._loop.start_tls(  # type: ignore
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1314, in start_tls
+    await waiter
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\sslproto.py", line 581, in _on_handshake_complete
+    raise handshake_exc
+ConnectionResetError
+2026-07-08 17:44:34,785 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:44:34,789 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:44:34,797 INFO aiogram.event: Update id=34586278 is not handled. Duration 5093 ms by bot id=7352975179
+2026-07-08 17:44:34,800 ERROR aiogram.event: Cause exception while process update id=34586278 by bot id=7352975179
+ConnectionResetError: [WinError 64] The specified network name is no longer available
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 462, in finish_socket_func
+    return ov.getresult()
+           ^^^^^^^^^^^^^^
+OSError: [WinError 64] The specified network name is no longer available
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\admin\settings.py", line 90, in settings_menu
+    await callback.message.edit_text(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 663, in _request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 538, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1050, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1353, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 72, in _wrap_create_connection
+    return await self._connect_via_proxy(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 135, in _connect_via_proxy
+    stream = await proxy.connect(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 79, in connect
+    return await self._connect(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 137, in _connect
+    stream = await stream.start_tls(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_stream.py", line 41, in start_tls
+    await self._writer.start_tls(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\streams.py", line 402, in start_tls
+    new_transport = await self._loop.start_tls(  # type: ignore
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1314, in start_tls
+    await waiter
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\proactor_events.py", line 286, in _loop_reading
+    length = fut.result()
+             ^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 803, in _poll
+    value = callback(transferred, key, ov)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 466, in finish_socket_func
+    raise ConnectionResetError(*exc.args)
+ConnectionResetError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:44:34,841 INFO aiogram.event: Update id=34586277 is not handled. Duration 5297 ms by bot id=7352975179
+2026-07-08 17:44:34,841 ERROR aiogram.event: Cause exception while process update id=34586277 by bot id=7352975179
+ConnectionResetError: [WinError 64] The specified network name is no longer available
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 462, in finish_socket_func
+    return ov.getresult()
+           ^^^^^^^^^^^^^^
+OSError: [WinError 64] The specified network name is no longer available
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\admin\plans.py", line 24, in plans_menu
+    await callback.message.edit_text("📦 مدیریت پلن‌ها:", reply_markup=admin_plans_keyboard())
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 663, in _request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 538, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1050, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1353, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 72, in _wrap_create_connection
+    return await self._connect_via_proxy(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 135, in _connect_via_proxy
+    stream = await proxy.connect(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 79, in connect
+    return await self._connect(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 137, in _connect
+    stream = await stream.start_tls(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_stream.py", line 41, in start_tls
+    await self._writer.start_tls(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\streams.py", line 402, in start_tls
+    new_transport = await self._loop.start_tls(  # type: ignore
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1314, in start_tls
+    await waiter
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\proactor_events.py", line 286, in _loop_reading
+    length = fut.result()
+             ^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 803, in _poll
+    value = callback(transferred, key, ov)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 466, in finish_socket_func
+    raise ConnectionResetError(*exc.args)
+ConnectionResetError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:44:44,330 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:44:44,330 WARNING aiogram.dispatcher: Sleep for 1.277721 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 17:44:53,129 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:44:53,129 WARNING aiogram.dispatcher: Sleep for 1.560958 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-08 17:45:05,651 INFO aiogram.dispatcher: Connection established (tryings = 3, bot id = 7352975179)
+2026-07-08 17:45:46,090 INFO aiogram.event: Update id=34586279 is handled. Duration 1219 ms by bot id=7352975179
+2026-07-08 17:45:48,594 INFO aiogram.event: Update id=34586280 is handled. Duration 437 ms by bot id=7352975179
+2026-07-08 17:45:50,393 INFO aiogram.event: Update id=34586281 is handled. Duration 421 ms by bot id=7352975179
+2026-07-08 17:55:27,465 INFO aiogram.event: Update id=34586282 is not handled. Duration 8094 ms by bot id=7352975179
+2026-07-08 17:55:27,465 ERROR aiogram.event: Cause exception while process update id=34586282 by bot id=7352975179
+ConnectionResetError: 
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\start.py", line 31, in cmd_start
+    await message.answer(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 663, in _request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 538, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1050, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1353, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 72, in _wrap_create_connection
+    return await self._connect_via_proxy(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 135, in _connect_via_proxy
+    stream = await proxy.connect(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 79, in connect
+    return await self._connect(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 137, in _connect
+    stream = await stream.start_tls(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_stream.py", line 41, in start_tls
+    await self._writer.start_tls(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\streams.py", line 402, in start_tls
+    new_transport = await self._loop.start_tls(  # type: ignore
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1314, in start_tls
+    await waiter
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\sslproto.py", line 581, in _on_handshake_complete
+    raise handshake_exc
+ConnectionResetError
+2026-07-08 17:55:41,840 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:55:41,852 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:55:41,853 INFO aiogram.event: Update id=34586283 is not handled. Duration 4171 ms by bot id=7352975179
+2026-07-08 17:55:41,853 ERROR aiogram.event: Cause exception while process update id=34586283 by bot id=7352975179
+ConnectionResetError: [WinError 64] The specified network name is no longer available
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 462, in finish_socket_func
+    return ov.getresult()
+           ^^^^^^^^^^^^^^
+OSError: [WinError 64] The specified network name is no longer available
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\start.py", line 31, in cmd_start
+    await message.answer(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 181, in make_request
+    async with session.post(
+               ^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 1360, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\client.py", line 663, in _request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 538, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1050, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp\connector.py", line 1353, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 72, in _wrap_create_connection
+    return await self._connect_via_proxy(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiohttp_socks\connector.py", line 135, in _connect_via_proxy
+    stream = await proxy.connect(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 79, in connect
+    return await self._connect(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_proxy.py", line 137, in _connect
+    stream = await stream.start_tls(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\python_socks\async_\asyncio\v2\_stream.py", line 41, in start_tls
+    await self._writer.start_tls(
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\streams.py", line 402, in start_tls
+    new_transport = await self._loop.start_tls(  # type: ignore
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1314, in start_tls
+    await waiter
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\proactor_events.py", line 286, in _loop_reading
+    length = fut.result()
+             ^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 803, in _poll
+    value = callback(transferred, key, ov)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 466, in finish_socket_func
+    raise ConnectionResetError(*exc.args)
+ConnectionResetError: [WinError 64] The specified network name is no longer available
+2026-07-08 17:55:47,311 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:55:48,794 INFO aiogram.event: Update id=34586284 is handled. Duration 1468 ms by bot id=7352975179
+2026-07-08 17:55:50,566 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:55:50,566 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:56:01,712 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 17:59:03,313 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-08 17:59:03,314 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 17:59:12,325 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-08 17:59:12,325 WARNING aiogram.dispatcher: Sleep for 1.182627 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 17:59:20,840 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:59:20,840 WARNING aiogram.dispatcher: Sleep for 1.555232 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-08 17:59:28,257 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 17:59:28,257 WARNING aiogram.dispatcher: Sleep for 2.106722 seconds and try again... (tryings = 3, bot id = 7352975179)
+2026-07-08 17:59:41,877 INFO aiogram.dispatcher: Connection established (tryings = 4, bot id = 7352975179)
+2026-07-08 18:16:35,687 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 18:16:35,687 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 18:16:44,691 ERROR aiogram.dispatcher: Failed to fetch updates - ConnectionResetError: 
+2026-07-08 18:16:44,691 WARNING aiogram.dispatcher: Sleep for 1.319444 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 18:16:49,254 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 18:16:49,254 WARNING aiogram.dispatcher: Sleep for 1.775227 seconds and try again... (tryings = 2, bot id = 7352975179)
+2026-07-08 18:17:01,195 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 18:17:01,195 WARNING aiogram.dispatcher: Sleep for 2.238184 seconds and try again... (tryings = 3, bot id = 7352975179)
+2026-07-08 18:17:12,483 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 18:17:12,483 WARNING aiogram.dispatcher: Sleep for 3.026062 seconds and try again... (tryings = 4, bot id = 7352975179)
+2026-07-08 18:17:26,337 INFO aiogram.dispatcher: Connection established (tryings = 5, bot id = 7352975179)
+2026-07-08 18:34:23,923 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 18:34:23,933 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 18:34:37,386 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 18:51:26,810 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 18:51:26,810 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 18:51:39,137 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 18:57:41,575 INFO aiogram.event: Update id=34586285 is handled. Duration 1125 ms by bot id=7352975179
+2026-07-08 18:57:54,510 INFO aiogram.dispatcher: Polling stopped
+2026-07-08 18:57:54,777 INFO aiogram.dispatcher: Polling stopped for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-08 18:58:01,308 INFO bot.services.subserver: Subscription server started on 0.0.0.0:8080
+2026-07-08 18:58:01,822 INFO bot.services.reminders: Reminder scheduler started
+2026-07-08 18:58:01,822 INFO root: Bot starting...
+2026-07-08 18:58:01,822 INFO aiogram.dispatcher: Start polling
+2026-07-08 18:58:02,281 INFO aiogram.dispatcher: Run polling for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-08 18:58:06,749 INFO aiogram.event: Update id=34586286 is handled. Duration 812 ms by bot id=7352975179
+2026-07-08 19:02:34,609 INFO aiogram.event: Update id=34586287 is handled. Duration 9312 ms by bot id=7352975179
+2026-07-08 19:02:41,557 INFO aiogram.event: Update id=34586288 is handled. Duration 562 ms by bot id=7352975179
+2026-07-08 19:02:48,996 INFO aiogram.event: Update id=34586289 is handled. Duration 531 ms by bot id=7352975179
+2026-07-08 19:02:51,482 INFO aiogram.event: Update id=34586290 is handled. Duration 500 ms by bot id=7352975179
+2026-07-08 19:02:53,172 INFO aiogram.event: Update id=34586291 is handled. Duration 766 ms by bot id=7352975179
+2026-07-08 19:04:52,949 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 19:04:53,519 INFO aiogram.event: Update id=34586292 is handled. Duration 1233 ms by bot id=7352975179
+2026-07-08 19:05:11,955 INFO aiogram.event: Update id=34586293 is handled. Duration 1000 ms by bot id=7352975179
+2026-07-08 19:05:13,051 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 19:05:13,974 INFO aiogram.event: Update id=34586294 is handled. Duration 1139 ms by bot id=7352975179
+2026-07-08 19:05:15,527 INFO aiogram.event: Update id=34586295 is handled. Duration 500 ms by bot id=7352975179
+2026-07-08 19:05:25,509 INFO aiogram.event: Update id=34586296 is handled. Duration 593 ms by bot id=7352975179
+2026-07-08 19:06:11,955 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/del/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 19:06:11,957 INFO bot.services.xui: API POST /panel/api/clients/del/5942407257-order12: 200
+2026-07-08 19:06:12,280 INFO httpx: HTTP Request: POST http://195.123.222.240:9999/janan/panel/api/clients/add "HTTP/1.1 200 OK"
+2026-07-08 19:06:12,283 INFO bot.services.xui: API POST /panel/api/clients/add: 200
+2026-07-08 19:06:12,520 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/inbounds/list "HTTP/1.1 200 OK"
+2026-07-08 19:06:12,523 INFO bot.services.xui: API GET /panel/api/inbounds/list: 200
+2026-07-08 19:06:13,671 INFO aiogram.event: Update id=34586297 is handled. Duration 2578 ms by bot id=7352975179
+2026-07-08 19:06:54,465 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 19:06:54,973 INFO aiogram.event: Update id=34586298 is handled. Duration 1046 ms by bot id=7352975179
+2026-07-08 19:07:02,323 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 19:07:02,629 INFO aiogram.event: Update id=34586299 is handled. Duration 531 ms by bot id=7352975179
+2026-07-08 19:07:04,411 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-08 19:07:04,878 INFO aiogram.event: Update id=34586300 is handled. Duration 750 ms by bot id=7352975179
+2026-07-08 19:26:07,711 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 19:26:07,714 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 19:26:09,546 INFO aiogram.event: Update id=34586301 is handled. Duration 2187 ms by bot id=7352975179
+2026-07-08 19:28:02,070 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 19:28:02,072 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
