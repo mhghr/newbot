@@ -47,6 +47,7 @@ async def main():
         my_configs_router,
         tutorial_router,
         apps_router,
+        refund_router,
         admin_menu_router,
         admin_servers_router,
         admin_plans_router,

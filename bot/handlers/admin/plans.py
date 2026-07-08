@@ -15,6 +15,7 @@ class AddPlanStates(StatesGroup):
     waiting_traffic = State()
     waiting_duration = State()
     waiting_price = State()
+    waiting_users = State()
 
 
 @router.callback_query(F.data == "admin:plans")
@@ -84,19 +85,43 @@ async def add_plan_price(message: Message, state: FSMContext):
         await message.answer("⚠️ لطفا فقط عدد وارد کنید:")
         return
 
+    await state.update_data(price=price)
+    await message.answer(
+        "👥 تعداد کاربر مجاز را وارد کنید:\n"
+        "(عدد؛ برای مثال 1 = تک‌کاربره، و 0 = نامحدود)",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(AddPlanStates.waiting_users)
+
+
+@router.message(AddPlanStates.waiting_users)
+async def add_plan_users(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        max_users = int(message.text.strip())
+    except ValueError:
+        await message.answer("⚠️ لطفا فقط عدد وارد کنید:")
+        return
+    if max_users < 0:
+        max_users = 0
+
     data = await state.get_data()
     await db.add_plan(
         name=data["name"],
         traffic_gb=data["traffic_gb"],
         duration_days=data["duration_days"],
-        price=price,
+        price=data["price"],
+        max_users=max_users,
     )
+    users_txt = "نامحدود" if max_users == 0 else f"{max_users} کاربر"
     await message.answer(
         f"✅ پلن با موفقیت اضافه شد!\n\n"
         f"📛 نام: {data['name']}\n"
         f"📊 حجم: {data['traffic_gb']} GB\n"
         f"📅 مدت: {data['duration_days']} روز\n"
-        f"💰 قیمت: {price:,} تومان",
+        f"👥 تعداد کاربر: {users_txt}\n"
+        f"💰 قیمت: {data['price']:,} تومان",
         reply_markup=admin_plans_keyboard()
     )
     await state.clear()
@@ -143,11 +168,13 @@ async def plan_detail(callback: CallbackQuery):
         return
 
     status = "فعال 🟢" if plan["is_active"] else "غیرفعال 🔴"
+    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     await callback.message.edit_text(
         f"📦 جزئیات پلن:\n\n"
         f"📛 نام: {plan['name']}\n"
         f"📊 حجم: {plan['traffic_gb']} GB\n"
         f"📅 مدت: {plan['duration_days']} روز\n"
+        f"👥 تعداد کاربر: {users_txt}\n"
         f"💰 قیمت: {plan['price']:,} تومان\n"
         f"وضعیت: {status}",
         reply_markup=plan_actions_keyboard(plan_id, bool(plan["is_active"]))
@@ -165,11 +192,13 @@ async def toggle_plan(callback: CallbackQuery):
 
     plan = await db.get_plan(plan_id)
     status = "فعال 🟢" if plan["is_active"] else "غیرفعال 🔴"
+    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     await callback.message.edit_text(
         f"📦 جزئیات پلن:\n\n"
         f"📛 نام: {plan['name']}\n"
         f"📊 حجم: {plan['traffic_gb']} GB\n"
         f"📅 مدت: {plan['duration_days']} روز\n"
+        f"👥 تعداد کاربر: {users_txt}\n"
         f"💰 قیمت: {plan['price']:,} تومان\n"
         f"وضعیت: {status}",
         reply_markup=plan_actions_keyboard(plan_id, bool(plan["is_active"]))

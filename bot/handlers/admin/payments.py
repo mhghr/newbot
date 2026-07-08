@@ -104,6 +104,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             raise Exception("هیچ اینباندی تنظیم نشده. از «مدیریت سرور → اینباندها» اقدام کنید")
 
         renew_config_id = order["renew_config_id"]
+        plan_max_users = order["max_users"] or 0
 
         if renew_config_id:
             config = await db.get_config(renew_config_id)
@@ -113,10 +114,14 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             email = config["client_email"]
             sub_token = config["sub_id"]
 
-            now = datetime.now()
-            base = config["expire_date"] if config["expire_date"] and config["expire_date"] > now else now
-            new_expire = base + timedelta(days=order["duration_days"])
-            days_from_now = max(1, (new_expire - now).days)
+            if order["duration_days"] and order["duration_days"] > 0:
+                now = datetime.now()
+                base = config["expire_date"] if config["expire_date"] and config["expire_date"] > now else now
+                new_expire = base + timedelta(days=order["duration_days"])
+                days_from_now = max(1, (new_expire - now).days)
+            else:
+                new_expire = None
+                days_from_now = 0
 
             try:
                 await xui.delete_client(email)
@@ -128,6 +133,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 sub_id=sub_token,
                 traffic_gb=order["traffic_gb"],
                 expire_days=days_from_now,
+                limit_ip=plan_max_users,
                 all_inbound_ids=reality_ids,
             )
 
@@ -149,6 +155,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 email=email,
                 traffic_gb=order["traffic_gb"],
                 expire_days=order["duration_days"],
+                limit_ip=plan_max_users,
                 all_inbound_ids=reality_ids,
             )
 
@@ -157,7 +164,10 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 raise Exception("subId از پنل دریافت نشد")
 
             sub_url = f"{SUB_BASE_URL}/sub/{sub_token}"
-            expire_date = datetime.now() + timedelta(days=order["duration_days"])
+            if order["duration_days"] and order["duration_days"] > 0:
+                expire_date = datetime.now() + timedelta(days=order["duration_days"])
+            else:
+                expire_date = None
             await db.create_config(
                 order["user_id"], order_id, order["plan_id"], email,
                 sub_token, sub_url, order["traffic_gb"], expire_date

@@ -1256,3 +1256,30 @@ ConnectionResetError: [WinError 64] The specified network name is no longer avai
 2026-07-08 19:26:09,546 INFO aiogram.event: Update id=34586301 is handled. Duration 2187 ms by bot id=7352975179
 2026-07-08 19:28:02,070 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
 2026-07-08 19:28:02,072 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 19:46:25,965 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 19:46:25,966 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 19:46:37,448 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 19:58:02,396 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 19:58:02,399 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 20:28:02,714 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 20:28:02,716 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 20:58:03,073 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 20:58:03,075 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 21:28:03,763 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 21:28:03,765 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 21:48:25,314 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 21:48:25,328 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 21:48:41,374 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 21:51:15,657 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 21:51:15,661 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 21:51:29,319 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 21:51:29,338 WARNING aiogram.dispatcher: Sleep for 1.255220 seconds and try again... (tryings = 1, bot id = 7352975179)
+2026-07-08 21:51:43,374 INFO aiogram.dispatcher: Connection established (tryings = 2, bot id = 7352975179)
+2026-07-08 21:52:12,734 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 64] The specified network name is no longer available
+2026-07-08 21:52:12,738 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 21:52:25,264 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 21:58:04,447 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 21:58:04,449 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 22:00:11,190 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-08 22:00:11,190 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-08 22:00:23,158 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
