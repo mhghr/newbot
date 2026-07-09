@@ -1,0 +1,24 @@
+# Secrets / environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+bot.log
+debug.log
+
+# Backups created by update.sh
+backups/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -4,7 +4,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+
+
+def _parse_admin_ids(value: str):
+    ids = []
+    for x in (value or "").split(","):
+        x = x.strip()
+        if x.lstrip("-").isdigit():
+            ids.append(int(x))
+    return ids
+
+
+ADMIN_IDS = _parse_admin_ids(os.getenv("ADMIN_IDS", ""))
 
 
 def _parse_channel(value: str):

@@ -1,4 +1,4 @@
-from aiogram import Router, F
+﻿from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -7,13 +7,49 @@ from datetime import datetime
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.keyboards.inline import cancel_keyboard, admin_menu_keyboard
-from bot.services.xui import XUIClient, format_bytes
+from bot.utils.jalali import to_jalali
 
 router = Router()
+
+STATUS_EMOJI = {"pending": "⏳", "approved": "✅", "rejected": "❌", "processing": "⏳"}
 
 
 class SearchUserStates(StatesGroup):
     waiting_query = State()
+
+
+def _remaining_days(expire_date) -> int:
+    if not expire_date:
+        return 0
+    if isinstance(expire_date, str):
+        try:
+            expire_date = datetime.fromisoformat(expire_date)
+        except Exception:
+            return 0
+    return max(0, (expire_date - datetime.now()).days)
+
+
+def _user_text(user, configs, orders) -> str:
+    text = (
+        "👤 اطلاعات کاربر:\n\n"
+        f"🆔 آیدی: {user['telegram_id']}\n"
+        f"📛 نام: {user['first_name'] or '-'} {user['last_name'] or ''}\n"
+        f"👤 یوزرنیم: @{user['username'] or 'ندارد'}\n"
+        f"📅 تاریخ عضویت: {to_jalali(user['created_at'], with_time=True)}\n\n"
+    )
+    if configs:
+        text += f"📋 کانفیگ‌های فعال ({len(configs)}):\n"
+        for c in configs:
+            label = c["client_email"] or (c["plan_name"] or "کانفیگ")
+            text += f"  • {label} - {_remaining_days(c['expire_date'])} روز مانده\n"
+    else:
+        text += "📋 کانفیگ فعالی ندارد.\n"
+
+    text += f"\n📦 تعداد سفارشات: {len(orders)}\n"
+    for o in orders:
+        emoji = STATUS_EMOJI.get(o["status"], "❓")
+        text += f"  {emoji} #{o['id']} | {o['plan_name']} | {o['price']:,}T | {o['status']}\n"
+    return text
 
 
 @router.callback_query(F.data == "admin:search_user")
@@ -37,41 +73,15 @@ async def search_user_result(message: Message, state: FSMContext):
     users = await db.search_user(query)
 
     if not users:
-        await message.answer(
-            "❌ کاربری یافت نشد.",
-            reply_markup=admin_menu_keyboard()
-        )
+        await message.answer("❌ کاربری یافت نشد.", reply_markup=admin_menu_keyboard())
         await state.clear()
         return
 
     if len(users) == 1:
         user = users[0]
-        configs = await db.get_user_configs(user["id"])
+        configs = await db.get_configs_by_user_id(user["id"])
         orders = await db.get_user_orders(user["id"])
-
-        text = (
-            f"👤 اطلاعات کاربر:\n\n"
-            f"🆔 آیدی: {user['telegram_id']}\n"
-            f"📛 نام: {user['first_name'] or '-'} {user['last_name'] or ''}\n"
-            f"👤 یوزرنیم: @{user['username'] or 'ندارد'}\n"
-            f"📅 تاریخ عضویت: {user['created_at']}\n\n"
-        )
-
-        if configs:
-            text += f"📋 کانفیگ‌های فعال ({len(configs)}):\n"
-            for c in configs:
-                remaining = max(0, (c["expire_date"] - datetime.now()).days)
-                text += f"  • {c['server_name']} ({c['location']}) - {remaining} روز مانده\n"
-        else:
-            text += "📋 کانفیگ فعالی ندارد.\n"
-
-        text += f"\n📦 تعداد سفارشات: {len(orders)}\n"
-        if orders:
-            for o in orders:
-                status_emoji = {"pending": "⏳", "approved": "✅", "rejected": "❌"}.get(o["status"], "❓")
-                text += f"  {status_emoji} #{o['id']} | {o['plan_name']} | {o['price']:,}T | {o['status']}\n"
-
-        await message.answer(text, reply_markup=admin_menu_keyboard())
+        await message.answer(_user_text(user, configs, orders), reply_markup=admin_menu_keyboard())
     else:
         buttons = []
         for u in users[:10]:
@@ -95,32 +105,11 @@ async def user_detail(callback: CallbackQuery):
     user_id = int(callback.data.split(":")[2])
 
     user = await db.get_user_by_id(user_id)
-
     if not user:
         await callback.answer("❌ کاربر یافت نشد!", show_alert=True)
         return
 
-    configs = await db.get_user_configs(user["id"])
+    configs = await db.get_configs_by_user_id(user["id"])
     orders = await db.get_user_orders(user["id"])
-
-    text = (
-        f"👤 اطلاعات کاربر:\n\n"
-        f"🆔 آیدی: {user['telegram_id']}\n"
-        f"📛 نام: {user['first_name'] or '-'} {user['last_name'] or ''}\n"
-        f"👤 یوزرنیم: @{user['username'] or 'ندارد'}\n"
-        f"📅 تاریخ عضویت: {user['created_at']}\n\n"
-    )
-
-    if configs:
-        text += f"📋 کانفیگ‌های فعال ({len(configs)}):\n"
-        for c in configs:
-            expire_date = datetime.fromisoformat(c["expire_date"])
-            remaining = max(0, (expire_date - datetime.now()).days)
-            text += f"  • {c['server_name']} ({c['location']}) - {remaining} روز مانده\n"
-    else:
-        text += "📋 کانفیگ فعالی ندارد.\n"
-
-    text += f"\n📦 تعداد سفارشات: {len(orders)}\n"
-
-    await callback.message.edit_text(text, reply_markup=admin_menu_keyboard())
+    await callback.message.edit_text(_user_text(user, configs, orders), reply_markup=admin_menu_keyboard())
     await callback.answer()

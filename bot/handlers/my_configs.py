@@ -10,6 +10,7 @@ from bot.keyboards.inline import (
 )
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient, format_bytes
+from bot.utils.jalali import to_jalali
 
 router = Router()
 
@@ -98,6 +99,7 @@ async def view_config(callback: CallbackQuery):
     text = (
         f"🔑 کانفیگ #{config['id']}\n\n"
         f"📦 پلن: {config.get('plan_name') or '-'}\n"
+        f"📅 تاریخ انقضا: {to_jalali(config['expire_date']) if config['expire_date'] else 'نامحدود'}\n"
         f"📅 روز باقیمانده: {remaining_days} روز\n"
         f"{traffic_info}\n"
         f"🔗 لینک اشتراک:\n`{config['sub_url']}`"

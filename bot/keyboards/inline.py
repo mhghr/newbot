@@ -63,7 +63,7 @@ def user_apps_platforms_keyboard() -> InlineKeyboardMarkup:
 
 
 def user_apps_list_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(text=f"⬇️ {_app_label(a['url'])}", url=a["url"])] for a in apps]
+    rows = [[InlineKeyboardButton(text=f"⬇️ {a['title'] or _app_label(a['url'])}", url=a["url"])] for a in apps]
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:apps")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -79,12 +79,21 @@ def admin_apps_platforms_keyboard() -> InlineKeyboardMarkup:
 
 def admin_apps_list_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton(text=f"🗑 {_app_label(a['url'])}", callback_data=f"admin:app_del:{platform}:{a['id']}")]
+        [InlineKeyboardButton(text=f"{a['title'] or _app_label(a['url'])}", callback_data=f"admin:app:{a['id']}")]
         for a in apps
     ]
-    rows.append([InlineKeyboardButton(text="➕ افزودن لینک", callback_data=f"admin:app_add:{platform}")])
+    rows.append([InlineKeyboardButton(text="➕ افزودن نرم‌افزار", callback_data=f"admin:app_add:{platform}")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:apps")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_app_detail_keyboard(app_id: int, platform: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📛 ویرایش نام", callback_data=f"admin:app_edit:{app_id}:title")],
+        [InlineKeyboardButton(text="🔗 ویرایش لینک", callback_data=f"admin:app_edit:{app_id}:url")],
+        [InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:app_del:{platform}:{app_id}")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:applist:{platform}")],
+    ])
 
 
 def back_to_menu_keyboard() -> InlineKeyboardMarkup:
@@ -270,11 +279,29 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
 def plan_actions_keyboard(plan_id: int, is_active: bool) -> InlineKeyboardMarkup:
     toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
     rows = _rows([
+        InlineKeyboardButton(text="✏️ ویرایش", callback_data=f"admin:edit_plan:{plan_id}"),
         InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{plan_id}"),
         InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{plan_id}"),
     ])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def plan_edit_keyboard(plan_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📛 نام", callback_data=f"admin:edit_plan_field:{plan_id}:name"),
+            InlineKeyboardButton(text="📊 حجم", callback_data=f"admin:edit_plan_field:{plan_id}:traffic_gb"),
+        ],
+        [
+            InlineKeyboardButton(text="📅 مدت", callback_data=f"admin:edit_plan_field:{plan_id}:duration_days"),
+            InlineKeyboardButton(text="👥 تعداد کاربر", callback_data=f"admin:edit_plan_field:{plan_id}:max_users"),
+        ],
+        [
+            InlineKeyboardButton(text="💰 قیمت", callback_data=f"admin:edit_plan_field:{plan_id}:price"),
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:plan_detail:{plan_id}")],
+    ])
 
 
 def admin_settings_keyboard() -> InlineKeyboardMarkup:

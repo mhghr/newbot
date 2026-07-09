@@ -15,6 +15,7 @@ from bot.keyboards.inline import (
 )
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient, format_bytes
+from bot.utils.jalali import to_jalali
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ async def _notify_admins_refund(bot: Bot, refund_id: int):
     except Exception:
         pass
 
-    bought = refund["config_created_at"].strftime("%Y-%m-%d") if refund["config_created_at"] else "-"
+    bought = to_jalali(refund["config_created_at"]) if refund["config_created_at"] else "-"
 
     caption = (
         f"\u200f💵 درخواست عودت وجه #{refund_id}\n\n"

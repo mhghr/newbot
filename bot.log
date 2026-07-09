@@ -1302,3 +1302,96 @@ ConnectionResetError: [WinError 64] The specified network name is no longer avai
 2026-07-09 09:42:44,664 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
 2026-07-09 10:12:45,009 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
 2026-07-09 10:12:45,011 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 10:42:45,416 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 10:42:45,420 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 11:12:45,786 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 11:12:45,790 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 11:29:23,852 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-09 11:29:24,232 INFO aiogram.event: Update id=34586303 is handled. Duration 750 ms by bot id=7352975179
+2026-07-09 11:29:24,726 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-09 11:29:25,491 INFO aiogram.event: Update id=34586302 is not handled. Duration 16437 ms by bot id=7352975179
+2026-07-09 11:29:25,492 ERROR aiogram.event: Cause exception while process update id=34586302 by bot id=7352975179
+TelegramBadRequest: Telegram server says - Bad Request: query is too old and response timeout expired or query ID is invalid
+Traceback (most recent call last):
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "D:\newbot\bot\handlers\my_configs.py", line 69, in my_configs
+    await callback.answer()
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\methods\base.py", line 84, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\bot.py", line 494, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 254, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\aiohttp.py", line 189, in make_request
+    response = self.check_response(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Mehrdad\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiogram\client\session\base.py", line 120, in check_response
+    raise TelegramBadRequest(method=method, message=description)
+aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: query is too old and response timeout expired or query ID is invalid
+2026-07-09 11:29:38,044 INFO aiogram.dispatcher: Polling stopped
+2026-07-09 11:29:38,307 INFO aiogram.dispatcher: Polling stopped for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-09 11:29:45,407 INFO bot.services.reminders: Reminder scheduler started
+2026-07-09 11:29:45,409 INFO root: Bot starting...
+2026-07-09 11:29:45,409 INFO aiogram.dispatcher: Start polling
+2026-07-09 11:29:45,752 INFO aiogram.dispatcher: Run polling for bot @migmigplus_bot id=7352975179 - 'migmigplus'
+2026-07-09 11:29:45,857 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 11:29:45,860 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 11:29:51,154 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-09 11:29:51,410 INFO aiogram.event: Update id=34586304 is handled. Duration 593 ms by bot id=7352975179
+2026-07-09 11:29:54,432 INFO bot.middlewares.membership: User 5942407257 membership status: member
+2026-07-09 11:29:54,782 INFO aiogram.event: Update id=34586305 is handled. Duration 516 ms by bot id=7352975179
+2026-07-09 11:30:17,136 INFO aiogram.event: Update id=34586306 is handled. Duration 1077 ms by bot id=7352975179
+2026-07-09 11:30:25,036 INFO aiogram.event: Update id=34586307 is handled. Duration 187 ms by bot id=7352975179
+2026-07-09 11:30:43,625 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 11:30:43,628 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 11:30:43,830 INFO aiogram.event: Update id=34586308 is handled. Duration 10672 ms by bot id=7352975179

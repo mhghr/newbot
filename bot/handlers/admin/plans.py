@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from bot.config import ADMIN_IDS
 from bot.database import db
-from bot.keyboards.inline import admin_plans_keyboard, plan_actions_keyboard, cancel_keyboard
+from bot.keyboards.inline import admin_plans_keyboard, plan_actions_keyboard, plan_edit_keyboard, cancel_keyboard
 
 router = Router()
 
@@ -16,6 +16,19 @@ class AddPlanStates(StatesGroup):
     waiting_duration = State()
     waiting_price = State()
     waiting_users = State()
+
+
+class EditPlanStates(StatesGroup):
+    waiting_value = State()
+
+
+FIELD_LABELS = {
+    "name": "نام",
+    "traffic_gb": "حجم (گیگابایت)",
+    "duration_days": "مدت (روز)",
+    "max_users": "تعداد کاربر",
+    "price": "قیمت (تومان)",
+}
 
 
 @router.callback_query(F.data == "admin:plans")
@@ -180,6 +193,83 @@ async def plan_detail(callback: CallbackQuery):
         reply_markup=plan_actions_keyboard(plan_id, bool(plan["is_active"]))
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:edit_plan:"))
+async def edit_plan_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    plan_id = int(callback.data.split(":")[2])
+    plan = await db.get_plan(plan_id)
+    if not plan:
+        await callback.answer("❌ پلن یافت نشد!", show_alert=True)
+        return
+
+    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']}"
+    await callback.message.edit_text(
+        f"✏️ ویرایش پلن «{plan['name']}»\n\n"
+        f"📊 حجم: {plan['traffic_gb']} GB\n"
+        f"📅 مدت: {plan['duration_days']} روز\n"
+        f"👥 تعداد کاربر: {users_txt}\n"
+        f"💰 قیمت: {plan['price']:,} تومان\n\n"
+        "کدام مورد را می‌خواهید ویرایش کنید؟",
+        reply_markup=plan_edit_keyboard(plan_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:edit_plan_field:"))
+async def edit_plan_field(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    plan_id = int(parts[2])
+    field = parts[3]
+    label = FIELD_LABELS.get(field, field)
+
+    await state.update_data(edit_plan_id=plan_id, edit_field=field)
+    hint = ""
+    if field in ("traffic_gb", "duration_days", "max_users"):
+        hint = "\n(عدد؛ 0 = نامحدود)"
+    elif field == "price":
+        hint = "\n(فقط عدد)"
+    await callback.message.edit_text(
+        f"✏️ مقدار جدید برای «{label}» را وارد کنید:{hint}",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(EditPlanStates.waiting_value)
+    await callback.answer()
+
+
+@router.message(EditPlanStates.waiting_value)
+async def edit_plan_save(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    data = await state.get_data()
+    plan_id = data.get("edit_plan_id")
+    field = data.get("edit_field")
+
+    value = message.text.strip()
+    if field != "name":
+        if not value.isdigit():
+            await message.answer("⚠️ لطفا فقط عدد وارد کنید:", reply_markup=cancel_keyboard())
+            return
+        value = int(value)
+
+    await db.update_plan_field(plan_id, field, value)
+    await state.clear()
+
+    plan = await db.get_plan(plan_id)
+    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
+    await message.answer(
+        f"✅ پلن به‌روزرسانی شد!\n\n"
+        f"📛 نام: {plan['name']}\n"
+        f"📊 حجم: {plan['traffic_gb']} GB\n"
+        f"📅 مدت: {plan['duration_days']} روز\n"
+        f"👥 تعداد کاربر: {users_txt}\n"
+        f"💰 قیمت: {plan['price']:,} تومان",
+        reply_markup=plan_edit_keyboard(plan_id)
+    )
 
 
 @router.callback_query(F.data.startswith("admin:toggle_plan:"))

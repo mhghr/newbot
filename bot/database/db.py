@@ -154,6 +154,14 @@ async def toggle_plan(plan_id: int):
         await conn.execute("UPDATE plans SET is_active = NOT is_active WHERE id=$1", plan_id)
 
 
+async def update_plan_field(plan_id: int, field: str, value):
+    allowed = {"name", "traffic_gb", "duration_days", "max_users", "price"}
+    if field not in allowed:
+        raise ValueError("invalid field")
+    async with models.pool.acquire() as conn:
+        await conn.execute(f"UPDATE plans SET {field}=$1 WHERE id=$2", value, plan_id)
+
+
 async def delete_plan(plan_id: int):
     async with models.pool.acquire() as conn:
         await conn.execute("DELETE FROM plans WHERE id=$1", plan_id)
@@ -350,6 +358,19 @@ async def get_configs_by_telegram_id(telegram_id: int):
         )
 
 
+async def get_configs_by_user_id(user_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            """SELECT c.*, c.config_link AS sub_url, c.traffic_limit_gb AS traffic_gb,
+                      p.name AS plan_name, p.duration_days
+               FROM configs c
+               LEFT JOIN plans p ON c.plan_id = p.id
+               WHERE c.user_id=$1 AND c.is_active=TRUE
+               ORDER BY c.created_at DESC""",
+            user_id
+        )
+
+
 async def get_all_active_configs():
     async with models.pool.acquire() as conn:
         return await conn.fetch(
@@ -383,18 +404,34 @@ async def mark_config_reminder(config_id: int, kind: str):
         )
 
 
-async def add_app(platform: str, url: str):
+async def add_app(platform: str, url: str, title: str = ""):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            "INSERT INTO apps (platform, url) VALUES ($1, $2) RETURNING id",
-            platform, url
+            "INSERT INTO apps (platform, url, title) VALUES ($1, $2, $3) RETURNING id",
+            platform, url, title
         )
+
+
+async def get_app(app_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow("SELECT * FROM apps WHERE id=$1", app_id)
 
 
 async def get_apps(platform: str):
     async with models.pool.acquire() as conn:
         return await conn.fetch(
             "SELECT * FROM apps WHERE platform=$1 ORDER BY id", platform
+        )
+
+
+async def update_app(app_id: int, title: str = None, url: str = None):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE apps SET
+                   title = COALESCE($2, title),
+                   url = COALESCE($3, url)
+               WHERE id=$1""",
+            app_id, title, url
         )
 
 

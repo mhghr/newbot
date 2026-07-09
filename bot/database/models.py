@@ -87,6 +87,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS apps (
                 id SERIAL PRIMARY KEY,
                 platform TEXT NOT NULL,
+                title TEXT DEFAULT '',
                 url TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT NOW()
             )
@@ -124,6 +125,11 @@ async def init_db():
 
         try:
             await conn.execute("ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_users INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
+        try:
+            await conn.execute("ALTER TABLE apps ADD COLUMN IF NOT EXISTS title TEXT DEFAULT ''")
         except Exception:
             pass
 

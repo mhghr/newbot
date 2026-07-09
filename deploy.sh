@@ -53,10 +53,16 @@ while [ -z "${BOT_TOKEN:-}" ]; do
 done
 
 echo ""
-warn "Admin ID must be numeric (get it from @userinfobot)."
-read -rp "$(ask 'Admin numeric IDs (comma-separated): ')" ADMIN_IDS
-while [ -z "${ADMIN_IDS:-}" ]; do
-    read -rp "$(ask 'At least one admin ID is required: ')" ADMIN_IDS
+echo "Admin numeric user ID(s)."
+echo "  This MUST be a number, NOT a username. Get it from @userinfobot in Telegram."
+echo "  Example: 123456789   (or several: 123456789,987654321)"
+while true; do
+    read -rp "$(ask 'Admin numeric IDs: ')" ADMIN_IDS
+    ADMIN_IDS="$(echo "${ADMIN_IDS:-}" | tr -d ' ')"
+    if [[ "$ADMIN_IDS" =~ ^-?[0-9]+(,-?[0-9]+)*$ ]]; then
+        break
+    fi
+    err "Invalid input. Use NUMERIC IDs only (no @username). Example: 123456789"
 done
 
 echo ""
@@ -94,6 +100,9 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'"
     || sudo -u postgres createdb -O "${DB_USER}" "${DB_NAME}"
 
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" >/dev/null
+# PostgreSQL 15+: grant schema-level rights so the role can create tables
+sudo -u postgres psql -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER};" >/dev/null 2>&1 || true
+sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true
 
 DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}"
 
