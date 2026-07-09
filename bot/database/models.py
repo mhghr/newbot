@@ -163,6 +163,7 @@ async def init_db():
             "ALTER TABLE configs ALTER COLUMN config_link DROP NOT NULL",
             "ALTER TABLE configs ALTER COLUMN expire_date DROP NOT NULL",
             "ALTER TABLE configs ALTER COLUMN traffic_limit_gb DROP NOT NULL",
+            "ALTER TABLE configs ALTER COLUMN order_id DROP NOT NULL",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS sub_id TEXT",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS plan_id INTEGER",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS reminder_traffic_sent BOOLEAN DEFAULT FALSE",

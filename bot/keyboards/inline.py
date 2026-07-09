@@ -24,6 +24,7 @@ def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="📖 آموزش اتصال", callback_data="main:tutorial"),
         InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="main:apps"),
         InlineKeyboardButton(text="💵 عودت وجه", callback_data="main:refund"),
+        InlineKeyboardButton(text="🆘 پشتیبانی", callback_data="main:support"),
     ]
     if user_id in ADMIN_IDS:
         buttons.append(InlineKeyboardButton(text="⚙️ مدیریت", callback_data="main:admin"))

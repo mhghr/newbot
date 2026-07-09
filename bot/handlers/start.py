@@ -3,10 +3,26 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from bot.middlewares.membership import check_membership
-from bot.keyboards.inline import main_menu_keyboard, join_channel_keyboard
+from bot.keyboards.inline import main_menu_keyboard, join_channel_keyboard, back_to_menu_keyboard
 from bot.database import db
 
 router = Router()
+
+
+SUPPORT_TEXT = (
+    "🆘 پشتیبانی\n\n"
+    "سلام دوست خوبم 🌸\n\n"
+    "به دلیل تغییراتی که اخیراً در بستر اینترنت کشور به‌وجود آمده، ارتباط با آی‌پی‌های "
+    "خارج از کشور ناپایدار شده و این موضوع کاملاً خارج از کنترل ماست. بنابراین اگر گاهی "
+    "سرویس متصل نمی‌شود یا سرعت پایین می‌آید، متأسفانه از سمت ما کار خاصی برای رفع این "
+    "اختلال‌ها برنمی‌آید، چون ریشه‌ی مشکل در زیرساخت اینترنت است.\n\n"
+    "برای اینکه تا حد امکان این نقص جبران شود، ما برای هر کاربر چندین لینک با "
+    "لوکیشن‌های مختلف و پروتکل‌های متفاوت در نظر گرفته‌ایم؛ پیشنهاد می‌کنیم لینک‌ها و "
+    "لوکیشن‌های مختلف را امتحان کنید تا بهترین گزینه را پیدا کنید.\n\n"
+    "اگر با این وجود همچنان قطعی یا اختلال داشتید و سرویس به‌کارتان نیامد، می‌توانید از "
+    "طریق دکمه‌ی «💵 عودت وجه» درخواست بازگشت وجه را ثبت کنید تا هزینه به شما برگردد.\n\n"
+    "ممنون از صبوری و همراهی شما 🙏"
+)
 
 
 def welcome_text() -> str:
@@ -75,5 +91,14 @@ async def back_to_menu(callback: CallbackQuery):
         welcome_text(),
         parse_mode="Markdown",
         reply_markup=main_menu_keyboard(callback.from_user.id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "main:support")
+async def support(callback: CallbackQuery):
+    await callback.message.edit_text(
+        SUPPORT_TEXT,
+        reply_markup=back_to_menu_keyboard()
     )
     await callback.answer()

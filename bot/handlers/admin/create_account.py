@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramNetworkError
 from urllib.parse import quote
+from datetime import datetime, timedelta
 import asyncio
 import logging
 
@@ -78,9 +79,10 @@ async def acc_preset(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(
         custom=False,
+        plan_id=plan_id,
         traffic_gb=plan["traffic_gb"],
         days=plan["duration_days"],
-        users=0,
+        users=plan["max_users"] or 0,
     )
     await callback.message.edit_text(
         f"📦 پلن: {plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز\n\n"
@@ -153,6 +155,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     traffic_gb = data.get("traffic_gb", 0)
     days = data.get("days", 0)
     users = data.get("users", 0)
+    plan_id = data.get("plan_id")
     await state.clear()
 
     master = await db.get_master_server()
@@ -187,13 +190,26 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             raise Exception("subId از پنل دریافت نشد")
 
         sub_url = f"{panel_sub_base(master['url'], master['sub_port'], master['sub_domain'])}/sub/{sub_token}"
+
+        linked_note = ""
+        if name.isdigit():
+            target_user = await db.add_user(telegram_id=int(name))
+            expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
+            await db.create_config(
+                user_id=target_user["id"], order_id=None, plan_id=plan_id,
+                client_email=name, sub_id=sub_token, sub_url=sub_url,
+                traffic_gb=traffic_gb, expire_date=expire_date,
+            )
+            linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
+
         caption = (
             f"✅ اکانت ساخته شد!\n\n"
             f"📝 نام: {name}\n"
             f"📊 حجم: {'نامحدود' if traffic_gb == 0 else str(traffic_gb) + ' GB'}\n"
-            f"📅 مدت: {days} روز\n"
+            f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
             f"👥 تعداد کاربر: {'نامحدود' if users == 0 else users}\n"
-            f"🌍 لوکیشن: {master['location']}\n\n"
+            f"🌍 لوکیشن: {master['location']}\n"
+            f"{linked_note}\n"
             f"🔗 لینک اشتراک:\n`{sub_url}`"
         )
         qr_url = (
