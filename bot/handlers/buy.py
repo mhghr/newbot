@@ -47,11 +47,10 @@ async def show_payment_and_wait(callback: CallbackQuery, state: FSMContext, plan
 
     await _retry(lambda: callback.message.edit_text(
         f"{title}\n\n"
-        f"لطفا برای دریافت اکانت، مبلغ **{plan['price']:,} تومان** بابت پلن «{plan['name']}» "
-        f"به شماره کارت زیر واریز کنید:\n\n"
+        f"💰 مبلغ قابل پرداخت برای «{plan['name']}»: **{plan['price']:,} تومان**\n\n"
         f"💳 شماره کارت: `{card_number}`\n"
-        f"👤 به نام: {card_holder}\n\n"
-        "سپس **تصویر فیش واریزی** را در همین مرحله ارسال کنید ⬇️",
+        f"👤 صاحب کارت: {card_holder}\n\n"
+        "لطفا بعد از واریز، تصویر فیش واریزی را در همین مرحله ارسال کنید ⬇️",
         parse_mode="Markdown",
         reply_markup=cancel_keyboard()
     ))

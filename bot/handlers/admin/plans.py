@@ -181,16 +181,9 @@ async def plan_detail(callback: CallbackQuery):
         return
 
     status = "فعال 🟢" if plan["is_active"] else "غیرفعال 🔴"
-    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     await callback.message.edit_text(
-        f"📦 جزئیات پلن:\n\n"
-        f"📛 نام: {plan['name']}\n"
-        f"📊 حجم: {plan['traffic_gb']} GB\n"
-        f"📅 مدت: {plan['duration_days']} روز\n"
-        f"👥 تعداد کاربر: {users_txt}\n"
-        f"💰 قیمت: {plan['price']:,} تومان\n"
-        f"وضعیت: {status}",
-        reply_markup=plan_actions_keyboard(plan_id, bool(plan["is_active"]))
+        f"📦 {plan['name']}  ({status})\nروی هر مورد بزنید تا ویرایش شود:",
+        reply_markup=plan_actions_keyboard(plan)
     )
     await callback.answer()
 
@@ -260,15 +253,9 @@ async def edit_plan_save(message: Message, state: FSMContext):
     await state.clear()
 
     plan = await db.get_plan(plan_id)
-    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     await message.answer(
-        f"✅ پلن به‌روزرسانی شد!\n\n"
-        f"📛 نام: {plan['name']}\n"
-        f"📊 حجم: {plan['traffic_gb']} GB\n"
-        f"📅 مدت: {plan['duration_days']} روز\n"
-        f"👥 تعداد کاربر: {users_txt}\n"
-        f"💰 قیمت: {plan['price']:,} تومان",
-        reply_markup=plan_edit_keyboard(plan_id)
+        "✅ پلن به‌روزرسانی شد!\nروی هر مورد بزنید تا ویرایش شود:",
+        reply_markup=plan_actions_keyboard(plan)
     )
 
 
@@ -282,16 +269,9 @@ async def toggle_plan(callback: CallbackQuery):
 
     plan = await db.get_plan(plan_id)
     status = "فعال 🟢" if plan["is_active"] else "غیرفعال 🔴"
-    users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     await callback.message.edit_text(
-        f"📦 جزئیات پلن:\n\n"
-        f"📛 نام: {plan['name']}\n"
-        f"📊 حجم: {plan['traffic_gb']} GB\n"
-        f"📅 مدت: {plan['duration_days']} روز\n"
-        f"👥 تعداد کاربر: {users_txt}\n"
-        f"💰 قیمت: {plan['price']:,} تومان\n"
-        f"وضعیت: {status}",
-        reply_markup=plan_actions_keyboard(plan_id, bool(plan["is_active"]))
+        f"📦 {plan['name']}  ({status})\nروی هر مورد بزنید تا ویرایش شود:",
+        reply_markup=plan_actions_keyboard(plan)
     )
 
 

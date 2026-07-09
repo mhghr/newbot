@@ -38,20 +38,11 @@ class ServerEditStates(StatesGroup):
     waiting_value = State()
 
 
-def _server_detail_text(server) -> str:
-    auth = "🔑 API Token" if server["api_token"] else "👤 Username/Password"
+def _server_header(server) -> str:
     status = "فعال 🟢" if server["is_active"] else "غیرفعال 🔴"
-    inbounds_txt = server["inbound_ids"] or "تنظیم نشده"
-    sub_domain = server["sub_domain"] or server["url"]
     return (
-        f"🖥 {server['name']} - {server['location']}\n\n"
-        f"🔗 آدرس: {server['url']}\n"
-        f"🔑 احراز: {auth}\n"
-        f"📍 لوکیشن: {server['location']}\n"
-        f"🌐 آدرس ساب: {sub_domain}\n"
-        f"🔢 پورت ساب: {server['sub_port'] or 2096}\n"
-        f"📡 اینباندها: {inbounds_txt}\n"
-        f"{status}"
+        f"🖥 {server['name']} — {server['location']}  ({status})\n"
+        "روی هر مورد بزنید تا ویرایش شود:"
     )
 
 
@@ -202,8 +193,8 @@ async def server_detail(callback: CallbackQuery):
     if not server:
         await callback.answer("❌ سرور یافت نشد!", show_alert=True); return
     await callback.message.edit_text(
-        _server_detail_text(server),
-        reply_markup=server_actions_keyboard(server_id, bool(server["is_active"]))
+        _server_header(server),
+        reply_markup=server_actions_keyboard(server)
     )
     await callback.answer()
 
@@ -244,8 +235,8 @@ async def edit_server_field_save(message: Message, state: FSMContext):
     await state.clear()
     server = await db.get_server(server_id)
     await message.answer(
-        "✅ به‌روز شد!\n\n" + _server_detail_text(server),
-        reply_markup=server_actions_keyboard(server_id, bool(server["is_active"]))
+        "✅ به‌روز شد!\n\n" + _server_header(server),
+        reply_markup=server_actions_keyboard(server)
     )
 
 
@@ -345,8 +336,8 @@ async def toggle_server(callback: CallbackQuery):
     await db.toggle_server(server_id)
     server = await db.get_server(server_id)
     await callback.message.edit_text(
-        _server_detail_text(server),
-        reply_markup=server_actions_keyboard(server_id, bool(server["is_active"]))
+        _server_header(server),
+        reply_markup=server_actions_keyboard(server)
     )
     await callback.answer("✅ وضعیت تغییر کرد!")
 

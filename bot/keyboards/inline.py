@@ -12,6 +12,11 @@ def _app_label(url: str) -> str:
     return host[:40]
 
 
+def _trunc(value, n: int = 30) -> str:
+    s = str(value) if value not in (None, "") else "-"
+    return s if len(s) <= n else s[:n - 1] + "…"
+
+
 def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(text="🛒 خرید کانفیگ", callback_data="main:buy"),
@@ -242,25 +247,20 @@ def admin_plans_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def server_actions_keyboard(server_id: int, is_active: bool) -> InlineKeyboardMarkup:
-    toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
+def server_actions_keyboard(server) -> InlineKeyboardMarkup:
+    sid = server["id"]
+    toggle_text = "🔴 غیرفعال کردن" if server["is_active"] else "🟢 فعال کردن"
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"📛 نام سرور : {_trunc(server['name'])}", callback_data=f"admin:edit_server:{sid}:name")],
+        [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
+        [InlineKeyboardButton(text=f"🔑 کلید اتصال : {_trunc(server['api_token'])}", callback_data=f"admin:edit_server:{sid}:api_token")],
+        [InlineKeyboardButton(text=f"📍 لوکیشن : {_trunc(server['location'])}", callback_data=f"admin:edit_server:{sid}:location")],
+        [InlineKeyboardButton(text=f"🌐 آدرس ساب : {_trunc(server['sub_domain'] or '-')}", callback_data=f"admin:edit_server:{sid}:sub_domain")],
+        [InlineKeyboardButton(text=f"🔢 پورت ساب : {server['sub_port'] or 2096}", callback_data=f"admin:edit_server:{sid}:sub_port")],
+        [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server['inbound_ids'] or '-')}", callback_data=f"admin:inbounds:{sid}")],
         [
-            InlineKeyboardButton(text="📛 نام", callback_data=f"admin:edit_server:{server_id}:name"),
-            InlineKeyboardButton(text="🔗 آدرس API", callback_data=f"admin:edit_server:{server_id}:url"),
-        ],
-        [
-            InlineKeyboardButton(text="🔑 توکن", callback_data=f"admin:edit_server:{server_id}:api_token"),
-            InlineKeyboardButton(text="📍 لوکیشن", callback_data=f"admin:edit_server:{server_id}:location"),
-        ],
-        [
-            InlineKeyboardButton(text="🌐 آدرس ساب", callback_data=f"admin:edit_server:{server_id}:sub_domain"),
-            InlineKeyboardButton(text="🔢 پورت ساب", callback_data=f"admin:edit_server:{server_id}:sub_port"),
-        ],
-        [InlineKeyboardButton(text="📡 اینباندها", callback_data=f"admin:inbounds:{server_id}")],
-        [
-            InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{server_id}"),
-            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{server_id}"),
+            InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
+            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{sid}"),
         ],
         [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],
     ])
@@ -304,21 +304,21 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def plan_actions_keyboard(plan_id: int, is_active: bool) -> InlineKeyboardMarkup:
-    toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
+def plan_actions_keyboard(plan) -> InlineKeyboardMarkup:
+    pid = plan["id"]
+    toggle_text = "🔴 غیرفعال کردن" if plan["is_active"] else "🟢 فعال کردن"
+    traffic = "نامحدود" if (plan["traffic_gb"] or 0) == 0 else f"{plan['traffic_gb']} GB"
+    duration = "نامحدود" if (plan["duration_days"] or 0) == 0 else f"{plan['duration_days']} روز"
+    users = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"📛 نام : {_trunc(plan['name'])}", callback_data=f"admin:edit_plan_field:{pid}:name")],
+        [InlineKeyboardButton(text=f"📊 حجم : {traffic}", callback_data=f"admin:edit_plan_field:{pid}:traffic_gb")],
+        [InlineKeyboardButton(text=f"📅 مدت : {duration}", callback_data=f"admin:edit_plan_field:{pid}:duration_days")],
+        [InlineKeyboardButton(text=f"👥 تعداد کاربر : {users}", callback_data=f"admin:edit_plan_field:{pid}:max_users")],
+        [InlineKeyboardButton(text=f"💰 قیمت : {plan['price']:,} تومان", callback_data=f"admin:edit_plan_field:{pid}:price")],
         [
-            InlineKeyboardButton(text="📛 نام", callback_data=f"admin:edit_plan_field:{plan_id}:name"),
-            InlineKeyboardButton(text="📊 حجم", callback_data=f"admin:edit_plan_field:{plan_id}:traffic_gb"),
-        ],
-        [
-            InlineKeyboardButton(text="📅 مدت", callback_data=f"admin:edit_plan_field:{plan_id}:duration_days"),
-            InlineKeyboardButton(text="👥 تعداد کاربر", callback_data=f"admin:edit_plan_field:{plan_id}:max_users"),
-        ],
-        [InlineKeyboardButton(text="💰 قیمت", callback_data=f"admin:edit_plan_field:{plan_id}:price")],
-        [
-            InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{plan_id}"),
-            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{plan_id}"),
+            InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{pid}"),
+            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{pid}"),
         ],
         [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")],
     ])
