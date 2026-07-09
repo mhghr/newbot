@@ -266,6 +266,19 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
     ])
 
 
+def plans_list_keyboard(plans: list) -> InlineKeyboardMarkup:
+    rows = []
+    for p in plans:
+        status = "🟢" if p["is_active"] else "🔴"
+        rows.append([InlineKeyboardButton(
+            text=f"{status} {p['name']} | {p['price']:,} تومان",
+            callback_data=f"admin:plan_detail:{p['id']}"
+        )])
+    rows.append([InlineKeyboardButton(text="➕ افزودن پلن", callback_data="admin:add_plan")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
     rows = []
     for s in servers:

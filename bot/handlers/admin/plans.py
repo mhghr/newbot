@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from bot.config import ADMIN_IDS
 from bot.database import db
-from bot.keyboards.inline import admin_plans_keyboard, plan_actions_keyboard, plan_edit_keyboard, cancel_keyboard
+from bot.keyboards.inline import admin_plans_keyboard, plan_actions_keyboard, plan_edit_keyboard, plans_list_keyboard, cancel_keyboard
 
 router = Router()
 
@@ -32,10 +32,25 @@ FIELD_LABELS = {
 
 
 @router.callback_query(F.data == "admin:plans")
-async def plans_menu(callback: CallbackQuery):
+async def plans_menu(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
         return
-    await callback.message.edit_text("📦 مدیریت پلن‌ها:", reply_markup=admin_plans_keyboard())
+    await state.clear()
+    plans = await db.get_all_plans()
+    if not plans:
+        await callback.message.edit_text(
+            "📦 هیچ پلنی ثبت نشده است.\nبرای افزودن روی دکمه زیر بزنید.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ افزودن پلن", callback_data="admin:add_plan")],
+                [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
+            ])
+        )
+        await callback.answer()
+        return
+    await callback.message.edit_text(
+        "📦 مدیریت پلن‌ها\nروی هر پلن بزنید تا ویرایش/تنظیم کنید:",
+        reply_markup=plans_list_keyboard(plans)
+    )
     await callback.answer()
 
 
@@ -128,14 +143,10 @@ async def add_plan_users(message: Message, state: FSMContext):
         max_users=max_users,
     )
     users_txt = "نامحدود" if max_users == 0 else f"{max_users} کاربر"
+    plans = await db.get_all_plans()
     await message.answer(
-        f"✅ پلن با موفقیت اضافه شد!\n\n"
-        f"📛 نام: {data['name']}\n"
-        f"📊 حجم: {data['traffic_gb']} GB\n"
-        f"📅 مدت: {data['duration_days']} روز\n"
-        f"👥 تعداد کاربر: {users_txt}\n"
-        f"💰 قیمت: {data['price']:,} تومان",
-        reply_markup=admin_plans_keyboard()
+        f"✅ پلن «{data['name']}» اضافه شد!",
+        reply_markup=plans_list_keyboard(plans)
     )
     await state.clear()
 
@@ -282,4 +293,16 @@ async def delete_plan(callback: CallbackQuery):
     plan_id = int(callback.data.split(":")[2])
     await db.delete_plan(plan_id)
     await callback.answer("✅ پلن حذف شد!")
-    await callback.message.edit_text("📦 مدیریت پلن‌ها:", reply_markup=admin_plans_keyboard())
+    plans = await db.get_all_plans()
+    if plans:
+        await callback.message.edit_text(
+            "📦 مدیریت پلن‌ها", reply_markup=plans_list_keyboard(plans)
+        )
+    else:
+        await callback.message.edit_text(
+            "📦 هیچ پلنی ثبت نشده است.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ افزودن پلن", callback_data="admin:add_plan")],
+                [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
+            ])
+        )
