@@ -244,11 +244,39 @@ def admin_plans_keyboard() -> InlineKeyboardMarkup:
 
 def server_actions_keyboard(server_id: int, is_active: bool) -> InlineKeyboardMarkup:
     toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
-    rows = _rows([
-        InlineKeyboardButton(text="📡 اینباندها", callback_data=f"admin:inbounds:{server_id}"),
-        InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{server_id}"),
-        InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{server_id}"),
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📛 نام", callback_data=f"admin:edit_server:{server_id}:name"),
+            InlineKeyboardButton(text="🔗 آدرس API", callback_data=f"admin:edit_server:{server_id}:url"),
+        ],
+        [
+            InlineKeyboardButton(text="🔑 توکن", callback_data=f"admin:edit_server:{server_id}:api_token"),
+            InlineKeyboardButton(text="📍 لوکیشن", callback_data=f"admin:edit_server:{server_id}:location"),
+        ],
+        [
+            InlineKeyboardButton(text="🌐 آدرس ساب", callback_data=f"admin:edit_server:{server_id}:sub_domain"),
+            InlineKeyboardButton(text="🔢 پورت ساب", callback_data=f"admin:edit_server:{server_id}:sub_port"),
+        ],
+        [InlineKeyboardButton(text="📡 اینباندها", callback_data=f"admin:inbounds:{server_id}")],
+        [
+            InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{server_id}"),
+            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{server_id}"),
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],
     ])
+
+
+def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
+    rows = []
+    for s in servers:
+        status = "🟢" if s["is_active"] else "🔴"
+        rows.append([InlineKeyboardButton(
+            text=f"{status} {s['name']} - {s['location']}",
+            callback_data=f"admin:server_detail:{s['id']}"
+        )])
+    rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -278,13 +306,22 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
 
 def plan_actions_keyboard(plan_id: int, is_active: bool) -> InlineKeyboardMarkup:
     toggle_text = "🔴 غیرفعال کردن" if is_active else "🟢 فعال کردن"
-    rows = _rows([
-        InlineKeyboardButton(text="✏️ ویرایش", callback_data=f"admin:edit_plan:{plan_id}"),
-        InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{plan_id}"),
-        InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{plan_id}"),
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📛 نام", callback_data=f"admin:edit_plan_field:{plan_id}:name"),
+            InlineKeyboardButton(text="📊 حجم", callback_data=f"admin:edit_plan_field:{plan_id}:traffic_gb"),
+        ],
+        [
+            InlineKeyboardButton(text="📅 مدت", callback_data=f"admin:edit_plan_field:{plan_id}:duration_days"),
+            InlineKeyboardButton(text="👥 تعداد کاربر", callback_data=f"admin:edit_plan_field:{plan_id}:max_users"),
+        ],
+        [InlineKeyboardButton(text="💰 قیمت", callback_data=f"admin:edit_plan_field:{plan_id}:price")],
+        [
+            InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{plan_id}"),
+            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{plan_id}"),
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")],
     ])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def plan_edit_keyboard(plan_id: int) -> InlineKeyboardMarkup:

@@ -57,12 +57,12 @@ async def search_user(query: str):
             return await conn.fetch("SELECT * FROM users WHERE username ILIKE $1", f"%{query}%")
 
 
-async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096):
+async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096, sub_domain: str = ""):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO servers (name, url, username, password, api_token, location, inbound_id, sub_port)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
-            name, url, username, password, api_token, location, inbound_id, sub_port
+            """INSERT INTO servers (name, url, username, password, api_token, location, inbound_id, sub_port, sub_domain)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""",
+            name, url, username, password, api_token, location, inbound_id, sub_port, sub_domain
         )
 
 
@@ -123,6 +123,18 @@ def parse_inbound_ids(value: str) -> list:
 async def delete_server(server_id: int):
     async with models.pool.acquire() as conn:
         await conn.execute("DELETE FROM servers WHERE id=$1", server_id)
+
+
+async def update_server_field(server_id: int, field: str, value):
+    allowed = {"name", "url", "api_token", "location", "inbound_id", "sub_port", "sub_domain"}
+    if field not in allowed:
+        raise ValueError("invalid field")
+    if field in ("inbound_id", "sub_port"):
+        value = int(value)
+    else:
+        value = str(value)
+    async with models.pool.acquire() as conn:
+        await conn.execute(f"UPDATE servers SET {field}=$1 WHERE id=$2", value, server_id)
 
 
 async def add_plan(name: str, traffic_gb: int, duration_days: int, price: int, max_users: int = 0):

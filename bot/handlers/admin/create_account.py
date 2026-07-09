@@ -186,7 +186,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if not sub_token:
             raise Exception("subId از پنل دریافت نشد")
 
-        sub_url = f"{panel_sub_base(master['url'], master['sub_port'])}/sub/{sub_token}"
+        sub_url = f"{panel_sub_base(master['url'], master['sub_port'], master['sub_domain'])}/sub/{sub_token}"
         caption = (
             f"✅ اکانت ساخته شد!\n\n"
             f"📝 نام: {name}\n"

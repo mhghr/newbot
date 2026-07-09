@@ -1395,3 +1395,5 @@ aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: query
 2026-07-09 11:30:43,625 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
 2026-07-09 11:30:43,628 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
 2026-07-09 11:30:43,830 INFO aiogram.event: Update id=34586308 is handled. Duration 10672 ms by bot id=7352975179
+2026-07-09 11:59:46,192 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 11:59:46,194 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200

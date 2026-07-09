@@ -43,16 +43,15 @@ async def show_payment_and_wait(callback: CallbackQuery, state: FSMContext, plan
 
     card_number = await db.get_setting("card_number", "تنظیم نشده")
     card_holder = await db.get_setting("card_holder", "تنظیم نشده")
-    title = "🔄 تمدید اشتراک" if renew_config_id else "💳 اطلاعات پرداخت"
+    title = "🔄 تمدید اشتراک" if renew_config_id else "💳 پرداخت"
 
     await _retry(lambda: callback.message.edit_text(
-        f"{title}:\n\n"
-        f"شماره کارت: `{card_number}`\n"
-        f"به نام: {card_holder}\n"
-        f"مبلغ: **{plan['price']:,} تومان**\n\n"
-        f"📦 پلن: {plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز\n"
-        f"🌍 روی همه لوکیشن‌ها فعال می‌شود\n\n"
-        "⬇️ لطفا پس از واریز، **تصویر رسید** را ارسال کنید:",
+        f"{title}\n\n"
+        f"لطفا برای دریافت اکانت، مبلغ **{plan['price']:,} تومان** بابت پلن «{plan['name']}» "
+        f"به شماره کارت زیر واریز کنید:\n\n"
+        f"💳 شماره کارت: `{card_number}`\n"
+        f"👤 به نام: {card_holder}\n\n"
+        "سپس **تصویر فیش واریزی** را در همین مرحله ارسال کنید ⬇️",
         parse_mode="Markdown",
         reply_markup=cancel_keyboard()
     ))

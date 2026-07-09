@@ -92,7 +92,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         location = master["location"]
 
         xui = XUIClient(master["url"], api_token=master["api_token"])
-        sub_base = panel_sub_base(master["url"], master["sub_port"])
+        sub_base = panel_sub_base(master["url"], master["sub_port"], master["sub_domain"])
 
         reality_ids = db.parse_inbound_ids(master["inbound_ids"])
         if not reality_ids:

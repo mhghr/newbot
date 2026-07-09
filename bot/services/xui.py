@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 
-def panel_sub_base(panel_url: str, sub_port) -> str:
+def panel_sub_base(panel_url: str, sub_port=2096, sub_domain: str = "") -> str:
     raw = panel_url if "://" in panel_url else "http://" + panel_url
     parsed = urlparse(raw)
     scheme = parsed.scheme or "http"
-    host = parsed.hostname or panel_url
+    host = sub_domain.strip() if sub_domain else parsed.hostname or panel_url
     port = sub_port or 2096
     return f"{scheme}://{host}:{port}"
 
