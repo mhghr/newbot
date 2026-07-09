@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 def panel_sub_base(panel_url: str, sub_port=2096, sub_domain: str = "") -> str:
-    raw = panel_url if "://" in panel_url else "http://" + panel_url
+    source = sub_domain.strip() if sub_domain and sub_domain.strip() else panel_url
+    raw = source if "://" in source else "http://" + source
     parsed = urlparse(raw)
     scheme = parsed.scheme or "http"
-    host = sub_domain.strip() if sub_domain else parsed.hostname or panel_url
+    host = parsed.hostname or source
     port = sub_port or 2096
     return f"{scheme}://{host}:{port}"
 
