@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 import asyncio
 import logging
 
-from bot.config import ADMIN_IDS, SUB_BASE_URL
+from bot.config import ADMIN_IDS
 from bot.database import db
-from bot.services.xui import XUIClient
+from bot.services.xui import XUIClient, panel_sub_base
 from bot.keyboards.inline import order_approval_keyboard
 
 logger = logging.getLogger(__name__)
@@ -92,6 +92,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         location = master["location"]
 
         xui = XUIClient(master["url"], api_token=master["api_token"])
+        sub_base = panel_sub_base(master["url"], master["sub_port"])
 
         reality_ids = db.parse_inbound_ids(master["inbound_ids"])
         if not reality_ids:
@@ -137,7 +138,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 all_inbound_ids=reality_ids,
             )
 
-            sub_url = f"{SUB_BASE_URL}/sub/{sub_token}"
+            sub_url = f"{sub_base}/sub/{sub_token}"
             await db.renew_config(
                 renew_config_id, order_id, order["plan_id"],
                 order["traffic_gb"], new_expire
@@ -163,7 +164,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             if not sub_token:
                 raise Exception("subId از پنل دریافت نشد")
 
-            sub_url = f"{SUB_BASE_URL}/sub/{sub_token}"
+            sub_url = f"{sub_base}/sub/{sub_token}"
             if order["duration_days"] and order["duration_days"] > 0:
                 expire_date = datetime.now() + timedelta(days=order["duration_days"])
             else:

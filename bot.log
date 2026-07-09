@@ -1283,3 +1283,22 @@ ConnectionResetError: [WinError 64] The specified network name is no longer avai
 2026-07-08 22:00:11,190 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
 2026-07-08 22:00:11,190 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
 2026-07-08 22:00:23,158 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-08 22:28:04,798 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 22:28:04,801 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-08 22:58:05,135 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-08 22:58:05,137 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 08:12:28,276 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-07-09 08:12:28,284 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-09 08:12:43,448 WARNING bot.services.reminders: reminder check failed for config 1: ConnectTimeout: 
+2026-07-09 08:12:55,215 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-09 08:42:43,820 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 08:42:43,822 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 09:12:44,302 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 09:12:44,305 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 09:36:19,899 ERROR aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-07-09 09:36:19,899 WARNING aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 7352975179)
+2026-07-09 09:36:31,489 INFO aiogram.dispatcher: Connection established (tryings = 1, bot id = 7352975179)
+2026-07-09 09:42:44,662 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 09:42:44,664 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200
+2026-07-09 10:12:45,009 INFO httpx: HTTP Request: GET http://195.123.222.240:9999/janan/panel/api/clients/traffic/5942407257-order12 "HTTP/1.1 200 OK"
+2026-07-09 10:12:45,011 INFO bot.services.xui: API GET /panel/api/clients/traffic/5942407257-order12: 200

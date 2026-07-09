@@ -2,9 +2,19 @@ import httpx
 import uuid
 import json
 import logging
+from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+
+def panel_sub_base(panel_url: str, sub_port) -> str:
+    raw = panel_url if "://" in panel_url else "http://" + panel_url
+    parsed = urlparse(raw)
+    scheme = parsed.scheme or "http"
+    host = parsed.hostname or panel_url
+    port = sub_port or 2096
+    return f"{scheme}://{host}:{port}"
 
 
 class XUIClient:

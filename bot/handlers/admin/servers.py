@@ -19,6 +19,7 @@ class AddServerStates(StatesGroup):
     waiting_token = State()
     waiting_name = State()
     waiting_location = State()
+    waiting_sub_port = State()
     waiting_inbounds = State()
 
 
@@ -84,6 +85,26 @@ async def add_server_location(message: Message, state: FSMContext):
         return
 
     location = message.text.strip()
+    await state.update_data(location=location)
+    await message.answer(
+        "🔢 پورت سابسکریپشن پنل را وارد کنید:\n"
+        "(پورت sub که لینک اشتراک روی آن سرو می‌شود، مثال: 2096)",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(AddServerStates.waiting_sub_port)
+
+
+@router.message(AddServerStates.waiting_sub_port)
+async def add_server_sub_port(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    text = message.text.strip()
+    if not text.isdigit():
+        await message.answer("⚠️ فقط عدد وارد کنید. مثال: 2096", reply_markup=cancel_keyboard())
+        return
+
+    await state.update_data(sub_port=int(text))
     data = await state.get_data()
     url = data["url"]
     api_token = data["api_token"]
@@ -103,7 +124,7 @@ async def add_server_location(message: Message, state: FSMContext):
         await state.clear()
         return
 
-    await state.update_data(location=location, inbound_id=inbound_id)
+    await state.update_data(inbound_id=inbound_id)
     await message.answer(
         "✅ اتصال برقرار شد!\n\n"
         "📡 لیست آیدی اینباندهای یوزر را وارد کنید:\n"
@@ -139,6 +160,7 @@ async def add_server_inbounds(message: Message, state: FSMContext):
         location=data["location"],
         api_token=data["api_token"],
         inbound_id=data.get("inbound_id", 0),
+        sub_port=data.get("sub_port", 2096),
     )
     await db.set_server_inbound_ids(server_id, cleaned)
 
@@ -147,6 +169,7 @@ async def add_server_inbounds(message: Message, state: FSMContext):
         f"📛 نام: {data['name']}\n"
         f"📍 لوکیشن: {data['location']}\n"
         f"🔗 آدرس: {data['url']}\n"
+        f"🔢 پورت ساب: {data.get('sub_port', 2096)}\n"
         f"📡 اینباندهای یوزر: {cleaned}",
         reply_markup=admin_servers_keyboard()
     )
@@ -200,6 +223,7 @@ async def server_detail(callback: CallbackQuery):
         f"📛 نام: {server['name']}\n"
         f"📍 لوکیشن: {server['location']}\n"
         f"🔗 آدرس: {server['url']}\n"
+        f"🔢 پورت ساب: {server['sub_port'] or 2096}\n"
         f"🔐 احراز هویت: {auth}\n"
         f"📡 اینباندهای یوزر: {inbounds_txt}\n"
         f"وضعیت: {status}",
@@ -366,6 +390,7 @@ async def toggle_server(callback: CallbackQuery):
         f"📛 نام: {server['name']}\n"
         f"📍 لوکیشن: {server['location']}\n"
         f"🔗 آدرس: {server['url']}\n"
+        f"🔢 پورت ساب: {server['sub_port'] or 2096}\n"
         f"🔐 احراز هویت: {auth}\n"
         f"📡 اینباندهای یوزر: {inbounds_txt}\n"
         f"وضعیت: {status}",

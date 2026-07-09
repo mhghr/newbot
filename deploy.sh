@@ -82,21 +82,6 @@ if [ -n "$CHANNEL_INPUT" ]; then
     warn "Important: make the bot an ADMIN of that channel so it can check membership."
 fi
 
-echo ""
-echo "Master panel subscription base URL (your panel sub link base):"
-echo "  e.g. http://SERVER_IP:2096"
-read -rp "$(ask 'SUB_BASE_URL: ')" SUB_BASE_URL
-SUB_BASE_URL="${SUB_BASE_URL:-http://127.0.0.1:2096}"
-
-echo ""
-echo "Telegram proxy (leave empty if the server can reach Telegram directly):"
-echo "  e.g. socks5://127.0.0.1:1080"
-read -rp "$(ask 'PROXY_URL (optional): ')" PROXY_URL
-PROXY_URL="${PROXY_URL:-}"
-
-read -rp "$(ask 'Internal sub-server port [8080]: ')" SUB_PORT
-SUB_PORT="${SUB_PORT:-8080}"
-
 # ---------- 3) PostgreSQL setup ----------
 info "Configuring PostgreSQL database..."
 DB_PASS="$(openssl rand -hex 16)"
@@ -120,10 +105,6 @@ ADMIN_IDS=${ADMIN_IDS}
 CHANNEL_ID=${CHANNEL_ID}
 CHANNEL_URL=${CHANNEL_URL}
 DATABASE_URL=${DATABASE_URL}
-PROXY_URL=${PROXY_URL}
-SUB_BASE_URL=${SUB_BASE_URL}
-SUB_HOST=0.0.0.0
-SUB_PORT=${SUB_PORT}
 EOF
 chmod 600 "$PROJECT_DIR/.env"
 
@@ -132,10 +113,6 @@ info "Creating virtualenv and installing requirements..."
 python3 -m venv "$PROJECT_DIR/venv"
 "$PROJECT_DIR/venv/bin/pip" install --upgrade pip >/dev/null
 "$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
-if [ -n "$PROXY_URL" ]; then
-    info "Proxy configured; installing aiohttp_socks..."
-    "$PROJECT_DIR/venv/bin/pip" install "aiohttp_socks>=0.8"
-fi
 
 # ---------- 6) systemd service ----------
 info "Creating systemd service (${SERVICE_NAME})..."

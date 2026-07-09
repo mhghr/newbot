@@ -32,6 +32,7 @@ async def init_db():
                 location TEXT NOT NULL,
                 inbound_id INTEGER DEFAULT 0,
                 inbound_ids TEXT DEFAULT '',
+                sub_port INTEGER DEFAULT 2096,
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT NOW()
             )
@@ -113,6 +114,11 @@ async def init_db():
 
         try:
             await conn.execute("ALTER TABLE servers ADD COLUMN IF NOT EXISTS inbound_ids TEXT DEFAULT ''")
+        except Exception:
+            pass
+
+        try:
+            await conn.execute("ALTER TABLE servers ADD COLUMN IF NOT EXISTS sub_port INTEGER DEFAULT 2096")
         except Exception:
             pass
 

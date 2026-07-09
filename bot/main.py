@@ -3,9 +3,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.config import BOT_TOKEN, PROXY_URL, SUB_HOST, SUB_PORT
+from bot.config import BOT_TOKEN, PROXY_URL
 from bot.database.models import init_db
-from bot.services.subserver import start_sub_server
 from bot.services.reminders import start_reminders
 
 from bot.handlers.start import router as start_router
@@ -34,8 +33,6 @@ logging.basicConfig(
 
 async def main():
     await init_db()
-
-    await start_sub_server(SUB_HOST, SUB_PORT)
 
     session = AiohttpSession(proxy=PROXY_URL) if PROXY_URL else None
     bot = Bot(token=BOT_TOKEN, session=session)

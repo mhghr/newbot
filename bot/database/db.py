@@ -57,12 +57,12 @@ async def search_user(query: str):
             return await conn.fetch("SELECT * FROM users WHERE username ILIKE $1", f"%{query}%")
 
 
-async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0):
+async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO servers (name, url, username, password, api_token, location, inbound_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
-            name, url, username, password, api_token, location, inbound_id
+            """INSERT INTO servers (name, url, username, password, api_token, location, inbound_id, sub_port)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
+            name, url, username, password, api_token, location, inbound_id, sub_port
         )
 
 

@@ -7,9 +7,9 @@ from urllib.parse import quote
 import asyncio
 import logging
 
-from bot.config import ADMIN_IDS, SUB_BASE_URL
+from bot.config import ADMIN_IDS
 from bot.database import db
-from bot.services.xui import XUIClient
+from bot.services.xui import XUIClient, panel_sub_base
 from bot.keyboards.inline import create_account_plans_keyboard, admin_menu_keyboard, cancel_keyboard
 
 logger = logging.getLogger(__name__)
@@ -186,7 +186,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if not sub_token:
             raise Exception("subId از پنل دریافت نشد")
 
-        sub_url = f"{SUB_BASE_URL}/sub/{sub_token}"
+        sub_url = f"{panel_sub_base(master['url'], master['sub_port'])}/sub/{sub_token}"
         caption = (
             f"✅ اکانت ساخته شد!\n\n"
             f"📝 نام: {name}\n"

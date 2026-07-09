@@ -75,9 +75,6 @@ if [ ! -x "$PROJECT_DIR/venv/bin/pip" ]; then
 fi
 info "Updating Python dependencies..."
 "$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" >/dev/null
-if grep -qE '^PROXY_URL=.+' "$PROJECT_DIR/.env"; then
-    "$PROJECT_DIR/venv/bin/pip" install "aiohttp_socks>=0.8" >/dev/null || true
-fi
 
 # ---------- 5) Restart service (migrations run on startup) ----------
 info "Restarting service ${SERVICE_NAME}..."
