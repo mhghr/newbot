@@ -9,6 +9,7 @@ from bot.keyboards.inline import (
     admin_settings_keyboard, admin_tutorial_keyboard,
     admin_menu_keyboard, cancel_keyboard
 )
+from bot.handlers.tutorial import DEFAULT_TUTORIALS
 
 router = Router()
 
@@ -156,7 +157,9 @@ async def edit_tutorial(callback: CallbackQuery, state: FSMContext):
     platform = callback.data.split(":")[2]
     platform_name = PLATFORM_NAMES.get(platform, platform)
 
-    current_text = await db.get_setting(f"tutorial_{platform}", "تنظیم نشده")
+    current_text = await db.get_setting(f"tutorial_{platform}", "")
+    if not current_text:
+        current_text = DEFAULT_TUTORIALS.get(platform, "تنظیم نشده")
 
     await state.update_data(tutorial_platform=platform)
     await callback.message.edit_text(
