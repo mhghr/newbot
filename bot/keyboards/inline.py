@@ -17,6 +17,16 @@ def _trunc(value, n: int = 30) -> str:
     return s if len(s) <= n else s[:n - 1] + "…"
 
 
+def landing_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(text="🛒 خرید و مدیریت کانفیگ", callback_data="main:configs")],
+        [InlineKeyboardButton(text="🎬 دانلود ویدیو", callback_data="main:download")],
+    ]
+    if user_id in ADMIN_IDS:
+        buttons.append([InlineKeyboardButton(text="⚙️ مدیریت", callback_data="main:admin")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(text="🛒 خرید کانفیگ", callback_data="main:buy"),
@@ -25,8 +35,7 @@ def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="main:apps"),
         InlineKeyboardButton(text="💵 عودت وجه", callback_data="main:refund"),
         InlineKeyboardButton(text="🆘 پشتیبانی", callback_data="main:support"),
-        InlineKeyboardButton(text="🎬 دانلود ویدیو", callback_data="main:download"),
-    ]
+            ]
     if user_id in ADMIN_IDS:
         buttons.append(InlineKeyboardButton(text="⚙️ مدیریت", callback_data="main:admin"))
     return InlineKeyboardMarkup(inline_keyboard=_rows(buttons))
@@ -37,7 +46,7 @@ def download_platforms_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="▶️ یوتیوب", callback_data="dl:youtube")],
         [InlineKeyboardButton(text="📸 اینستاگرام", callback_data="dl:instagram")],
         [InlineKeyboardButton(text="🎵 تیک‌تاک", callback_data="dl:tiktok")],
-        [InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")],
+        [InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:configs")],
     ])
 
 
@@ -47,7 +56,7 @@ def refund_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
         buttons.append(InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"refund_cfg:{c['id']}"))
     rows = _rows(buttons)
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:configs")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -93,7 +102,7 @@ def user_apps_platforms_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=label, callback_data=f"apps:{code}")
         for code, label in APP_PLATFORMS
     ])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:configs")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -133,7 +142,7 @@ def admin_app_detail_keyboard(app, platform: str) -> InlineKeyboardMarkup:
 
 def back_to_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")],
+        [InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:configs")],
     ])
 
 
@@ -183,7 +192,7 @@ def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
         buttons.append(InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"cfg:{c['id']}"))
     rows = _rows(buttons)
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:configs")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from bot.middlewares.membership import check_membership
-from bot.keyboards.inline import main_menu_keyboard, join_channel_keyboard, back_to_menu_keyboard
+from bot.keyboards.inline import main_menu_keyboard, landing_keyboard, join_channel_keyboard, back_to_menu_keyboard
 from bot.database import db
 
 router = Router()
@@ -56,7 +56,7 @@ async def cmd_start(message: Message, bot: Bot):
     await message.answer(
         welcome_text(),
         parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(message.from_user.id)
+        reply_markup=landing_keyboard(message.from_user.id)
     )
 
 
@@ -80,16 +80,34 @@ async def recheck_membership(callback: CallbackQuery, bot: Bot):
     await callback.message.edit_text(
         welcome_text(),
         parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(callback.from_user.id)
+        reply_markup=landing_keyboard(callback.from_user.id)
     )
     await callback.answer("✅ عضویت تایید شد!")
+
+
+@router.callback_query(F.data == "main:home")
+async def show_landing(callback: CallbackQuery):
+    await callback.message.edit_text(
+        welcome_text(),
+        parse_mode="Markdown",
+        reply_markup=landing_keyboard(callback.from_user.id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "main:configs")
+async def show_configs_menu(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "🛒 منوی کانفیگ\nاز گزینه‌های زیر انتخاب کنید:",
+        reply_markup=main_menu_keyboard(callback.from_user.id)
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data == "main:back")
 async def back_to_menu(callback: CallbackQuery):
     await callback.message.edit_text(
-        welcome_text(),
-        parse_mode="Markdown",
+        "🛒 منوی کانفیگ\nاز گزینه‌های زیر انتخاب کنید:",
         reply_markup=main_menu_keyboard(callback.from_user.id)
     )
     await callback.answer()
