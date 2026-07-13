@@ -452,6 +452,51 @@ async def delete_app(app_id: int):
         await conn.execute("DELETE FROM apps WHERE id=$1", app_id)
 
 
+async def add_proxy_source(channel: str):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchval(
+            "INSERT INTO proxy_sources (channel) VALUES ($1) RETURNING id", channel
+        )
+
+
+async def get_active_proxy_sources():
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM proxy_sources WHERE is_active=TRUE ORDER BY id"
+        )
+
+
+async def get_all_proxy_sources():
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM proxy_sources ORDER BY id"
+        )
+
+
+async def delete_proxy_source(source_id: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute("DELETE FROM proxy_sources WHERE id=$1", source_id)
+
+
+async def create_proxy_pending(text: str, photo_id: str, doc_id: str, target_channel: str):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchval(
+            """INSERT INTO proxy_pending (text, photo_id, doc_id, target_channel)
+               VALUES ($1, $2, $3, $4) RETURNING id""",
+            text, photo_id, doc_id, target_channel
+        )
+
+
+async def get_proxy_pending(pid: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow("SELECT * FROM proxy_pending WHERE id=$1", pid)
+
+
+async def delete_proxy_pending(pid: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute("DELETE FROM proxy_pending WHERE id=$1", pid)
+
+
 async def has_active_refund(config_id: int) -> bool:
     async with models.pool.acquire() as conn:
         row = await conn.fetchrow(

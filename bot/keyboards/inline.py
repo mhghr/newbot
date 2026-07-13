@@ -25,10 +25,20 @@ def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="main:apps"),
         InlineKeyboardButton(text="💵 عودت وجه", callback_data="main:refund"),
         InlineKeyboardButton(text="🆘 پشتیبانی", callback_data="main:support"),
+        InlineKeyboardButton(text="🎬 دانلود ویدیو", callback_data="main:download"),
     ]
     if user_id in ADMIN_IDS:
         buttons.append(InlineKeyboardButton(text="⚙️ مدیریت", callback_data="main:admin"))
     return InlineKeyboardMarkup(inline_keyboard=_rows(buttons))
+
+
+def download_platforms_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="▶️ یوتیوب", callback_data="dl:youtube")],
+        [InlineKeyboardButton(text="📸 اینستاگرام", callback_data="dl:instagram")],
+        [InlineKeyboardButton(text="🎵 تیک‌تاک", callback_data="dl:tiktok")],
+        [InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:back")],
+    ])
 
 
 def refund_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
@@ -54,6 +64,25 @@ def refund_upload_keyboard(refund_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📎 آپلود فیش واریز", callback_data=f"refund_upload:{refund_id}")]
     ])
+
+
+def proxy_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ افزودن کانال منبع", callback_data="admin:proxy_add")],
+        [InlineKeyboardButton(text="📋 لیست کانال‌های منبع", callback_data="admin:proxy_list")],
+        [InlineKeyboardButton(text="🎯 تنظیم کانال مقصد", callback_data="admin:proxy_target")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
+    ])
+
+
+def proxy_sources_keyboard(sources: list) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text=f"🗑 {s['channel']}", callback_data=f"admin:proxy_del:{s['id']}")]
+        for s in sources
+    ]
+    rows.append([InlineKeyboardButton(text="➕ افزودن کانال", callback_data="admin:proxy_add")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:proxy")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 APP_PLATFORMS = (("android", "📱 اندروید"), ("ios", "🍎 آیفون"), ("windows", "💻 ویندوز"))
@@ -93,11 +122,11 @@ def admin_apps_list_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def admin_app_detail_keyboard(app_id: int, platform: str) -> InlineKeyboardMarkup:
+def admin_app_detail_keyboard(app, platform: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📛 ویرایش نام", callback_data=f"admin:app_edit:{app_id}:title")],
-        [InlineKeyboardButton(text="🔗 ویرایش لینک", callback_data=f"admin:app_edit:{app_id}:url")],
-        [InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:app_del:{platform}:{app_id}")],
+        [InlineKeyboardButton(text=f"📛 نام : {_trunc(app['title'] or '-')}", callback_data=f"admin:app_edit:{app['id']}:title")],
+        [InlineKeyboardButton(text=f"🔗 لینک : {_trunc(app['url'])}", callback_data=f"admin:app_edit:{app['id']}:url")],
+        [InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:app_del:{platform}:{app['id']}")],
         [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:applist:{platform}")],
     ])
 
@@ -210,6 +239,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🛠 ساخت اکانت", callback_data="admin:create_account"),
         InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:card"),
         InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="admin:apps"),
+        InlineKeyboardButton(text="🔄 ارسال پروکسی", callback_data="admin:proxy"),
         InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:search_user"),
         InlineKeyboardButton(text="📖 مدیریت آموزش", callback_data="admin:tutorials"),
         InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),

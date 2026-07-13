@@ -101,10 +101,8 @@ async def admin_app_detail(callback: CallbackQuery):
         return
     name = PLATFORM_NAMES.get(app["platform"], app["platform"])
     await callback.message.edit_text(
-        f"🧩 نرم‌افزار ({name}):\n\n"
-        f"📛 نام: {app['title'] or '-'}\n"
-        f"🔗 لینک: {app['url']}",
-        reply_markup=admin_app_detail_keyboard(app_id, app["platform"])
+        f"🧩 نرم‌افزار — {name}\nروی هر مورد بزنید تا ویرایش شود:",
+        reply_markup=admin_app_detail_keyboard(app, app["platform"])
     )
     await callback.answer()
 
@@ -160,11 +158,8 @@ async def admin_app_edit_save(message: Message, state: FSMContext):
     app = await db.get_app(app_id)
     name = PLATFORM_NAMES.get(app["platform"], app["platform"])
     await message.answer(
-        f"✅ ذخیره شد!\n\n"
-        f"🧩 نرم‌افزار ({name}):\n"
-        f"📛 نام: {app['title'] or '-'}\n"
-        f"🔗 لینک: {app['url']}",
-        reply_markup=admin_app_detail_keyboard(app_id, app["platform"])
+        f"✅ ذخیره شد — {name}",
+        reply_markup=admin_app_detail_keyboard(app, app["platform"])
     )
 
 

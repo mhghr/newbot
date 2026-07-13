@@ -2,6 +2,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand, MenuButtonCommands
 
 from bot.config import BOT_TOKEN, PROXY_URL
 from bot.database.models import init_db
@@ -13,6 +14,8 @@ from bot.handlers.my_configs import router as my_configs_router
 from bot.handlers.tutorial import router as tutorial_router
 from bot.handlers.apps import router as apps_router
 from bot.handlers.refund import router as refund_router
+from bot.handlers.proxy import router as proxy_router
+from bot.handlers.download import router as download_router
 from bot.handlers.admin.menu import router as admin_menu_router
 from bot.handlers.admin.servers import router as admin_servers_router
 from bot.handlers.admin.plans import router as admin_plans_router
@@ -45,6 +48,8 @@ async def main():
         tutorial_router,
         apps_router,
         refund_router,
+        proxy_router,
+        download_router,
         admin_menu_router,
         admin_servers_router,
         admin_plans_router,
@@ -55,6 +60,14 @@ async def main():
     )
 
     start_reminders(bot)
+
+    try:
+        await bot.set_my_commands([
+            BotCommand(command="start", description="🏠 شروع / منوی اصلی"),
+        ])
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    except Exception as e:
+        logging.warning(f"Failed to set bot commands/menu: {e}")
 
     logging.info("Bot starting...")
     await dp.start_polling(bot)
