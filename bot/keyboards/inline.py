@@ -19,7 +19,7 @@ def _trunc(value, n: int = 30) -> str:
 
 def landing_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = [
-        [InlineKeyboardButton(text="🛒 خرید و مدیریت کانفیگ", callback_data="main:configs")],
+        [InlineKeyboardButton(text="🛒 پروکسی", callback_data="main:configs")],
         [InlineKeyboardButton(text="🎬 دانلود ویدیو", callback_data="main:download")],
     ]
     if user_id in ADMIN_IDS:
