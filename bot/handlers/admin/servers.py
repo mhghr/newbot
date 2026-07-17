@@ -17,33 +17,52 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 async def _sync_clients_to_inbounds(server: dict, inbound_ids: list, admin_chat_id: int, bot):
-    success = 0
-    failed = 0
+    try:
+        success = 0
+        failed = 0
 
-    configs = await db.get_configs_by_server_id(server["id"])
-    if not configs:
-        await bot.send_message(admin_chat_id, "هیچ کانفیگی برای این سرور یافت نشد.")
-        return
+        if not inbound_ids:
+            await bot.send_message(
+                admin_chat_id,
+                f"همگام‌سازی اینباندهای «{server['name']}» لغو شد\n"
+                "لیست اینباندها خالی است."
+            )
+            return
 
-    xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
+        configs = await db.get_configs_by_server_id(server["id"])
+        if not configs:
+            await bot.send_message(admin_chat_id, "هیچ کانفیگی برای این سرور یافت نشد.")
+            return
 
-    for cfg in configs:
-        try:
-            ok = await xui.attach_client(cfg["client_email"], inbound_ids)
-            if ok:
-                success += 1
-            else:
+        xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
+
+        for cfg in configs:
+            try:
+                ok = await xui.attach_client(cfg["client_email"], inbound_ids)
+                if ok:
+                    success += 1
+                else:
+                    failed += 1
+                    logger.error(f"attach_client failed for {cfg['client_email']}")
+            except Exception:
                 failed += 1
-                logger.warning(f"attach_client returned false for {cfg['client_email']}")
-        except Exception:
-            failed += 1
-            logger.exception(f"Sync failed for client {cfg['client_email']}")
+                logger.exception(f"Sync failed for client {cfg['client_email']}")
 
-    await bot.send_message(
-        admin_chat_id,
-        f"همگام‌سازی اینباندهای «{server['name']}» کامل شد\n"
-        f"موفق: {success}\nخطا: {failed}"
-    )
+        await bot.send_message(
+            admin_chat_id,
+            f"همگام‌سازی اینباندهای «{server['name']}» کامل شد\n"
+            f"موفق: {success}\nخطا: {failed}"
+        )
+    except Exception:
+        logger.exception("_sync_clients_to_inbounds crashed")
+        try:
+            await bot.send_message(
+                admin_chat_id,
+                f"خطا در همگام‌سازی اینباندهای «{server['name']}»\n"
+                "لطفا لاگ‌ها را بررسی کنید."
+            )
+        except Exception:
+            pass
 
 FIELD_LABELS = {
     "name": "نام", "url": "آدرس API", "api_token": "توکن",
