@@ -398,7 +398,7 @@ async def get_all_active_configs():
 async def get_configs_by_server_id(server_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetch(
-            "SELECT * FROM configs WHERE server_id = $1", server_id
+            "SELECT * FROM configs WHERE server_id = $1 AND is_active = TRUE", server_id
         )
 
 

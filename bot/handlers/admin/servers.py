@@ -62,7 +62,7 @@ async def _sync_clients_to_inbounds(server: dict, inbound_ids: list, admin_chat_
                 "لطفا لاگ‌ها را بررسی کنید."
             )
         except Exception:
-            pass
+            logger.exception("Failed to send sync error notification to admin")
 
 FIELD_LABELS = {
     "name": "نام", "url": "آدرس API", "api_token": "توکن",
@@ -379,7 +379,8 @@ async def save_inbounds(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(f"✅ ذخیره شد: {cleaned}", reply_markup=server_inbounds_keyboard(server_id, ids))
     server = await db.get_server(server_id)
-    asyncio.create_task(_sync_clients_to_inbounds(server, ids, message.from_user.id, message.bot))
+    if server:
+        asyncio.create_task(_sync_clients_to_inbounds(server, ids, message.from_user.id, message.bot))
 
 
 # ---------------- Toggle / Delete ----------------
