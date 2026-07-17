@@ -229,37 +229,11 @@ class XUIClient:
             pass
         return f"{self.base_url}/sub/{email}"
 
-    async def _get_client_uuid(self, email: str) -> str:
-        data = await self._request("GET", "/panel/api/inbounds/list")
-        for inbound in data.get("obj", []):
-            for cs in (inbound.get("clientStats") or []):
-                if cs.get("email") == email:
-                    return cs.get("id", "")
-            settings = inbound.get("settings")
-            if isinstance(settings, str):
-                try:
-                    settings = json.loads(settings)
-                except Exception:
-                    settings = {}
-            if isinstance(settings, dict):
-                for c in settings.get("clients", []):
-                    if c.get("email") == email:
-                        return c.get("id", "")
-        return ""
-
     async def attach_client(self, email: str, inbound_ids: list) -> bool:
-        client_uuid = await self._get_client_uuid(email)
-        if not client_uuid:
-            logger.warning(f"Client UUID not found for {email}")
-            return False
-
         data = await self._request(
             "POST",
-            "/panel/api/clients/add",
-            json={
-                "client": {"email": email, "id": client_uuid, "enable": True},
-                "inboundIds": inbound_ids,
-            }
+            f"/panel/api/clients/{email}/attach",
+            json={"inboundIds": inbound_ids}
         )
         return data.get("success", False)
 
