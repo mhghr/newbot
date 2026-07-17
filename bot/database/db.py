@@ -328,19 +328,20 @@ async def set_user_sub_token(user_id: int, sub_token: str):
 
 
 async def create_config(user_id: int, order_id: int, plan_id: int, client_email: str,
-                        sub_id: str, sub_url: str, traffic_gb: int, expire_date):
+                        sub_id: str, sub_url: str, traffic_gb: int, expire_date,
+                        server_id: int = None):
     if isinstance(expire_date, str):
         expire_date = datetime.fromisoformat(expire_date)
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
             """INSERT INTO configs
                    (user_id, order_id, plan_id, client_email, sub_id, config_link,
-                    traffic_limit_gb, expire_date, is_active,
+                    traffic_limit_gb, expire_date, server_id, is_active,
                     reminder_traffic_sent, reminder_time_sent)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, FALSE, FALSE)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, FALSE, FALSE)
                RETURNING id""",
             user_id, order_id, plan_id, client_email, sub_id, sub_url,
-            traffic_gb, expire_date
+            traffic_gb, expire_date, server_id
         )
 
 

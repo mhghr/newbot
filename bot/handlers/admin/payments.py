@@ -171,7 +171,8 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 expire_date = None
             await db.create_config(
                 order["user_id"], order_id, order["plan_id"], email,
-                sub_token, sub_url, order["traffic_gb"], expire_date
+                sub_token, sub_url, order["traffic_gb"], expire_date,
+                server_id=master["id"]
             )
             action_word = "ساخت"
 

@@ -199,6 +199,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
                 user_id=target_user["id"], order_id=None, plan_id=plan_id,
                 client_email=name, sub_id=sub_token, sub_url=sub_url,
                 traffic_gb=traffic_gb, expire_date=expire_date,
+                server_id=master["id"],
             )
             linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
 
