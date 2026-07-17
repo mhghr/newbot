@@ -229,8 +229,12 @@ class XUIClient:
             pass
         return f"{self.base_url}/sub/{email}"
 
-    async def attach_client(self, email: str) -> bool:
-        data = await self._request("POST", f"/panel/api/clients/{email}/attach")
+    async def attach_client(self, email: str, inbound_ids: list) -> bool:
+        data = await self._request(
+            "POST",
+            f"/panel/api/clients/{email}/attach",
+            json={"inboundIds": inbound_ids}
+        )
         return data.get("success", False)
 
     async def detach_client(self, email: str) -> bool:
