@@ -229,6 +229,16 @@ class XUIClient:
             pass
         return f"{self.base_url}/sub/{email}"
 
+    async def get_client_inbounds(self, email: str) -> list:
+        data = await self._request("GET", "/panel/api/inbounds/list")
+        inbound_ids = []
+        for inbound in data.get("obj", []):
+            for cs in (inbound.get("clientStats") or []):
+                if cs.get("email") == email:
+                    inbound_ids.append(inbound["id"])
+                    break
+        return inbound_ids
+
     async def attach_client(self, email: str, inbound_ids: list) -> bool:
         data = await self._request(
             "POST",

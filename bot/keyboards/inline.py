@@ -298,6 +298,7 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=f"🌐 آدرس ساب : {_trunc(server['sub_domain'] or '-')}", callback_data=f"admin:edit_server:{sid}:sub_domain")],
         [InlineKeyboardButton(text=f"🔢 پورت ساب : {server['sub_port'] or 2096}", callback_data=f"admin:edit_server:{sid}:sub_port")],
         [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server['inbound_ids'] or '-')}", callback_data=f"admin:inbounds:{sid}")],
+        [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{sid}"),

@@ -16,50 +16,71 @@ from bot.services.xui import XUIClient
 router = Router()
 logger = logging.getLogger(__name__)
 
-async def _sync_clients_to_inbounds(server: dict, inbound_ids: list, admin_chat_id: int, bot):
+async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, status_message=None):
     try:
-        success = 0
-        failed = 0
+        desired_ids = db.parse_inbound_ids(server["inbound_ids"])
 
-        if not inbound_ids:
-            await bot.send_message(
-                admin_chat_id,
-                f"همگام‌سازی اینباندهای «{server['name']}» لغو شد\n"
-                "لیست اینباندها خالی است."
-            )
+        if not desired_ids:
+            msg = f"همگام‌سازی «{server['name']}» لغو شد — لیست اینباندها در تنظیمات خالی است."
+            if status_message:
+                await status_message.edit_text(msg)
+            else:
+                await bot.send_message(admin_chat_id, msg)
             return
 
         configs = await db.get_configs_by_server_id(server["id"])
         if not configs:
-            await bot.send_message(admin_chat_id, "هیچ کانفیگی برای این سرور یافت نشد.")
+            msg = "هیچ کانفیگ فعالی برای این سرور یافت نشد."
+            if status_message:
+                await status_message.edit_text(msg)
+            else:
+                await bot.send_message(admin_chat_id, msg)
             return
+
+        if status_message:
+            await status_message.edit_text(f"⏳ در حال بررسی {len(configs)} کانفیگ...")
 
         xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
 
+        fixed = 0
+        already_ok = 0
+        failed = 0
+        desired_set = set(desired_ids)
+
         for cfg in configs:
             try:
-                ok = await xui.attach_client(cfg["client_email"], inbound_ids)
-                if ok:
-                    success += 1
+                current = await xui.get_client_inbounds(cfg["client_email"])
+                current_set = set(current)
+                if current_set == desired_set:
+                    already_ok += 1
                 else:
-                    failed += 1
-                    logger.error(f"attach_client failed for {cfg['client_email']}")
+                    ok = await xui.attach_client(cfg["client_email"], desired_ids)
+                    if ok:
+                        fixed += 1
+                    else:
+                        failed += 1
+                        logger.error(f"attach_client failed for {cfg['client_email']}")
             except Exception:
                 failed += 1
                 logger.exception(f"Sync failed for client {cfg['client_email']}")
 
-        await bot.send_message(
-            admin_chat_id,
-            f"همگام‌سازی اینباندهای «{server['name']}» کامل شد\n"
-            f"موفق: {success}\nخطا: {failed}"
+        msg = (
+            f"گزارش همگام‌سازی «{server['name']}»\n\n"
+            f"از قبل درست: {already_ok}\n"
+            f"اصلاح شد: {fixed}\n"
+            f"خطا: {failed}\n"
+            f"مجموع: {len(configs)}"
         )
+        if status_message:
+            await status_message.edit_text(msg)
+        else:
+            await bot.send_message(admin_chat_id, msg)
     except Exception:
         logger.exception("_sync_clients_to_inbounds crashed")
         try:
             await bot.send_message(
                 admin_chat_id,
-                f"خطا در همگام‌سازی اینباندهای «{server['name']}»\n"
-                "لطفا لاگ‌ها را بررسی کنید."
+                f"خطا در همگام‌سازی «{server['name']}»\nلطفا لاگ‌ها را بررسی کنید."
             )
         except Exception:
             logger.exception("Failed to send sync error notification to admin")
@@ -323,7 +344,6 @@ async def inbound_delete(callback: CallbackQuery):
         reply_markup=server_inbounds_keyboard(server_id, ids)
     )
     await callback.answer(f"✅ {inbound_id} حذف شد!")
-    asyncio.create_task(_sync_clients_to_inbounds(server, ids, callback.from_user.id, callback.bot))
 
 
 @router.callback_query(F.data.startswith("admin:inbound_add:"))
@@ -350,7 +370,6 @@ async def inbound_add_save(message: Message, state: FSMContext):
         f"✅ اضافه شد!\n📡 فعلی: {', '.join(str(i) for i in cur_ids) if cur_ids else 'خالی'}",
         reply_markup=server_inbounds_keyboard(server_id, cur_ids)
     )
-    asyncio.create_task(_sync_clients_to_inbounds(server, cur_ids, message.from_user.id, message.bot))
 
 
 @router.callback_query(F.data.startswith("admin:set_inbounds:"))
@@ -378,9 +397,22 @@ async def save_inbounds(message: Message, state: FSMContext):
     await db.set_server_inbound_ids(server_id, cleaned)
     await state.clear()
     await message.answer(f"✅ ذخیره شد: {cleaned}", reply_markup=server_inbounds_keyboard(server_id, ids))
+
+
+# ---------------- Sync Inbounds ----------------
+
+@router.callback_query(F.data.startswith("admin:sync_inbounds:"))
+async def sync_inbounds(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    server_id = int(callback.data.split(":")[2])
     server = await db.get_server(server_id)
-    if server:
-        asyncio.create_task(_sync_clients_to_inbounds(server, ids, message.from_user.id, message.bot))
+    if not server:
+        await callback.answer("❌ سرور یافت نشد", show_alert=True)
+        return
+
+    status = await callback.message.answer("⏳ شروع همگام‌سازی...")
+    await callback.answer()
+    asyncio.create_task(_sync_clients_to_inbounds(server, callback.from_user.id, callback.bot, status_message=status))
 
 
 # ---------------- Toggle / Delete ----------------
