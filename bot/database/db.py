@@ -391,7 +391,14 @@ async def get_all_active_configs():
                FROM configs c
                JOIN users u ON c.user_id = u.id
                LEFT JOIN plans p ON c.plan_id = p.id
-               WHERE c.is_active=TRUE"""
+                WHERE c.is_active=TRUE"""
+        )
+
+
+async def get_configs_by_server_id(server_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM configs WHERE server_id = $1", server_id
         )
 
 
