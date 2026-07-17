@@ -196,6 +196,18 @@ async def init_db():
             except Exception:
                 pass
 
+        try:
+            master = await conn.fetchrow(
+                "SELECT id FROM servers WHERE is_active = TRUE ORDER BY id LIMIT 1"
+            )
+            if master:
+                await conn.execute(
+                    "UPDATE configs SET server_id = $1 WHERE server_id IS NULL",
+                    master["id"]
+                )
+        except Exception:
+            pass
+
 
 async def get_pool() -> asyncpg.Pool:
     return pool
