@@ -2,6 +2,8 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+import asyncio
+import logging
 
 from bot.config import ADMIN_IDS
 from bot.database import db
@@ -12,6 +14,36 @@ from bot.keyboards.inline import (
 from bot.services.xui import XUIClient
 
 router = Router()
+logger = logging.getLogger(__name__)
+
+async def _sync_clients_to_inbounds(server: dict, inbound_ids: list, admin_chat_id: int, bot):
+    success = 0
+    failed = 0
+
+    configs = await db.get_configs_by_server_id(server["id"])
+    if not configs:
+        await bot.send_message(admin_chat_id, "هیچ کانفیگی برای این سرور یافت نشد.")
+        return
+
+    xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
+
+    for cfg in configs:
+        try:
+            ok = await xui.attach_client(cfg["client_email"], inbound_ids)
+            if ok:
+                success += 1
+            else:
+                failed += 1
+                logger.warning(f"attach_client returned false for {cfg['client_email']}")
+        except Exception:
+            failed += 1
+            logger.exception(f"Sync failed for client {cfg['client_email']}")
+
+    await bot.send_message(
+        admin_chat_id,
+        f"همگام‌سازی اینباندهای «{server['name']}» کامل شد\n"
+        f"موفق: {success}\nخطا: {failed}"
+    )
 
 FIELD_LABELS = {
     "name": "نام", "url": "آدرس API", "api_token": "توکن",
@@ -272,6 +304,7 @@ async def inbound_delete(callback: CallbackQuery):
         reply_markup=server_inbounds_keyboard(server_id, ids)
     )
     await callback.answer(f"✅ {inbound_id} حذف شد!")
+    asyncio.create_task(_sync_clients_to_inbounds(server, ids, callback.from_user.id, callback.bot))
 
 
 @router.callback_query(F.data.startswith("admin:inbound_add:"))
@@ -298,6 +331,7 @@ async def inbound_add_save(message: Message, state: FSMContext):
         f"✅ اضافه شد!\n📡 فعلی: {', '.join(str(i) for i in cur_ids) if cur_ids else 'خالی'}",
         reply_markup=server_inbounds_keyboard(server_id, cur_ids)
     )
+    asyncio.create_task(_sync_clients_to_inbounds(server, cur_ids, message.from_user.id, message.bot))
 
 
 @router.callback_query(F.data.startswith("admin:set_inbounds:"))
@@ -325,6 +359,8 @@ async def save_inbounds(message: Message, state: FSMContext):
     await db.set_server_inbound_ids(server_id, cleaned)
     await state.clear()
     await message.answer(f"✅ ذخیره شد: {cleaned}", reply_markup=server_inbounds_keyboard(server_id, ids))
+    server = await db.get_server(server_id)
+    asyncio.create_task(_sync_clients_to_inbounds(server, ids, message.from_user.id, message.bot))
 
 
 # ---------------- Toggle / Delete ----------------
