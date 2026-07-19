@@ -3,6 +3,7 @@ import os
 import asyncio
 import uuid
 import re
+import glob
 
 from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message
@@ -48,31 +49,37 @@ def _yt_extract_formats(url: str) -> list:
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
         formats = []
-        seen = set()
+        seen_res = set()
+        best_audio_id = ""
         for f in info.get("formats", []):
             h = f.get("height") or 0
             has_video = f.get("vcodec") != "none"
             has_audio = f.get("acodec") != "none"
-            note = f.get("format_note", "")
             fid = f.get("format_id", "")
-            if not has_video and has_audio:
-                key = "audio"
-                label = "🎵 صوت (MP3)"
-            elif has_video and h >= 1080:
-                key = f"{h}p"
-                label = f"📺 {h}p"
-            elif has_video and h >= 360:
-                key = f"{h}p"
-                label = f"📺 {h}p"
+            if not has_video and has_audio and not best_audio_id:
+                best_audio_id = fid
+            if not has_video:
+                continue
+            if h < 360:
+                continue
+            if h in seen_res:
+                continue
+            seen_res.add(h)
+            if has_audio and fid != best_audio_id:
+                merge_fid = fid
             else:
-                continue
-            if key in seen:
-                continue
-            seen.add(key)
+                merge_fid = f"{fid}+{best_audio_id}" if best_audio_id else fid
             formats.append({
-                "id": fid,
-                "label": label,
+                "id": merge_fid,
+                "label": f"📺 {h}p",
                 "height": h,
+                "title": info.get("title", "video")[:60],
+            })
+        if best_audio_id:
+            formats.append({
+                "id": best_audio_id,
+                "label": "🎵 صوت (MP3)",
+                "height": 0,
                 "title": info.get("title", "video")[:60],
             })
         return formats
@@ -86,14 +93,25 @@ def _yt_download(url: str, format_id: str, out_path: str) -> str:
     name = str(uuid.uuid4())[:8]
     opts = {
         "quiet": True, "no_warnings": True,
-        "format": f"{format_id}+bestaudio/best",
+        "format": format_id,
         "outtmpl": f"{out_path}/{name}.%(ext)s",
         "merge_output_format": "mp4",
+        "socket_timeout": 30,
+        "extract_flat": False,
     }
-    with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        return ydl.prepare_filename(info)
-    return ""
+    try:
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            if not info:
+                return ""
+            pattern = f"{out_path}/{name}.*"
+            files = glob.glob(pattern)
+            if files:
+                return files[0]
+            return ydl.prepare_filename(info)
+    except Exception as e:
+        logger.error(f"yt-dlp download error: {type(e).__name__}: {e}")
+        return ""
 
 
 @router.callback_query(F.data == "main:download")
@@ -253,15 +271,36 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
     out_dir = "/tmp/migmig_dl"
     os.makedirs(out_dir, exist_ok=True)
 
-    path = await asyncio.get_running_loop().run_in_executor(
-        None, _yt_download, url, fmt["id"], out_dir
-    )
+    try:
+        path = await asyncio.get_running_loop().run_in_executor(
+            None, _yt_download, url, fmt["id"], out_dir
+        )
+    except Exception as e:
+        logger.error(f"yt download runner failed: {type(e).__name__}: {e}")
+        await callback.message.edit_text(
+            f"❌ خطا در دانلود: {type(e).__name__}",
+            reply_markup=back_to_menu_keyboard()
+        )
+        await state.clear()
+        await callback.answer()
+        return
 
     if not path or not os.path.isfile(path):
         await callback.message.edit_text(
             "❌ دانلود ناموفق بود. لطفا دوباره تلاش کنید.",
             reply_markup=back_to_menu_keyboard()
         )
+        await state.clear()
+        await callback.answer()
+        return
+
+    file_size_mb = os.path.getsize(path) / (1024 * 1024)
+    if file_size_mb > 50:
+        await callback.message.edit_text(
+            f"❌ حجم فایل ({file_size_mb:.1f} MB) بیش از حد مجاز ۵۰ مگابایت تلگرام است.",
+            reply_markup=back_to_menu_keyboard()
+        )
+        os.remove(path)
         await state.clear()
         await callback.answer()
         return
