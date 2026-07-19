@@ -34,10 +34,10 @@ echo "        MigMig VPN Bot - Ubuntu Deploy"
 echo "=================================================="
 
 # ---------- 1) System dependencies ----------
-info "Updating apt and installing dependencies (python, postgresql)..."
+info "Updating apt and installing dependencies (python, postgresql, ffmpeg)..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip postgresql postgresql-contrib openssl curl
+apt-get install -y python3 python3-venv python3-pip postgresql postgresql-contrib openssl curl ffmpeg
 systemctl enable postgresql >/dev/null 2>&1 || true
 systemctl start postgresql
 
@@ -121,7 +121,7 @@ chmod 600 "$PROJECT_DIR/.env"
 info "Creating virtualenv and installing requirements..."
 python3 -m venv "$PROJECT_DIR/venv"
 "$PROJECT_DIR/venv/bin/pip" install --upgrade pip >/dev/null
-"$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
+"$PROJECT_DIR/venv/bin/pip" install -U -r "$PROJECT_DIR/requirements.txt"
 
 # ---------- 6) systemd service ----------
 info "Creating systemd service (${SERVICE_NAME})..."

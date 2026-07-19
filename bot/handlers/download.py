@@ -3,6 +3,7 @@ import glob
 import logging
 import os
 import re
+import shutil
 import tempfile
 import uuid
 
@@ -80,13 +81,26 @@ def _yt_extract_formats(url: str) -> list[dict]:
         if has_video and height >= 360:
             heights.add(int(height))
 
+    ffmpeg_available = shutil.which("ffmpeg") is not None
     formats = []
     for height in sorted(heights, reverse=True):
-        selector = (
-            f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/"
-            f"bestvideo[height<={height}]+bestaudio/"
-            f"best[height<={height}]/best"
-        )
+        if ffmpeg_available:
+            selector = (
+                f"bestvideo[height={height}][ext=mp4]+bestaudio[ext=m4a]/"
+                f"bestvideo[height={height}]+bestaudio/"
+                f"best[height={height}][ext=mp4]/"
+                f"best[height={height}]/"
+                f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/"
+                f"bestvideo[height<={height}]+bestaudio/"
+                f"best[height<={height}]/best"
+            )
+        else:
+            selector = (
+                f"best[height={height}][ext=mp4]/"
+                f"best[height={height}]/"
+                f"best[height<={height}][ext=mp4]/"
+                f"best[height<={height}]/best"
+            )
         formats.append(
             {
                 "id": selector,

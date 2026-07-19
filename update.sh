@@ -68,13 +68,18 @@ fi
 # ---------- 3) Normalize line endings (in case edited on Windows) ----------
 sed -i 's/\r$//' "$PROJECT_DIR"/*.sh 2>/dev/null || true
 
-# ---------- 4) Update Python dependencies ----------
+# ---------- 4) Update system/Python dependencies ----------
 if [ ! -x "$PROJECT_DIR/venv/bin/pip" ]; then
     err "venv not found. Run deploy.sh first."
     exit 1
 fi
+info "Ensuring ffmpeg is installed..."
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y >/dev/null
+apt-get install -y ffmpeg >/dev/null
+
 info "Updating Python dependencies..."
-"$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" >/dev/null
+"$PROJECT_DIR/venv/bin/pip" install -U -r "$PROJECT_DIR/requirements.txt" >/dev/null
 
 # ---------- 5) Restart service (migrations run on startup) ----------
 info "Restarting service ${SERVICE_NAME}..."
