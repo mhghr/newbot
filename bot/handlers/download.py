@@ -194,6 +194,10 @@ async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = N
     await bot.send_video(chat_id=chat_id, video=FSInputFile(path), caption=caption)
 
 
+async def _send_upload_action(bot: Bot, chat_id: int) -> None:
+    await bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_VIDEO)
+
+
 @router.callback_query(F.data == "main:download")
 async def download_menu(callback: CallbackQuery, bot: Bot):
     is_member = await check_membership(bot, callback.from_user.id)
@@ -296,7 +300,7 @@ async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
         return
 
     try:
-        await message.answer_chat_action(ChatAction.UPLOAD_VIDEO)
+        await _send_upload_action(bot, message.from_user.id)
         await _send_video(bot, message.from_user.id, path)
         await status.delete()
     except Exception as e:
@@ -369,7 +373,7 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
         return
 
     try:
-        await callback.message.answer_chat_action(ChatAction.UPLOAD_VIDEO)
+        await _send_upload_action(bot, callback.from_user.id)
         await _send_video(
             bot,
             callback.from_user.id,
