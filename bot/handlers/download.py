@@ -1,28 +1,33 @@
+import asyncio
+import glob
 import logging
 import os
-import asyncio
-import uuid
 import re
-import glob
+import tempfile
+import uuid
 
-from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, Message
+from aiogram import Bot, F, Router
+from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.enums import ChatAction
+from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from bot.keyboards.inline import download_platforms_keyboard, back_to_menu_keyboard, cancel_keyboard
+from bot.keyboards.inline import back_to_menu_keyboard, cancel_keyboard, download_platforms_keyboard
 from bot.middlewares.membership import check_membership
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 YT_RE = re.compile(
-    r'(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/|m\.youtube\.com/watch\?v=)([\w-]{11})',
-    re.IGNORECASE
+    r"(https?://)?(www\.|m\.)?(youtube\.com/(watch\?v=|shorts/|live/)|youtu\.be/)([\w-]{11})",
+    re.IGNORECASE,
 )
-INSTA_RE = re.compile(r'(https?://)?(www\.)?instagram\.com/(reel|p|tv)/[\w-]+', re.IGNORECASE)
-TIKTOK_RE = re.compile(r'(https?://)?(www\.)?(vm\.)?tiktok\.com/[\w./?=-]+', re.IGNORECASE)
+INSTA_RE = re.compile(r"(https?://)?(www\.)?instagram\.com/(reel|p|tv)/[\w-]+", re.IGNORECASE)
+TIKTOK_RE = re.compile(r"(https?://)?(www\.)?(vm\.)?tiktok\.com/[\w./?=-]+", re.IGNORECASE)
+
+DOWNLOAD_TIMEOUT = 300
+EXTRACT_TIMEOUT = 45
+TELEGRAM_BOT_FILE_LIMIT_MB = 50
 
 
 class DownloadStates(StatesGroup):
@@ -30,88 +35,149 @@ class DownloadStates(StatesGroup):
     choosing_quality = State()
 
 
-async def _get_yt_formats(url: str) -> list:
+def _download_dir() -> str:
+    path = os.path.join(tempfile.gettempdir(), "migmig_dl")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+async def _get_yt_formats(url: str) -> list[dict]:
     loop = asyncio.get_running_loop()
     try:
-        return await loop.run_in_executor(None, _yt_extract_formats, url)
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _yt_extract_formats, url),
+            timeout=EXTRACT_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.error("yt-dlp extract timed out")
+        return []
     except Exception as e:
         logger.error(f"yt-dlp extract failed: {type(e).__name__}: {e}")
         return []
 
 
-def _yt_extract_formats(url: str) -> list:
+def _yt_extract_formats(url: str) -> list[dict]:
     try:
         from yt_dlp import YoutubeDL
     except ImportError:
         return []
 
-    opts = {"quiet": True, "no_warnings": True}
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "socket_timeout": 30,
+        "noplaylist": True,
+        "extract_flat": False,
+    }
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
-        formats = []
-        seen_res = set()
-        best_audio_id = ""
-        for f in info.get("formats", []):
-            h = f.get("height") or 0
-            has_video = f.get("vcodec") != "none"
-            has_audio = f.get("acodec") != "none"
-            fid = f.get("format_id", "")
-            if not has_video and has_audio and not best_audio_id:
-                best_audio_id = fid
-            if not has_video:
-                continue
-            if h < 360:
-                continue
-            if h in seen_res:
-                continue
-            seen_res.add(h)
-            if has_audio and fid != best_audio_id:
-                merge_fid = fid
-            else:
-                merge_fid = f"{fid}+{best_audio_id}" if best_audio_id else fid
-            formats.append({
-                "id": merge_fid,
-                "label": f"📺 {h}p",
-                "height": h,
-                "title": info.get("title", "video")[:60],
-            })
-        if best_audio_id:
-            formats.append({
-                "id": best_audio_id,
-                "label": "🎵 صوت (MP3)",
-                "height": 0,
-                "title": info.get("title", "video")[:60],
-            })
-        return formats
+
+    title = (info or {}).get("title", "video")[:60]
+    heights: set[int] = set()
+    for fmt in (info or {}).get("formats", []):
+        height = fmt.get("height") or 0
+        has_video = fmt.get("vcodec") != "none"
+        if has_video and height >= 360:
+            heights.add(int(height))
+
+    formats = []
+    for height in sorted(heights, reverse=True):
+        selector = (
+            f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/"
+            f"bestvideo[height<={height}]+bestaudio/"
+            f"best[height<={height}]/best"
+        )
+        formats.append(
+            {
+                "id": selector,
+                "label": f"📺 {height}p",
+                "height": height,
+                "title": title,
+            }
+        )
+
+    if not formats:
+        has_video = any(fmt.get("vcodec") != "none" for fmt in (info or {}).get("formats", []))
+        if has_video:
+            formats.append(
+                {
+                    "id": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+                    "label": "📺 بهترین کیفیت",
+                    "height": 0,
+                    "title": title,
+                }
+            )
+
+    return formats
 
 
-def _yt_download(url: str, format_id: str, out_path: str) -> str:
+def _yt_download(url: str, format_id: str, out_dir: str) -> str:
     try:
         from yt_dlp import YoutubeDL
     except ImportError:
         return ""
+
     name = str(uuid.uuid4())[:8]
     opts = {
-        "quiet": True, "no_warnings": True,
+        "quiet": True,
+        "no_warnings": True,
         "format": format_id,
-        "outtmpl": f"{out_path}/{name}.%(ext)s",
+        "outtmpl": os.path.join(out_dir, f"{name}.%(ext)s"),
         "merge_output_format": "mp4",
         "socket_timeout": 30,
+        "noplaylist": True,
         "extract_flat": False,
     }
     try:
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            if not info:
-                return ""
-            pattern = f"{out_path}/{name}.*"
-            files = glob.glob(pattern)
-            if files:
-                return files[0]
-            return ydl.prepare_filename(info)
+        if not info:
+            return ""
+        files = glob.glob(os.path.join(out_dir, f"{name}.*"))
+        if files:
+            return max(files, key=os.path.getsize)
+        return YoutubeDL(opts).prepare_filename(info)
     except Exception as e:
         logger.error(f"yt-dlp download error: {type(e).__name__}: {e}")
         return ""
+
+
+async def _simple_download(url: str, out_dir: str) -> str:
+    try:
+        from yt_dlp import YoutubeDL
+    except ImportError:
+        return ""
+
+    name = str(uuid.uuid4())[:8]
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+        "outtmpl": os.path.join(out_dir, f"{name}.%(ext)s"),
+        "merge_output_format": "mp4",
+        "socket_timeout": 30,
+        "noplaylist": True,
+    }
+    loop = asyncio.get_running_loop()
+    try:
+        info = await asyncio.wait_for(
+            loop.run_in_executor(None, lambda: YoutubeDL(opts).extract_info(url, download=True)),
+            timeout=DOWNLOAD_TIMEOUT,
+        )
+        if info:
+            files = glob.glob(os.path.join(out_dir, f"{name}.*"))
+            if files:
+                return max(files, key=os.path.getsize)
+            return YoutubeDL(opts).prepare_filename(info)
+    except asyncio.TimeoutError:
+        logger.error("simple download timed out")
+    except Exception as e:
+        logger.error(f"simple download failed: {type(e).__name__}: {e}")
+    return ""
+
+
+async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = None) -> None:
+    await bot.send_video(chat_id=chat_id, video=FSInputFile(path), caption=caption)
 
 
 @router.callback_query(F.data == "main:download")
@@ -122,7 +188,7 @@ async def download_menu(callback: CallbackQuery, bot: Bot):
         return
     await callback.message.edit_text(
         "🎬 دانلود ویدیو\n\nپلتفرم مورد نظر را انتخاب کنید:",
-        reply_markup=download_platforms_keyboard()
+        reply_markup=download_platforms_keyboard(),
     )
     await callback.answer()
 
@@ -135,47 +201,30 @@ async def download_platform(callback: CallbackQuery, state: FSMContext):
     if platform == "youtube":
         await callback.message.edit_text(
             "▶️ لینک ویدیوی یوتیوب را ارسال کنید:\n(مثال: https://youtu.be/xxxxx)",
-            reply_markup=cancel_keyboard()
+            reply_markup=cancel_keyboard(),
         )
         await state.set_state(DownloadStates.waiting_link)
     elif platform == "instagram":
         await callback.message.edit_text(
             "📸 لینک پست/ریلز اینستاگرام را ارسال کنید:\n(مثال: https://instagram.com/reel/xxxxx)",
-            reply_markup=cancel_keyboard()
+            reply_markup=cancel_keyboard(),
         )
         await state.set_state(DownloadStates.waiting_link)
     elif platform == "tiktok":
         await callback.message.edit_text(
             "🎵 لینک ویدیوی تیک‌تاک را ارسال کنید:\n(مثال: https://vm.tiktok.com/xxxxx)",
-            reply_markup=cancel_keyboard()
+            reply_markup=cancel_keyboard(),
         )
         await state.set_state(DownloadStates.waiting_link)
     await callback.answer()
 
 
-async def _simple_download(url: str, out_dir: str) -> str:
-    try:
-        from yt_dlp import YoutubeDL
-    except ImportError:
-        return ""
-    name = str(uuid.uuid4())[:8]
-    opts = {
-        "quiet": True, "no_warnings": True,
-        "outtmpl": f"{out_dir}/{name}.%(ext)s",
-        "merge_output_format": "mp4",
-    }
-    loop = asyncio.get_running_loop()
-    try:
-        info = await loop.run_in_executor(None, lambda: YoutubeDL(opts).extract_info(url, download=True))
-        if info:
-            return YoutubeDL(opts).prepare_filename(info)
-    except Exception as e:
-        logger.error(f"simple download failed: {type(e).__name__}: {e}")
-    return ""
-
-
 @router.message(DownloadStates.waiting_link)
 async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
+    if not message.text:
+        await message.answer("⚠️ لطفا لینک را به صورت متن ارسال کنید.", reply_markup=cancel_keyboard())
+        return
+
     url = message.text.strip()
     data_so_far = await state.get_data()
     platform = data_so_far.get("dl_platform", "")
@@ -188,22 +237,22 @@ async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
         formats = await _get_yt_formats(url)
         if not formats:
             await status.edit_text(
-                "❌ نتوانستم کیفیت‌ها را دریافت کنم.\nمطمئن شوید لینک درست است و yt-dlp روی سرور نصب است.",
-                reply_markup=back_to_menu_keyboard()
+                "❌ نتوانستم کیفیت‌ها را دریافت کنم.\nمطمئن شوید لینک درست است و yt-dlp روی سرور نصب و به‌روز است.",
+                reply_markup=back_to_menu_keyboard(),
             )
             await state.clear()
             return
 
         await state.update_data(dl_url=url, dl_formats=formats)
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        buttons = []
-        for idx, f in enumerate(formats):
-            buttons.append([InlineKeyboardButton(text=f["label"], callback_data=f"yt_q:{idx}")])
+        buttons = [
+            [InlineKeyboardButton(text=fmt["label"], callback_data=f"yt_q:{idx}")]
+            for idx, fmt in enumerate(formats)
+        ]
         buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="cancel_action")])
 
         await status.edit_text(
             f"🎬 {formats[0].get('title', '')}\n\nکیفیت مورد نظر را انتخاب کنید:",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         )
         await state.set_state(DownloadStates.choosing_quality)
         return
@@ -224,29 +273,22 @@ async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
     status = await message.answer("⏳ در حال دانلود ویدیو...")
     await state.clear()
 
-    out_dir = "/tmp/migmig_dl"
-    os.makedirs(out_dir, exist_ok=True)
-
-    path = await _simple_download(url, out_dir)
-
+    path = await _simple_download(url, _download_dir())
     if not path or not os.path.isfile(path):
         await status.edit_text(
             "❌ دانلود ناموفق بود.\nممکن است ویدیو خصوصی باشد یا نیاز به ورود داشته باشد.",
-            reply_markup=back_to_menu_keyboard()
+            reply_markup=back_to_menu_keyboard(),
         )
         return
 
     try:
         await message.answer_chat_action(ChatAction.UPLOAD_VIDEO)
-        await bot.send_video(
-            chat_id=message.from_user.id,
-            video=open(path, "rb"),
-        )
+        await _send_video(bot, message.from_user.id, path)
         await status.delete()
     except Exception as e:
         await status.edit_text(
             f"❌ ارسال ناموفق (ممکن است حجم فایل > 50MB باشد):\n{type(e).__name__}",
-            reply_markup=back_to_menu_keyboard()
+            reply_markup=back_to_menu_keyboard(),
         )
     finally:
         try:
@@ -268,18 +310,25 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
     fmt = formats[idx]
     await callback.message.edit_text(f"⏳ در حال دانلود {fmt['label']}...")
 
-    out_dir = "/tmp/migmig_dl"
-    os.makedirs(out_dir, exist_ok=True)
-
     try:
-        path = await asyncio.get_running_loop().run_in_executor(
-            None, _yt_download, url, fmt["id"], out_dir
+        path = await asyncio.wait_for(
+            asyncio.get_running_loop().run_in_executor(None, _yt_download, url, fmt["id"], _download_dir()),
+            timeout=DOWNLOAD_TIMEOUT,
         )
+    except asyncio.TimeoutError:
+        logger.error("yt download runner timed out")
+        await callback.message.edit_text(
+            "❌ زمان دانلود بیش از حد طول کشید. لطفا کیفیت پایین‌تری را انتخاب کنید یا دوباره تلاش کنید.",
+            reply_markup=back_to_menu_keyboard(),
+        )
+        await state.clear()
+        await callback.answer()
+        return
     except Exception as e:
         logger.error(f"yt download runner failed: {type(e).__name__}: {e}")
         await callback.message.edit_text(
             f"❌ خطا در دانلود: {type(e).__name__}",
-            reply_markup=back_to_menu_keyboard()
+            reply_markup=back_to_menu_keyboard(),
         )
         await state.clear()
         await callback.answer()
@@ -288,17 +337,17 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
     if not path or not os.path.isfile(path):
         await callback.message.edit_text(
             "❌ دانلود ناموفق بود. لطفا دوباره تلاش کنید.",
-            reply_markup=back_to_menu_keyboard()
+            reply_markup=back_to_menu_keyboard(),
         )
         await state.clear()
         await callback.answer()
         return
 
     file_size_mb = os.path.getsize(path) / (1024 * 1024)
-    if file_size_mb > 50:
+    if file_size_mb > TELEGRAM_BOT_FILE_LIMIT_MB:
         await callback.message.edit_text(
-            f"❌ حجم فایل ({file_size_mb:.1f} MB) بیش از حد مجاز ۵۰ مگابایت تلگرام است.",
-            reply_markup=back_to_menu_keyboard()
+            f"❌ حجم فایل ({file_size_mb:.1f} MB) بیش از حد مجاز {TELEGRAM_BOT_FILE_LIMIT_MB} مگابایت تلگرام است.",
+            reply_markup=back_to_menu_keyboard(),
         )
         os.remove(path)
         await state.clear()
@@ -307,16 +356,17 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
 
     try:
         await callback.message.answer_chat_action(ChatAction.UPLOAD_VIDEO)
-        await bot.send_video(
-            chat_id=callback.from_user.id,
-            video=open(path, "rb"),
-            caption=f"🎬 {fmt.get('title', '')} — {fmt['label']}",
+        await _send_video(
+            bot,
+            callback.from_user.id,
+            path,
+            caption=f"🎬 {fmt.get('title', '')} - {fmt['label']}",
         )
         await callback.message.delete()
     except Exception as e:
         await callback.message.edit_text(
             f"❌ ارسال ناموفق بود (ممکن است حجم فایل بیش از حد مجاز تلگرام باشد):\n{type(e).__name__}",
-            reply_markup=back_to_menu_keyboard()
+            reply_markup=back_to_menu_keyboard(),
         )
     finally:
         try:
