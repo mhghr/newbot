@@ -29,6 +29,7 @@ TIKTOK_RE = re.compile(r"(https?://)?(www\.)?(vm\.)?tiktok\.com/[\w./?=-]+", re.
 DOWNLOAD_TIMEOUT = 300
 EXTRACT_TIMEOUT = 45
 TELEGRAM_BOT_FILE_LIMIT_MB = 50
+STANDARD_VIDEO_HEIGHTS = (4320, 2160, 1440, 1080, 720, 480, 360)
 
 
 class DownloadStates(StatesGroup):
@@ -40,6 +41,13 @@ def _download_dir() -> str:
     path = os.path.join(tempfile.gettempdir(), "migmig_dl")
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def _standard_quality(width: int, height: int) -> int:
+    # Cropped YouTube streams can be 1920x1040 or 1152x649 even though their
+    # conventional quality labels are 1080p and 720p. Account for both axes.
+    equivalent_height = max(height, round(width * 9 / 16))
+    return min(STANDARD_VIDEO_HEIGHTS, key=lambda value: abs(value - equivalent_height))
 
 
 async def _get_yt_formats(url: str) -> list[dict]:
@@ -74,16 +82,20 @@ def _yt_extract_formats(url: str) -> list[dict]:
         info = ydl.extract_info(url, download=False)
 
     title = (info or {}).get("title", "video")[:60]
-    heights: set[int] = set()
+    quality_heights: dict[int, int] = {}
     for fmt in (info or {}).get("formats", []):
-        height = fmt.get("height") or 0
+        width = int(fmt.get("width") or 0)
+        height = int(fmt.get("height") or 0)
         has_video = fmt.get("vcodec") != "none"
         if has_video and height >= 360:
-            heights.add(int(height))
+            quality = _standard_quality(width, height)
+            # Keep the largest real stream in each user-facing quality tier.
+            quality_heights[quality] = max(quality_heights.get(quality, 0), height)
 
     ffmpeg_available = shutil.which("ffmpeg") is not None
     formats = []
-    for height in sorted(heights, reverse=True):
+    for quality in sorted(quality_heights, reverse=True):
+        height = quality_heights[quality]
         if ffmpeg_available:
             selector = (
                 f"bestvideo[height={height}][ext=mp4]+bestaudio[ext=m4a]/"
@@ -104,7 +116,7 @@ def _yt_extract_formats(url: str) -> list[dict]:
         formats.append(
             {
                 "id": selector,
-                "label": f"📺 {height}p",
+                "label": f"📺 {quality}p",
                 "height": height,
                 "title": title,
             }
