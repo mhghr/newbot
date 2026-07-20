@@ -1,9 +1,11 @@
 import asyncio
 import glob
+import json
 import logging
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import uuid
 
@@ -202,15 +204,64 @@ async def _simple_download(url: str, out_dir: str) -> str:
     return ""
 
 
+def _video_dimensions(path: str) -> tuple[int, int] | None:
+    """Read display dimensions so Telegram keeps the video's aspect ratio."""
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return None
+
+    try:
+        result = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height:stream_tags=rotate:stream_side_data=rotation",
+                "-of",
+                "json",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+        stream = json.loads(result.stdout)["streams"][0]
+        width = int(stream["width"])
+        height = int(stream["height"])
+
+        rotation = int(stream.get("tags", {}).get("rotate", 0) or 0)
+        for side_data in stream.get("side_data_list", []):
+            if "rotation" in side_data:
+                rotation = int(side_data["rotation"] or 0)
+                break
+        if abs(rotation) % 180 == 90:
+            width, height = height, width
+
+        return (width, height) if width > 0 and height > 0 else None
+    except (KeyError, IndexError, TypeError, ValueError, OSError, subprocess.SubprocessError, json.JSONDecodeError) as e:
+        logger.warning("Could not detect video dimensions for %s: %s", path, e)
+        return None
+
+
 async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = None) -> None:
     # Telegram only offers "Save to Gallery" for media sent as a video.  A file
     # sent with send_document is treated as a generic attachment, even if it is
     # an MP4 file.
+    dimensions = await asyncio.to_thread(_video_dimensions, path)
+    send_options = {}
+    if dimensions:
+        send_options["width"], send_options["height"] = dimensions
+
     await bot.send_video(
         chat_id=chat_id,
         video=FSInputFile(path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
         caption=caption,
         supports_streaming=True,
+        **send_options,
     )
 
 
