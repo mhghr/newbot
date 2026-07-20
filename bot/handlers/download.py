@@ -203,11 +203,12 @@ async def _simple_download(url: str, out_dir: str) -> str:
 
 
 async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = None) -> None:
-    await bot.send_video(chat_id=chat_id, video=FSInputFile(path), caption=caption)
+    # Sending as a document exposes "Save to Files" on Telegram mobile.
+    await bot.send_document(chat_id=chat_id, document=FSInputFile(path), caption=caption)
 
 
 async def _send_upload_action(bot: Bot, chat_id: int) -> None:
-    await bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_VIDEO)
+    await bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_DOCUMENT)
 
 
 @router.callback_query(F.data == "main:download")
