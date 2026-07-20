@@ -203,12 +203,19 @@ async def _simple_download(url: str, out_dir: str) -> str:
 
 
 async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = None) -> None:
-    # Sending as a document exposes "Save to Files" on Telegram mobile.
-    await bot.send_document(chat_id=chat_id, document=FSInputFile(path), caption=caption)
+    # Telegram only offers "Save to Gallery" for media sent as a video.  A file
+    # sent with send_document is treated as a generic attachment, even if it is
+    # an MP4 file.
+    await bot.send_video(
+        chat_id=chat_id,
+        video=FSInputFile(path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
+        caption=caption,
+        supports_streaming=True,
+    )
 
 
 async def _send_upload_action(bot: Bot, chat_id: int) -> None:
-    await bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_DOCUMENT)
+    await bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_VIDEO)
 
 
 @router.callback_query(F.data == "main:download")
