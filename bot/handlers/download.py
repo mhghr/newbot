@@ -100,18 +100,24 @@ def _yt_extract_formats(url: str) -> list[dict]:
         height = quality_heights[quality]
         if ffmpeg_available:
             selector = (
+                f"bestvideo[height={height}][ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/"
+                f"best[height={height}][ext=mp4][vcodec^=avc1][acodec^=mp4a]/"
                 f"bestvideo[height={height}][ext=mp4]+bestaudio[ext=m4a]/"
                 f"bestvideo[height={height}]+bestaudio/"
                 f"best[height={height}][ext=mp4]/"
                 f"best[height={height}]/"
+                f"bestvideo[height<={height}][ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/"
+                f"best[height<={height}][ext=mp4][vcodec^=avc1][acodec^=mp4a]/"
                 f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/"
                 f"bestvideo[height<={height}]+bestaudio/"
                 f"best[height<={height}]/best"
             )
         else:
             selector = (
+                f"best[height={height}][ext=mp4][vcodec^=avc1][acodec^=mp4a]/"
                 f"best[height={height}][ext=mp4]/"
                 f"best[height={height}]/"
+                f"best[height<={height}][ext=mp4][vcodec^=avc1][acodec^=mp4a]/"
                 f"best[height<={height}][ext=mp4]/"
                 f"best[height<={height}]/best"
             )
@@ -180,7 +186,11 @@ async def _simple_download(url: str, out_dir: str) -> str:
     opts = {
         "quiet": True,
         "no_warnings": True,
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+        "format": (
+            "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/"
+            "best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/"
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
+        ),
         "outtmpl": os.path.join(out_dir, f"{name}.%(ext)s"),
         "merge_output_format": "mp4",
         "socket_timeout": 30,
