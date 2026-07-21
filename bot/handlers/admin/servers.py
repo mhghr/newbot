@@ -59,7 +59,9 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
                     to_add = sorted(desired_set - current_set)
                     to_remove = sorted(current_set - desired_set)
                     attached = not to_add or await xui.attach_client(cfg["client_email"], to_add)
-                    detached = attached and (not to_remove or await xui.detach_client(cfg["client_email"], to_remove))
+                    # Removal is independent from attachment: an attach error
+                    # must not leave obsolete inbounds connected to the client.
+                    detached = not to_remove or await xui.detach_client(cfg["client_email"], to_remove)
 
                     # Never report success only because the API returned 200;
                     # read the panel again and verify the final attachments.
