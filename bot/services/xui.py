@@ -230,6 +230,18 @@ class XUIClient:
         return f"{self.base_url}/sub/{email}"
 
     async def get_client_inbounds(self, email: str) -> list:
+        # The modern clients endpoint is the authoritative source for a
+        # client's attachments. clientStats can be incomplete/stale (for
+        # example before the client has generated any traffic).
+        try:
+            data = await self._request("GET", f"/panel/api/clients/get/{email}")
+            obj = data.get("obj") or {}
+            if data.get("success") and isinstance(obj, dict) and "inboundIds" in obj:
+                return [int(i) for i in (obj.get("inboundIds") or [])]
+        except Exception as e:
+            logger.warning("Modern client lookup failed for %s; using inbound list: %s", email, e)
+
+        # Compatibility fallback for older panel versions.
         data = await self._request("GET", "/panel/api/inbounds/list")
         inbound_ids = []
         for inbound in data.get("obj", []):
@@ -247,8 +259,12 @@ class XUIClient:
         )
         return data.get("success", False)
 
-    async def detach_client(self, email: str) -> bool:
-        data = await self._request("POST", f"/panel/api/clients/{email}/detach")
+    async def detach_client(self, email: str, inbound_ids: list) -> bool:
+        data = await self._request(
+            "POST",
+            f"/panel/api/clients/{email}/detach",
+            json={"inboundIds": inbound_ids}
+        )
         return data.get("success", False)
 
 

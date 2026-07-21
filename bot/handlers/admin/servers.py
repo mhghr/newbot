@@ -54,12 +54,24 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
                 if current_set == desired_set:
                     already_ok += 1
                 else:
-                    ok = await xui.attach_client(cfg["client_email"], desired_ids)
-                    if ok:
+                    # Apply only the delta. Attach first so a client is never
+                    # left temporarily without an inbound during the sync.
+                    to_add = sorted(desired_set - current_set)
+                    to_remove = sorted(current_set - desired_set)
+                    attached = not to_add or await xui.attach_client(cfg["client_email"], to_add)
+                    detached = attached and (not to_remove or await xui.detach_client(cfg["client_email"], to_remove))
+
+                    # Never report success only because the API returned 200;
+                    # read the panel again and verify the final attachments.
+                    actual = set(await xui.get_client_inbounds(cfg["client_email"]))
+                    if attached and detached and actual == desired_set:
                         fixed += 1
                     else:
                         failed += 1
-                        logger.error(f"attach_client failed for {cfg['client_email']}")
+                        logger.error(
+                            "Inbound sync verification failed for %s: desired=%s actual=%s add=%s remove=%s",
+                            cfg["client_email"], sorted(desired_set), sorted(actual), to_add, to_remove,
+                        )
             except Exception:
                 failed += 1
                 logger.exception(f"Sync failed for client {cfg['client_email']}")
