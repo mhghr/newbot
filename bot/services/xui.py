@@ -185,6 +185,40 @@ class XUIClient:
         data = await self._request("POST", f"/panel/api/clients/del/{email}")
         return data.get("success", False)
 
+    async def update_client(self, email: str, traffic_gb: int = 0, expire_days: int = 0,
+                            tg_id=0, limit_ip: int = 0, enable: bool = True) -> bool:
+        """Update an existing client's quota/expiry without recreating it.
+
+        The client keeps its id/subId (and therefore its subscription link);
+        only the provided fields are changed.  Used traffic counters are NOT
+        touched, so callers that want a fresh quota must also reset the traffic.
+        """
+        if expire_days and expire_days > 0:
+            expire_ms = int((datetime.now() + timedelta(days=expire_days)).timestamp() * 1000)
+        else:
+            expire_ms = 0
+        traffic_bytes = traffic_gb * 1024 * 1024 * 1024 if traffic_gb and traffic_gb > 0 else 0
+
+        client = {
+            "email": email,
+            "totalGB": traffic_bytes,
+            "expiryTime": expire_ms,
+            "enable": enable,
+        }
+        if tg_id:
+            client["tgId"] = self._coerce_tg_id(tg_id)
+        if limit_ip and limit_ip > 0:
+            client["limitIp"] = limit_ip
+
+        data = await self._request(
+            "POST",
+            f"/panel/api/clients/update/{email}",
+            json=client,
+        )
+        if not data.get("success"):
+            raise Exception(f"Failed to update client: {data}")
+        return True
+
     async def get_client_traffic(self, email: str) -> dict:
         data = await self._request("GET", f"/panel/api/clients/traffic/{email}")
         obj = data.get("obj", {})

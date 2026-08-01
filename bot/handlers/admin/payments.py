@@ -124,19 +124,28 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 new_expire = None
                 days_from_now = 0
 
-            try:
-                await xui.delete_client(email)
-            except Exception:
-                pass
-
-            await xui.add_client_full(
+            # Update the existing client in place instead of deleting and
+            # recreating it.  Deleting first leaves the subscription link
+            # dangling if the re-creation fails; an in-place update keeps the
+            # same client (and therefore the same link) alive throughout.
+            await xui.update_client(
                 email=email,
-                sub_id=sub_token,
                 traffic_gb=order["traffic_gb"],
                 expire_days=days_from_now,
                 limit_ip=plan_max_users,
-                all_inbound_ids=reality_ids,
+                tg_id=order["telegram_id"],
             )
+            # Updating the quota does not clear the already-consumed traffic,
+            # so reset it to give the user a full renewed allowance.
+            if not await xui.reset_traffic(email):
+                logger.warning(f"failed to reset used traffic for {email}")
+
+            # Some panel versions drop a client's inbound attachments on
+            # update; make sure the client is still attached to every inbound.
+            current = set(await xui.get_client_inbounds(email))
+            if current != set(reality_ids):
+                if not await xui.attach_client(email, reality_ids):
+                    raise Exception("بازگرداندن اینباندها پس از تمدید ناموفق بود")
 
             sub_url = f"{sub_base}/sub/{sub_token}"
             await db.renew_config(
