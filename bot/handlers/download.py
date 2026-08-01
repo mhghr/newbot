@@ -11,10 +11,19 @@ from aiogram import Bot, F, Router
 from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    FSInputFile,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    InputMediaVideo,
+    Message,
+)
 
 from bot.keyboards.inline import back_to_menu_keyboard, cancel_keyboard, download_platforms_keyboard
 from bot.middlewares.membership import check_membership
+from bot.services.media_downloader import MediaItem, download_media
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -174,44 +183,6 @@ def _yt_download(url: str, format_id: str, out_dir: str) -> str:
         return ""
 
 
-async def _simple_download(url: str, out_dir: str) -> str:
-    try:
-        from yt_dlp import YoutubeDL
-    except ImportError:
-        return ""
-
-    name = str(uuid.uuid4())[:8]
-    opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "format": (
-            "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/"
-            "best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/"
-            "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
-        ),
-        "outtmpl": os.path.join(out_dir, f"{name}.%(ext)s"),
-        "merge_output_format": "mp4",
-        "socket_timeout": 30,
-        "noplaylist": True,
-    }
-    loop = asyncio.get_running_loop()
-    try:
-        info = await asyncio.wait_for(
-            loop.run_in_executor(None, lambda: YoutubeDL(opts).extract_info(url, download=True)),
-            timeout=DOWNLOAD_TIMEOUT,
-        )
-        if info:
-            files = glob.glob(os.path.join(out_dir, f"{name}.*"))
-            if files:
-                return max(files, key=os.path.getsize)
-            return YoutubeDL(opts).prepare_filename(info)
-    except asyncio.TimeoutError:
-        logger.error("simple download timed out")
-    except Exception as e:
-        logger.error(f"simple download failed: {type(e).__name__}: {e}")
-    return ""
-
-
 async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = None) -> None:
     # Telegram only offers "Save to Gallery" for media sent as a video.  A file
     # sent with send_document is treated as a generic attachment, even if it is
@@ -226,6 +197,47 @@ async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = N
 
 async def _send_upload_action(bot: Bot, chat_id: int) -> None:
     await bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_VIDEO)
+
+
+async def _send_media(bot: Bot, chat_id: int, items: list[MediaItem]) -> bool:
+    if len(items) == 1:
+        await _send_item(bot, chat_id, items[0])
+        return True
+
+    # Slideshows are delivered as Telegram albums (max 10 media per album).
+    try:
+        for start in range(0, len(items), 10):
+            chunk = items[start : start + 10]
+            if len(chunk) == 1:
+                await _send_item(bot, chat_id, chunk[0])
+                continue
+            await bot.send_media_group(
+                chat_id=chat_id,
+                media=[
+                    InputMediaVideo(media=FSInputFile(item.path))
+                    if item.kind == "video"
+                    else InputMediaPhoto(media=FSInputFile(item.path))
+                    for item in chunk
+                ],
+            )
+        return True
+    except Exception as e:
+        logger.error(f"media group send failed, sending items separately: {type(e).__name__}: {e}")
+        sent_any = False
+        for item in items:
+            try:
+                await _send_item(bot, chat_id, item)
+                sent_any = True
+            except Exception as item_error:
+                logger.error(f"single media send failed: {type(item_error).__name__}: {item_error}")
+        return sent_any
+
+
+async def _send_item(bot: Bot, chat_id: int, item: MediaItem) -> None:
+    if item.kind == "video":
+        await _send_video(bot, chat_id, item.path)
+    else:
+        await bot.send_photo(chat_id=chat_id, photo=FSInputFile(item.path))
 
 
 @router.callback_query(F.data == "main:download")
@@ -321,8 +333,8 @@ async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
     status = await message.answer("⏳ در حال دانلود ویدیو...")
     await state.clear()
 
-    path = await _simple_download(url, _download_dir())
-    if not path or not os.path.isfile(path):
+    items = await download_media(url, _download_dir())
+    if not items:
         await status.edit_text(
             "❌ دانلود ناموفق بود.\nممکن است ویدیو خصوصی باشد یا نیاز به ورود داشته باشد.",
             reply_markup=back_to_menu_keyboard(),
@@ -331,18 +343,25 @@ async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
 
     try:
         await _send_upload_action(bot, message.from_user.id)
-        await _send_video(bot, message.from_user.id, path)
-        await status.delete()
+        sent = await _send_media(bot, message.from_user.id, items)
+        if sent:
+            await status.delete()
+        else:
+            await status.edit_text(
+                "❌ ارسال ناموفق بود (ممکن است حجم فایل > 50MB باشد).",
+                reply_markup=back_to_menu_keyboard(),
+            )
     except Exception as e:
         await status.edit_text(
             f"❌ ارسال ناموفق (ممکن است حجم فایل > 50MB باشد):\n{type(e).__name__}",
             reply_markup=back_to_menu_keyboard(),
         )
     finally:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
+        for item in items:
+            try:
+                os.remove(item.path)
+            except Exception:
+                pass
 
 
 @router.callback_query(DownloadStates.choosing_quality, F.data.startswith("yt_q:"))
