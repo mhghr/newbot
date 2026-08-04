@@ -513,6 +513,32 @@ async def delete_proxy_pending(pid: int):
         await conn.execute("DELETE FROM proxy_pending WHERE id=$1", pid)
 
 
+async def add_sent_proxy(url: str):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO sent_proxies (url) VALUES ($1) ON CONFLICT (url) DO NOTHING",
+            url
+        )
+
+
+async def is_proxy_sent(url: str) -> bool:
+    async with models.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT 1 FROM sent_proxies WHERE url=$1 LIMIT 1", url
+        )
+        return row is not None
+
+
+async def are_proxies_sent(urls: list[str]) -> set:
+    if not urls:
+        return set()
+    async with models.pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT url FROM sent_proxies WHERE url = ANY($1)", urls
+        )
+        return {r["url"] for r in rows}
+
+
 async def has_active_refund(config_id: int) -> bool:
     async with models.pool.acquire() as conn:
         row = await conn.fetchrow(

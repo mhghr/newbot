@@ -1,98 +1,143 @@
 import asyncio
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, time
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.database import db
 
 logger = logging.getLogger(__name__)
 
-CHECK_INTERVAL = 3600  # 1 hour
+SCAN_TIMES = [time(8, 0), time(20, 0)]
+CHECK_INTERVAL = 60
 
 PROXY_PATTERN = re.compile(
     r'(https?://|socks[45]?://)([\w.-]+):(\d+)', re.IGNORECASE
 )
 
+MT_PROTO_PATTERN = re.compile(
+    r'tg://proxy\?server=([\w.-]+)&port=(\d+)', re.IGNORECASE
+)
+
+
+def _extract_proxy_urls(text: str) -> list[str]:
+    urls = []
+    for m in PROXY_PATTERN.finditer(text):
+        urls.append(m.group(0).rstrip(".,;"))
+    for m in MT_PROTO_PATTERN.finditer(text):
+        urls.append(m.group(0))
+    return urls
+
+
+def _short_label(url: str) -> str:
+    match = PROXY_PATTERN.search(url)
+    if match:
+        host = match.group(2)
+        port = match.group(3)
+        return f"{host}:{port}"
+    return url[:40]
+
 
 async def _scan_source(bot: Bot, source, target_channel: str):
-    sid = source["id"]
     channel = source["channel"]
-    last_id = source["last_scan_id"] or 0
-
     try:
-        updates = await bot.get_updates(offset=0, timeout=1, allowed_updates=["channel_post"])
-        await asyncio.sleep(0.5)
-
-        from aiogram.methods import GetUpdates
-    except Exception:
-        pass
-
-    try:
-        msgs = await bot.get_chat_history(chat_id=channel, limit=50)
+        msgs = await bot.get_chat_history(chat_id=channel, limit=5)
     except Exception as e:
         logger.warning(f"cannot read source channel {channel}: {type(e).__name__}: {e}")
-        return
+        return 0
 
-    new_last = last_id
-    count = 0
+    all_urls = []
     for m in reversed(msgs):
-        if m.message_id <= last_id:
-            continue
         text = m.text or m.caption or ""
-        if not PROXY_PATTERN.search(text):
-            if m.message_id > new_last:
-                new_last = m.message_id
-            continue
+        all_urls.extend(_extract_proxy_urls(text))
 
+    if not all_urls:
+        return 0
+
+    sent_set = await db.are_proxies_sent(all_urls)
+    new_urls = [u for u in all_urls if u not in sent_set]
+    if not new_urls:
+        return 0
+
+    import asyncio as _asyncio
+    import socket as _socket
+
+    def _test(url: str) -> bool:
+        match = PROXY_PATTERN.search(url)
+        if match:
+            host = match.group(2)
+            port = int(match.group(3))
+        else:
+            mt = MT_PROTO_PATTERN.search(url)
+            if not mt:
+                return False
+            host = mt.group(1)
+            port = int(mt.group(2))
         try:
-            await _forward(bot, m, text, target_channel)
-            count += 1
-            await asyncio.sleep(2)
+            s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            s.settimeout(4.0)
+            s.connect((host, port))
+            s.close()
+            return True
+        except Exception:
+            return False
+
+    loop = _asyncio.get_running_loop()
+    tasks = [loop.run_in_executor(None, _test, u) for u in new_urls]
+    results = await _asyncio.gather(*tasks)
+
+    sent_count = 0
+    for url, ok in zip(new_urls, results):
+        if not ok:
+            continue
+        try:
+            label = _short_label(url)
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"🔗 {label}", url=url)]
+            ])
+            await bot.send_message(
+                chat_id=target_channel,
+                text="🔄 پروکسی جدید",
+                reply_markup=keyboard,
+                disable_notification=True,
+            )
+            await db.add_sent_proxy(url)
+            sent_count += 1
+            await asyncio.sleep(1)
         except Exception as e:
-            logger.warning(f"forward msg {m.message_id} from {channel} failed: {type(e).__name__}: {e}")
+            logger.warning(f"send proxy to target failed: {type(e).__name__}: {e}")
 
-        if m.message_id > new_last:
-            new_last = m.message_id
-
-    if new_last > last_id:
-        await db.update_proxy_source_scan(sid, new_last)
-        logger.info(f"proxy scan {channel}: {count} forwarded")
-
-
-async def _forward(bot: Bot, msg, text: str, target: str):
-    if msg.photo:
-        await bot.send_photo(
-            chat_id=target, photo=msg.photo[-1].file_id,
-            caption=text, disable_notification=True,
-        )
-    elif msg.document:
-        await bot.send_document(
-            chat_id=target, document=msg.document.file_id,
-            caption=text, disable_notification=True,
-        )
-    elif msg.text:
-        await bot.send_message(
-            chat_id=target, text=text, disable_notification=True,
-            link_preview_options={"is_disabled": True},
-        )
-    else:
-        return
+    return sent_count
 
 
 async def _proxy_loop(bot: Bot, target_channel: str):
     while True:
         try:
+            now = datetime.now()
+            current_time = now.time()
+            should_run = any(
+                abs((current_time.hour * 60 + current_time.minute) - (t.hour * 60 + t.minute)) <= 1
+                for t in SCAN_TIMES
+            )
+            if not should_run:
+                await asyncio.sleep(CHECK_INTERVAL)
+                continue
+
             sources = await db.get_active_proxy_sources()
+            total = 0
             for s in sources:
-                await _scan_source(bot, s, target_channel)
+                count = await _scan_source(bot, s, target_channel)
+                total += count
                 await asyncio.sleep(3)
+            logger.info(f"proxy scan done: {total} new proxies sent")
+            await asyncio.sleep(120)
         except Exception as e:
             logger.error(f"proxy loop error: {type(e).__name__}: {e}")
-        await asyncio.sleep(CHECK_INTERVAL)
+            await asyncio.sleep(60)
 
 
 def start_proxy_scanner(bot: Bot, target_channel: str):
-    logger.info(f"Proxy scanner started → target: {target_channel}")
+    logger.info(f"Proxy scanner started (8AM/8PM) -> target: {target_channel}")
     return asyncio.create_task(_proxy_loop(bot, target_channel))

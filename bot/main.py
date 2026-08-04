@@ -6,7 +6,9 @@ from aiogram.types import BotCommand, MenuButtonCommands
 
 from bot.config import BOT_TOKEN, PROXY_URL
 from bot.database.models import init_db
+from bot.database import db
 from bot.services.reminders import start_reminders
+from bot.services.proxy_scanner import start_proxy_scanner
 
 from bot.handlers.start import router as start_router
 from bot.handlers.buy import router as buy_router
@@ -60,6 +62,10 @@ async def main():
     )
 
     start_reminders(bot)
+
+    target_channel = await db.get_setting("proxy_target_channel", "")
+    if target_channel:
+        start_proxy_scanner(bot, target_channel)
 
     try:
         await bot.set_my_commands([

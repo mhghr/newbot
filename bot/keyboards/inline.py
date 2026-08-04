@@ -86,12 +86,21 @@ def proxy_menu_keyboard() -> InlineKeyboardMarkup:
 
 def proxy_sources_keyboard(sources: list) -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton(text=f"🗑 {s['channel']}", callback_data=f"admin:proxy_del:{s['id']}")]
+        [InlineKeyboardButton(text=f"📡 {s['channel']}", callback_data=f"admin:proxy_askdel:{s['id']}")]
         for s in sources
     ]
     rows.append([InlineKeyboardButton(text="➕ افزودن کانال", callback_data="admin:proxy_add")])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:proxy")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def proxy_delete_confirm_keyboard(source_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ بله، حذف شود", callback_data=f"admin:proxy_del:{source_id}"),
+            InlineKeyboardButton(text="❌ انصراف", callback_data="admin:proxy"),
+        ],
+    ])
 
 
 APP_PLATFORMS = (("android", "📱 اندروید"), ("ios", "🍎 آیفون"), ("windows", "💻 ویندوز"))
