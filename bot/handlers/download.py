@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import uuid
 
@@ -195,12 +196,73 @@ async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = N
             )
             return
         except Exception:
-            logger.warning("send_video failed for %.1f MB, falling back to send_document", file_size_mb)
-    await bot.send_document(
-        chat_id=chat_id,
-        document=FSInputFile(path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
-        caption=caption,
-    )
+            logger.warning("send_video failed for %.1f MB, retrying compressed", file_size_mb)
+
+    if shutil.which("ffmpeg") is None:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=f"❌ حجم فایل ({file_size_mb:.1f} MB) بیش از حد مجاز ۵۰MB تلگرام است و ffmpeg برای فشرده‌سازی در دسترس نیست.",
+        )
+        return
+
+    status_msg = await bot.send_message(chat_id=chat_id, text="⏳ در حال فشرده‌سازی ویدیو...")
+    compressed_path = _compress_video(path)
+    if not compressed_path:
+        await status_msg.edit_text("❌ فشرده‌سازی ناموفق بود. کیفیت پایین‌تری انتخاب کنید.")
+        return
+
+    try:
+        await _send_upload_action(bot, chat_id)
+        await bot.send_video(
+            chat_id=chat_id,
+            video=FSInputFile(compressed_path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
+            caption=caption,
+            supports_streaming=True,
+        )
+        await status_msg.delete()
+    except Exception as e:
+        await status_msg.edit_text(f"❌ ارسال ناموفق ماند:\n{type(e).__name__}")
+    finally:
+        try:
+            os.remove(compressed_path)
+        except Exception:
+            pass
+
+
+def _compress_video(input_path: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "csv=p=0", input_path],
+            capture_output=True, text=True, timeout=15,
+        )
+        duration = float(result.stdout.strip()) if result.returncode == 0 else 0.0
+    except Exception:
+        duration = 0.0
+
+    if duration <= 0:
+        duration = 120
+
+    target_bytes = int(TELEGRAM_BOT_FILE_LIMIT_MB * 0.95 * 1024 * 1024)
+    video_bitrate = max(200, int((target_bytes * 8) / duration * 0.85 / 1000))
+
+    output_path = input_path + ".compressed.mp4"
+    cmd = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-c:v", "libx264", "-b:v", f"{video_bitrate}k",
+        "-maxrate", f"{video_bitrate * 2}k", "-bufsize", f"{video_bitrate * 4}k",
+        "-c:a", "aac", "-b:a", "96k",
+        "-preset", "ultrafast",
+        "-movflags", "+faststart",
+        output_path,
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=300, check=False)
+        if os.path.isfile(output_path) and os.path.getsize(output_path) > 0:
+            return output_path
+    except Exception as e:
+        logger.error(f"ffmpeg compress failed: {e}")
+    return None
 
 
 async def _send_upload_action(bot: Bot, chat_id: int) -> None:
