@@ -4,11 +4,12 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, MenuButtonCommands
 
-from bot.config import BOT_TOKEN, PROXY_URL
+from bot.config import BOT_TOKEN, PROXY_URL, SUB_HOST, SUB_PORT
 from bot.database.models import init_db
 from bot.database import db
 from bot.services.reminders import start_reminders
 from bot.services.proxy_scanner import start_proxy_scanner
+from bot.services.subserver import start_sub_server
 
 from bot.handlers.start import router as start_router
 from bot.handlers.buy import router as buy_router
@@ -66,6 +67,8 @@ async def main():
     target_channel = await db.get_setting("proxy_target_channel", "")
     if target_channel:
         start_proxy_scanner(bot, target_channel)
+
+    await start_sub_server(SUB_HOST, SUB_PORT)
 
     try:
         await bot.set_my_commands([

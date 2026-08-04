@@ -1,11 +1,15 @@
 import base64
 import logging
+import os
+import tempfile
 from aiohttp import web
 
 from bot.database import db
 from bot.services.xui import XUIClient
 
 logger = logging.getLogger(__name__)
+
+DL_DIR = os.path.join(tempfile.gettempdir(), "migmig_dl")
 
 
 async def handle_sub(request: web.Request) -> web.Response:
@@ -43,13 +47,33 @@ async def handle_sub(request: web.Request) -> web.Response:
     return web.Response(text=encoded, headers=headers)
 
 
+async def handle_download(request: web.Request) -> web.Response:
+    filename = request.match_info.get("filename", "")
+    if not filename or "/" in filename or "\\" in filename:
+        return web.Response(status=404, text="Not found")
+
+    filepath = os.path.join(DL_DIR, filename)
+    if not os.path.isfile(filepath):
+        return web.Response(status=404, text="File not found")
+
+    return web.FileResponse(
+        path=filepath,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        }
+    )
+
+
 def build_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/sub/{token}", handle_sub)
+    app.router.add_get("/dl/{filename}", handle_download)
     return app
 
 
 async def start_sub_server(host: str, port: int) -> web.AppRunner:
+    os.makedirs(DL_DIR, exist_ok=True)
     app = build_app()
     runner = web.AppRunner(app)
     await runner.setup()
