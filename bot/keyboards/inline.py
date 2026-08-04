@@ -412,3 +412,49 @@ def admin_tutorial_keyboard() -> InlineKeyboardMarkup:
     ])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_user_detail_keyboard(user, configs: list) -> InlineKeyboardMarkup:
+    first = user.get("first_name") or "-"
+    last = user.get("last_name") or ""
+    name = first
+    if last:
+        name = f"{first} {last}"
+    rows = [
+        [InlineKeyboardButton(text=f"🆔 آیدی: {user['telegram_id']}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"📛 نام: {_trunc(name)}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"👤 یوزرنیم: @{user.get('username') or 'ندارد'}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"📅 تاریخ عضویت: {_trunc(str(user.get('created_at') or '-'))}", callback_data="admin:noop")],
+    ]
+    for c in configs:
+        label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
+        rows.append([InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"admin:config_detail:{c['id']}")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:search_user")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_config_detail_keyboard(config) -> InlineKeyboardMarkup:
+    cid = config["id"]
+    traffic_str = "نامحدود" if (config.get("traffic_gb") or 0) == 0 else f"{config.get('traffic_gb')} GB"
+    expire_str = str(config.get("expire_date") or "نامحدود")
+    rows = [
+        [InlineKeyboardButton(text=f"📦 پلن: {_trunc(config.get('plan_name') or '-')}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"📊 حجم: {traffic_str}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"📅 تاریخ انقضا: {_trunc(expire_str)}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"👤 کلاینت: {_trunc(config.get('client_email') or '-')}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"🔗 لینک: {_trunc(config.get('sub_url') or '-')}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text=f"🌐 ساب‌دامین: {_trunc(config.get('config_link') or config.get('sub_url') or '-')}", callback_data="admin:noop")],
+        [InlineKeyboardButton(text="🗑 حذف کانفیگ", callback_data=f"admin:delete_config:{cid}")],
+        [InlineKeyboardButton(text="🔙 بازگشت به کاربر", callback_data=f"admin:user_detail:{config.get('user_id')}")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_config_delete_confirm_keyboard(config_id: int, user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ بله، حذف شود", callback_data=f"admin:delete_config_confirm:{config_id}"),
+            InlineKeyboardButton(text="❌ انصراف", callback_data=f"admin:config_detail:{config_id}"),
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت به کاربر", callback_data=f"admin:user_detail:{user_id}")],
+    ])

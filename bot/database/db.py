@@ -378,9 +378,17 @@ async def get_configs_by_user_id(user_id: int):
                       p.name AS plan_name, p.duration_days
                FROM configs c
                LEFT JOIN plans p ON c.plan_id = p.id
-               WHERE c.user_id=$1 AND c.is_active=TRUE
-               ORDER BY c.created_at DESC""",
+                WHERE c.user_id=$1 AND c.is_active=TRUE
+                ORDER BY c.created_at DESC""",
             user_id
+        )
+
+
+async def delete_config(config_id: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE configs SET is_active=FALSE WHERE id=$1",
+            config_id
         )
 
 

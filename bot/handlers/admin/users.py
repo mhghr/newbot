@@ -1,4 +1,4 @@
-﻿from aiogram import Router, F
+from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -6,7 +6,11 @@ from datetime import datetime
 
 from bot.config import ADMIN_IDS
 from bot.database import db
-from bot.keyboards.inline import cancel_keyboard, admin_menu_keyboard
+from bot.keyboards.inline import (
+    cancel_keyboard, admin_menu_keyboard,
+    admin_user_detail_keyboard, admin_config_detail_keyboard,
+    admin_config_delete_confirm_keyboard,
+)
 from bot.utils.jalali import to_jalali
 
 router = Router()
@@ -29,27 +33,15 @@ def _remaining_days(expire_date) -> int:
     return max(0, (expire_date - datetime.now()).days)
 
 
-def _user_text(user, configs, orders) -> str:
-    text = (
-        "👤 اطلاعات کاربر:\n\n"
-        f"🆔 آیدی: {user['telegram_id']}\n"
-        f"📛 نام: {user['first_name'] or '-'} {user['last_name'] or ''}\n"
-        f"👤 یوزرنیم: @{user['username'] or 'ندارد'}\n"
-        f"📅 تاریخ عضویت: {to_jalali(user['created_at'], with_time=True)}\n\n"
-    )
-    if configs:
-        text += f"📋 کانفیگ‌های فعال ({len(configs)}):\n"
-        for c in configs:
-            label = c["client_email"] or (c["plan_name"] or "کانفیگ")
-            text += f"  • {label} - {_remaining_days(c['expire_date'])} روز مانده\n"
-    else:
-        text += "📋 کانفیگ فعالی ندارد.\n"
-
-    text += f"\n📦 تعداد سفارشات: {len(orders)}\n"
-    for o in orders:
-        emoji = STATUS_EMOJI.get(o["status"], "❓")
-        text += f"  {emoji} #{o['id']} | {o['plan_name']} | {o['price']:,}T | {o['status']}\n"
-    return text
+def _user_info_lines(user) -> list[str]:
+    name_parts = [p for p in [user.get("first_name"), user.get("last_name")] if p]
+    name = " ".join(name_parts) if name_parts else "-"
+    return [
+        f"🆔 آیدی: `{user['telegram_id']}`",
+        f"📛 نام: {name}",
+        f"👤 یوزرنیم: @{user.get('username') or 'ندارد'}",
+        f"📅 تاریخ عضویت: {to_jalali(user['created_at'], with_time=True)}",
+    ]
 
 
 @router.callback_query(F.data == "admin:search_user")
@@ -80,8 +72,12 @@ async def search_user_result(message: Message, state: FSMContext):
     if len(users) == 1:
         user = users[0]
         configs = await db.get_configs_by_user_id(user["id"])
-        orders = await db.get_user_orders(user["id"])
-        await message.answer(_user_text(user, configs, orders), reply_markup=admin_menu_keyboard())
+        info = "\n".join(_user_info_lines(user))
+        text = f"👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
+        await message.answer(
+            text, parse_mode="Markdown",
+            reply_markup=admin_user_detail_keyboard(user, configs)
+        )
     else:
         buttons = []
         for u in users[:10]:
@@ -110,6 +106,101 @@ async def user_detail(callback: CallbackQuery):
         return
 
     configs = await db.get_configs_by_user_id(user["id"])
-    orders = await db.get_user_orders(user["id"])
-    await callback.message.edit_text(_user_text(user, configs, orders), reply_markup=admin_menu_keyboard())
+    info = "\n".join(_user_info_lines(user))
+    text = f"👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
+    await callback.message.edit_text(
+        text, parse_mode="Markdown",
+        reply_markup=admin_user_detail_keyboard(user, configs)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:config_detail:"))
+async def config_detail(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    config_id = int(callback.data.split(":")[2])
+
+    config = await db.get_config(config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+
+    remaining = _remaining_days(config.get("expire_date"))
+    traffic_str = "نامحدود" if (config.get("traffic_gb") or 0) == 0 else f"{config['traffic_gb']} GB"
+    expire_str = to_jalali(config["expire_date"]) if config.get("expire_date") else "نامحدود"
+    sub_link = config.get("sub_url") or config.get("config_link") or "-"
+
+    text = (
+        f"🔑 اطلاعات کانفیگ #{config['id']}\n\n"
+        f"📦 پلن: {config.get('plan_name') or '-'}\n"
+        f"📊 حجم: {traffic_str}\n"
+        f"📅 تاریخ انقضا: {expire_str}\n"
+        f"📅 روز باقیمانده: {remaining} روز\n"
+        f"👤 کلاینت: {config.get('client_email') or '-'}\n"
+        f"🔗 لینک اشتراک:\n`{sub_link}`"
+    )
+    await callback.message.edit_text(
+        text, parse_mode="Markdown",
+        reply_markup=admin_config_detail_keyboard(config)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:delete_config:"))
+async def delete_config_ask(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    config_id = int(callback.data.split(":")[2])
+
+    config = await db.get_config(config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        f"⚠️ آیا از حذف کانفیگ #{config_id} اطمینان دارید؟\n\n"
+        f"👤 کلاینت: {config.get('client_email') or '-'}\n"
+        f"📦 پلن: {config.get('plan_name') or '-'}\n\n"
+        "این عملیات غیرقابل بازگشت است.",
+        reply_markup=admin_config_delete_confirm_keyboard(config_id, config.get("user_id", 0))
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:delete_config_confirm:"))
+async def delete_config_confirm(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    config_id = int(callback.data.split(":")[2])
+
+    config = await db.get_config(config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+
+    await db.delete_config(config_id)
+
+    user_id = config.get("user_id", 0)
+    user = await db.get_user_by_id(user_id)
+
+    if user:
+        configs = await db.get_configs_by_user_id(user_id)
+        info = "\n".join(_user_info_lines(user))
+        text = f"✅ کانفیگ #{config_id} با موفقیت حذف شد.\n\n👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
+        await callback.message.edit_text(
+            text, parse_mode="Markdown",
+            reply_markup=admin_user_detail_keyboard(user, configs)
+        )
+    else:
+        await callback.message.edit_text(
+            f"✅ کانفیگ #{config_id} حذف شد.",
+            reply_markup=admin_menu_keyboard()
+        )
+
+    await callback.answer("✅ کانفیگ با موفقیت حذف شد.", show_alert=True)
+
+
+@router.callback_query(F.data == "admin:noop")
+async def noop(callback: CallbackQuery):
     await callback.answer()

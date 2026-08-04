@@ -184,14 +184,22 @@ def _yt_download(url: str, format_id: str, out_dir: str) -> str:
 
 
 async def _send_video(bot: Bot, chat_id: int, path: str, caption: str | None = None) -> None:
-    # Telegram only offers "Save to Gallery" for media sent as a video.  A file
-    # sent with send_document is treated as a generic attachment, even if it is
-    # an MP4 file.
-    await bot.send_video(
+    file_size_mb = os.path.getsize(path) / (1024 * 1024)
+    if file_size_mb <= TELEGRAM_BOT_FILE_LIMIT_MB:
+        try:
+            await bot.send_video(
+                chat_id=chat_id,
+                video=FSInputFile(path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
+                caption=caption,
+                supports_streaming=True,
+            )
+            return
+        except Exception:
+            logger.warning("send_video failed for %.1f MB, falling back to send_document", file_size_mb)
+    await bot.send_document(
         chat_id=chat_id,
-        video=FSInputFile(path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
+        document=FSInputFile(path, filename=f"video{os.path.splitext(path)[1] or '.mp4'}"),
         caption=caption,
-        supports_streaming=True,
     )
 
 
@@ -348,12 +356,12 @@ async def download_receive_link(message: Message, state: FSMContext, bot: Bot):
             await status.delete()
         else:
             await status.edit_text(
-                "❌ ارسال ناموفق بود (ممکن است حجم فایل > 50MB باشد).",
+                "❌ ارسال ناموفق بود. لطفا دوباره تلاش کنید.",
                 reply_markup=back_to_menu_keyboard(),
             )
     except Exception as e:
         await status.edit_text(
-            f"❌ ارسال ناموفق (ممکن است حجم فایل > 50MB باشد):\n{type(e).__name__}",
+            f"❌ ارسال ناموفق بود:\n{type(e).__name__}",
             reply_markup=back_to_menu_keyboard(),
         )
     finally:
@@ -410,17 +418,6 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await callback.answer()
         return
 
-    file_size_mb = os.path.getsize(path) / (1024 * 1024)
-    if file_size_mb > TELEGRAM_BOT_FILE_LIMIT_MB:
-        await callback.message.edit_text(
-            f"❌ حجم فایل ({file_size_mb:.1f} MB) بیش از حد مجاز {TELEGRAM_BOT_FILE_LIMIT_MB} مگابایت تلگرام است.",
-            reply_markup=back_to_menu_keyboard(),
-        )
-        os.remove(path)
-        await state.clear()
-        await callback.answer()
-        return
-
     try:
         await _send_upload_action(bot, callback.from_user.id)
         await _send_video(
@@ -432,7 +429,7 @@ async def download_quality(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await callback.message.delete()
     except Exception as e:
         await callback.message.edit_text(
-            f"❌ ارسال ناموفق بود (ممکن است حجم فایل بیش از حد مجاز تلگرام باشد):\n{type(e).__name__}",
+            f"❌ ارسال ناموفق بود:\n{type(e).__name__}",
             reply_markup=back_to_menu_keyboard(),
         )
     finally:
