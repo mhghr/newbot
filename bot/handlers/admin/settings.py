@@ -1,4 +1,4 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -12,6 +12,7 @@ from bot.keyboards.inline import (
     proxy_delete_confirm_keyboard,
 )
 from bot.handlers.tutorial import DEFAULT_TUTORIALS
+from bot.services.proxy_scanner import test_scan
 
 router = Router()
 
@@ -288,6 +289,18 @@ async def proxy_delete(callback: CallbackQuery):
         f"📡 کانال‌های منبع: {len(sources)} عدد",
         reply_markup=proxy_sources_keyboard(sources)
     )
+
+
+@router.callback_query(F.data == "admin:proxy_test")
+async def proxy_test(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    await callback.answer("🧪 در حال تست...")
+    await callback.message.edit_text(
+        "🧪 تست ارسال پروکسی شروع شد...\nنتیجه به صورت پیام برای شما ارسال می‌شود.",
+        reply_markup=proxy_sources_keyboard(await db.get_all_proxy_sources())
+    )
+    await test_scan(bot, callback.from_user.id)
 
 
 @router.callback_query(F.data == "admin:proxy_target")

@@ -90,6 +90,7 @@ def proxy_sources_keyboard(sources: list) -> InlineKeyboardMarkup:
         for s in sources
     ]
     rows.append([InlineKeyboardButton(text="➕ افزودن کانال", callback_data="admin:proxy_add")])
+    rows.append([InlineKeyboardButton(text="🧪 تست ارسال", callback_data="admin:proxy_test")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -257,7 +258,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🛠 ساخت اکانت", callback_data="admin:create_account"),
         InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:card"),
         InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="admin:apps"),
-        InlineKeyboardButton(text="🔄 ارسال پروکسی", callback_data="admin:proxy"),
+        InlineKeyboardButton(text="🔄 پروکسی تلگرام", callback_data="admin:proxy"),
         InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:search_user"),
         InlineKeyboardButton(text="📖 مدیریت آموزش", callback_data="admin:tutorials"),
         InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),
