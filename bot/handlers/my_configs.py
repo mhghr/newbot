@@ -14,8 +14,6 @@ from bot.utils.jalali import to_jalali
 
 router = Router()
 
-ONE_GB = 1024 * 1024 * 1024
-
 
 async def _get_owned_config(telegram_id: int, config_id: int):
     configs = await db.get_configs_by_telegram_id(telegram_id)
@@ -34,17 +32,6 @@ async def _config_traffic(config):
         return await xui.get_client_traffic(config["client_email"])
     except Exception:
         return None
-
-
-def _renew_needed(config, traffic) -> bool:
-    if config["expire_date"]:
-        seconds_left = (config["expire_date"] - datetime.now()).total_seconds()
-        if seconds_left <= 24 * 3600:
-            return True
-    if traffic and traffic.get("total", 0) > 0:
-        if traffic.get("remaining", 0) <= ONE_GB:
-            return True
-    return False
 
 
 @router.callback_query(F.data == "main:my_configs")
@@ -94,8 +81,6 @@ async def view_config(callback: CallbackQuery):
     else:
         traffic_info = "📊 ترافیک: در دسترس نیست\n"
 
-    show_renew = _renew_needed(config, traffic)
-
     text = (
         f"🔑 کانفیگ #{config['id']}\n\n"
         f"📦 پلن: {config.get('plan_name') or '-'}\n"
@@ -104,12 +89,10 @@ async def view_config(callback: CallbackQuery):
         f"{traffic_info}\n"
         f"🔗 لینک اشتراک:\n`{config['sub_url']}`"
     )
-    if show_renew:
-        text += "\n\n⚠️ اشتراک شما رو به اتمام است. می‌توانید تمدید کنید."
 
     await callback.message.edit_text(
         text, parse_mode="Markdown",
-        reply_markup=config_detail_keyboard(config_id, show_renew)
+        reply_markup=config_detail_keyboard(config_id, True)
     )
     await callback.answer()
 

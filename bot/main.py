@@ -64,7 +64,7 @@ async def main():
 
     start_reminders(bot)
 
-    target_channel = await db.get_setting("proxy_target_channel", "")
+    target_channel = await db.get_proxy_target()
     if target_channel:
         start_proxy_scanner(bot, target_channel)
 

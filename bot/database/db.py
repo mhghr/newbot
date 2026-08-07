@@ -307,6 +307,14 @@ async def set_setting(key: str, value: str):
         )
 
 
+async def get_proxy_target() -> str:
+    from bot.config import CHANNEL_ID
+    target = await get_setting("proxy_target_channel", "")
+    if not target and CHANNEL_ID:
+        target = str(CHANNEL_ID)
+    return target
+
+
 async def get_master_server():
     async with models.pool.acquire() as conn:
         row = await conn.fetchrow(

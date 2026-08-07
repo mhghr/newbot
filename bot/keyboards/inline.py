@@ -251,6 +251,36 @@ def tutorial_platforms_keyboard() -> InlineKeyboardMarkup:
     ]))
 
 
+def tutorial_apps_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text=f"📱 {a['name']}", callback_data=f"tut_app:{platform}:{a['slug']}")]
+        for a in apps
+    ]
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:tutorial")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_tutorial_apps_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text=f"📱 {a['name']}", callback_data=f"admin:tut_app:{platform}:{a['slug']}")]
+        for a in apps
+    ]
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:tutorials")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_tutorial_app_keyboard(platform: str, slug: str, has_video: bool) -> InlineKeyboardMarkup:
+    video_label = "🎬 تغییر ویدیو" if has_video else "🎬 افزودن ویدیو"
+    rows = [
+        [InlineKeyboardButton(text="✏️ ویرایش متن", callback_data=f"admin:tut_text:{platform}:{slug}")],
+        [InlineKeyboardButton(text=video_label, callback_data=f"admin:tut_video:{platform}:{slug}")],
+    ]
+    if has_video:
+        rows.append([InlineKeyboardButton(text="🗑 حذف ویدیو", callback_data=f"admin:tut_video_del:{platform}:{slug}")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:edit_tutorial:{platform}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=_rows([
         InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:servers"),

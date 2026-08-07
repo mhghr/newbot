@@ -10,8 +10,9 @@ from bot.keyboards.inline import (
     admin_menu_keyboard, cancel_keyboard,
     proxy_menu_keyboard, proxy_sources_keyboard,
     proxy_delete_confirm_keyboard,
+    admin_tutorial_apps_keyboard, admin_tutorial_app_keyboard,
 )
-from bot.handlers.tutorial import DEFAULT_TUTORIALS
+from bot.handlers.tutorial import DEFAULT_APP_TUTORIALS
 from bot.services.proxy_scanner import test_scan
 
 router = Router()
@@ -27,6 +28,7 @@ class SettingsStates(StatesGroup):
     waiting_card_number = State()
     waiting_card_holder = State()
     waiting_tutorial_text = State()
+    waiting_tutorial_video = State()
     waiting_card_full_number = State()
     waiting_card_full_holder = State()
 
@@ -159,21 +161,59 @@ async def tutorials_menu(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("admin:edit_tutorial:"))
-async def edit_tutorial(callback: CallbackQuery, state: FSMContext):
+async def edit_tutorial(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         return
     platform = callback.data.split(":")[2]
     platform_name = PLATFORM_NAMES.get(platform, platform)
-
-    current_text = await db.get_setting(f"tutorial_{platform}", "")
-    if not current_text:
-        current_text = DEFAULT_TUTORIALS.get(platform, "تنظیم نشده")
-
-    await state.update_data(tutorial_platform=platform)
+    apps = DEFAULT_APP_TUTORIALS.get(platform, {})
+    app_list = [{"slug": slug, "name": app["name"]} for slug, app in apps.items()]
+    if not app_list:
+        await callback.answer(f"برای {platform_name} نرم‌افزاری تعریف نشده.", show_alert=True)
+        return
     await callback.message.edit_text(
-        f"📖 آموزش {platform_name}:\n\n"
-        f"متن فعلی:\n{current_text}\n\n"
-        "متن جدید را ارسال کنید:",
+        f"📖 مدیریت آموزش {platform_name}:\nروی هر نرم‌افزار بزنید تا ویرایش شود:",
+        reply_markup=admin_tutorial_apps_keyboard(platform, app_list)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:tut_app:"))
+async def admin_tutorial_app_detail(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    platform, slug = parts[2], parts[3]
+    app = DEFAULT_APP_TUTORIALS.get(platform, {}).get(slug)
+    if not app:
+        await callback.answer("❌ یافت نشد!", show_alert=True)
+        return
+
+    text = await db.get_setting(f"tut_text_{platform}_{slug}", "")
+    if not text:
+        text = app["text"]
+    video = await db.get_setting(f"tut_video_{platform}_{slug}", "")
+    video_status = "✅ تنظیم شده" if video else "❌ تنظیم نشده"
+    snippet = text if len(text) <= 300 else text[:297] + "…"
+
+    await callback.message.edit_text(
+        f"📖 آموزش {app['name']}:\n\n"
+        f"متن فعلی:\n{snippet}\n\n"
+        f"🎬 ویدیو آموزشی: {video_status}",
+        reply_markup=admin_tutorial_app_keyboard(platform, slug, has_video=bool(video))
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:tut_text:"))
+async def admin_tutorial_text_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    platform, slug = parts[2], parts[3]
+    await state.update_data(tut_platform=platform, tut_slug=slug)
+    await callback.message.edit_text(
+        "📝 متن آموزش جدید را ارسال کنید:",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(SettingsStates.waiting_tutorial_text)
@@ -185,14 +225,81 @@ async def save_tutorial(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
     data = await state.get_data()
-    platform = data.get("tutorial_platform")
-    await db.set_setting(f"tutorial_{platform}", message.text)
-    platform_name = PLATFORM_NAMES.get(platform, platform)
-    await message.answer(
-        f"✅ آموزش {platform_name} ذخیره شد!",
-        reply_markup=admin_tutorial_keyboard()
-    )
+    platform = data.get("tut_platform")
+    slug = data.get("tut_slug")
+    await db.set_setting(f"tut_text_{platform}_{slug}", message.text)
     await state.clear()
+
+    app = DEFAULT_APP_TUTORIALS.get(platform, {}).get(slug, {})
+    video = await db.get_setting(f"tut_video_{platform}_{slug}", "")
+    video_status = "✅ تنظیم شده" if video else "❌ تنظیم نشده"
+    text = message.text if len(message.text) <= 300 else message.text[:297] + "…"
+    await message.answer(
+        f"✅ متن آموزش {app.get('name', slug)} ذخیره شد!\n\n"
+        f"متن فعلی:\n{text}\n\n"
+        f"🎬 ویدیو آموزشی: {video_status}",
+        reply_markup=admin_tutorial_app_keyboard(platform, slug, has_video=bool(video))
+    )
+
+
+@router.callback_query(F.data.startswith("admin:tut_video:"))
+async def admin_tutorial_video_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    platform, slug = parts[2], parts[3]
+    await state.update_data(tut_platform=platform, tut_slug=slug)
+    await callback.message.edit_text(
+        "🎬 ویدیو آموزشی را ارسال کنید.\n"
+        "(اختیاری است — برای لغو دکمه «انصراف» را بزنید)",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(SettingsStates.waiting_tutorial_video)
+    await callback.answer()
+
+
+@router.message(SettingsStates.waiting_tutorial_video)
+async def save_tutorial_video(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    if not message.video:
+        await message.answer(
+            "🎬 یک ویدیو ارسال کنید، یا برای لغو دکمه «انصراف» را بزنید:",
+            reply_markup=cancel_keyboard()
+        )
+        return
+
+    data = await state.get_data()
+    platform = data.get("tut_platform")
+    slug = data.get("tut_slug")
+    await db.set_setting(f"tut_video_{platform}_{slug}", message.video.file_id)
+    await state.clear()
+
+    app = DEFAULT_APP_TUTORIALS.get(platform, {}).get(slug, {})
+    await message.answer(
+        f"✅ ویدیو آموزشی {app.get('name', slug)} ذخیره شد!",
+        reply_markup=admin_tutorial_app_keyboard(platform, slug, has_video=True)
+    )
+
+
+@router.callback_query(F.data.startswith("admin:tut_video_del:"))
+async def admin_tutorial_video_delete(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    platform, slug = parts[2], parts[3]
+    await db.set_setting(f"tut_video_{platform}_{slug}", "")
+
+    app = DEFAULT_APP_TUTORIALS.get(platform, {}).get(slug, {})
+    text = await db.get_setting(f"tut_text_{platform}_{slug}", "")
+    if not text:
+        text = app.get("text", "")
+    snippet = text if len(text) <= 300 else text[:297] + "…"
+    await callback.message.edit_text(
+        f"🗑 ویدیو حذف شد!\n\n📖 آموزش {app.get('name', slug)}:\n\nمتن فعلی:\n{snippet}\n\n🎬 ویدیو آموزشی: ❌ تنظیم نشده",
+        reply_markup=admin_tutorial_app_keyboard(platform, slug, has_video=False)
+    )
+    await callback.answer()
 
 
 # ---- Proxy menu ----
@@ -202,7 +309,7 @@ async def proxy_menu(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         return
     sources = await db.get_all_proxy_sources()
-    target = await db.get_setting("proxy_target_channel", "")
+    target = await db.get_proxy_target()
     await callback.message.edit_text(
         f"🔄 مدیریت پروکسی\n\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
@@ -250,7 +357,7 @@ async def proxy_add_save(message: Message, state: FSMContext):
     await db.add_proxy_source(message.text.strip())
     await state.clear()
     sources = await db.get_all_proxy_sources()
-    target = await db.get_setting("proxy_target_channel", "")
+    target = await db.get_proxy_target()
     await message.answer(
         f"✅ کانال منبع اضافه شد!\n\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
@@ -264,7 +371,7 @@ async def proxy_list(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         return
     sources = await db.get_all_proxy_sources()
-    target = await db.get_setting("proxy_target_channel", "")
+    target = await db.get_proxy_target()
     await callback.message.edit_text(
         f"📋 کانال‌های منبع:\n\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
@@ -282,7 +389,7 @@ async def proxy_delete(callback: CallbackQuery):
     await db.delete_proxy_source(sid)
     await callback.answer("✅ حذف شد!")
     sources = await db.get_all_proxy_sources()
-    target = await db.get_setting("proxy_target_channel", "")
+    target = await db.get_proxy_target()
     await callback.message.edit_text(
         f"✅ کانال حذف شد!\n\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
@@ -307,7 +414,7 @@ async def proxy_test(callback: CallbackQuery, bot: Bot):
 async def proxy_target_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
         return
-    current = await db.get_setting("proxy_target_channel", "")
+    current = await db.get_proxy_target()
     await callback.message.edit_text(
         f"🎯 کانال مقصد پروکسی را وارد کنید:\nفعلی: {current or '(تنظیم نشده)'}",
         reply_markup=cancel_keyboard()
