@@ -1,17 +1,16 @@
 import asyncio
 import logging
 import re
-from datetime import datetime, time
+import socket
 
-from aiogram import Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import Bot, Router
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.database import db
 
 logger = logging.getLogger(__name__)
 
-SCAN_TIMES = [time(8, 0), time(20, 0)]
-CHECK_INTERVAL = 60
+router = Router()
 
 PROXY_PATTERN = re.compile(
     r'(https?://|socks[45]?://)([\w.-]+):(\d+)', re.IGNORECASE
@@ -40,107 +39,94 @@ def _short_label(url: str) -> str:
     return url[:40]
 
 
-async def _scan_source(bot: Bot, source, target_channel: str):
-    channel = source["channel"]
-    try:
-        msgs = await bot.get_chat_history(chat_id=channel, limit=5)
-    except Exception as e:
-        logger.warning(f"cannot read source channel {channel}: {type(e).__name__}: {e}")
-        return 0
+def _source_matches(source: str, chat) -> bool:
+    s = (source or "").strip()
+    if s.lstrip("-").isdigit():
+        return chat.id == int(s)
+    username = s.split("/")[-1].strip().lstrip("@")
+    if not username:
+        return False
+    if chat.username:
+        return username.lower() == chat.username.lower()
+    return False
 
-    all_urls = []
-    for m in reversed(msgs):
-        text = m.text or m.caption or ""
-        all_urls.extend(_extract_proxy_urls(text))
 
-    if not all_urls:
-        return 0
-
-    sent_set = await db.are_proxies_sent(all_urls)
-    new_urls = [u for u in all_urls if u not in sent_set]
-    if not new_urls:
-        return 0
-
-    import asyncio as _asyncio
-    import socket as _socket
-
-    def _test(url: str) -> bool:
-        match = PROXY_PATTERN.search(url)
-        if match:
-            host = match.group(2)
-            port = int(match.group(3))
-        else:
-            mt = MT_PROTO_PATTERN.search(url)
-            if not mt:
-                return False
-            host = mt.group(1)
-            port = int(mt.group(2))
-        try:
-            s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-            s.settimeout(4.0)
-            s.connect((host, port))
-            s.close()
-            return True
-        except Exception:
+def _test_proxy(url: str) -> bool:
+    match = PROXY_PATTERN.search(url)
+    if match:
+        host = match.group(2)
+        port = int(match.group(3))
+    else:
+        mt = MT_PROTO_PATTERN.search(url)
+        if not mt:
             return False
+        host = mt.group(1)
+        port = int(mt.group(2))
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(4.0)
+        s.connect((host, port))
+        s.close()
+        return True
+    except Exception:
+        return False
 
-    loop = _asyncio.get_running_loop()
-    tasks = [loop.run_in_executor(None, _test, u) for u in new_urls]
-    results = await _asyncio.gather(*tasks)
 
-    sent_count = 0
-    for url, ok in zip(new_urls, results):
-        if not ok:
-            continue
-        try:
+async def _test_urls(urls: list[str]) -> list[bool]:
+    loop = asyncio.get_running_loop()
+    tasks = [loop.run_in_executor(None, _test_proxy, u) for u in urls]
+    return await asyncio.gather(*tasks)
+
+
+@router.channel_post()
+async def on_channel_post(message: Message, bot: Bot):
+    try:
+        enabled = await db.get_setting("proxy_auto_enabled", "1")
+        if enabled != "1":
+            return
+
+        if not message.chat:
+            return
+
+        sources = await db.get_active_proxy_sources()
+        if not any(_source_matches(s["channel"], message.chat) for s in sources):
+            return
+
+        text = message.text or message.caption or ""
+        urls = _extract_proxy_urls(text)
+        if not urls:
+            return
+
+        target = await db.get_proxy_target()
+        if not target:
+            return
+
+        sent_set = await db.are_proxies_sent(urls)
+        new_urls = [u for u in urls if u not in sent_set]
+        if not new_urls:
+            return
+
+        results = await _test_urls(new_urls)
+        for url, ok in zip(new_urls, results):
+            if not ok:
+                continue
             label = _short_label(url)
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"🔗 {label}", url=url)]
             ])
-            await bot.send_message(
-                chat_id=target_channel,
-                text="🔄 پروکسی جدید",
-                reply_markup=keyboard,
-                disable_notification=True,
-            )
-            await db.add_sent_proxy(url)
-            sent_count += 1
-            await asyncio.sleep(1)
-        except Exception as e:
-            logger.warning(f"send proxy to target failed: {type(e).__name__}: {e}")
-
-    return sent_count
-
-
-async def _proxy_loop(bot: Bot, target_channel: str):
-    while True:
-        try:
-            now = datetime.now()
-            current_time = now.time()
-            should_run = any(
-                abs((current_time.hour * 60 + current_time.minute) - (t.hour * 60 + t.minute)) <= 1
-                for t in SCAN_TIMES
-            )
-            if not should_run:
-                await asyncio.sleep(CHECK_INTERVAL)
-                continue
-
-            sources = await db.get_active_proxy_sources()
-            total = 0
-            for s in sources:
-                count = await _scan_source(bot, s, target_channel)
-                total += count
-                await asyncio.sleep(3)
-            logger.info(f"proxy scan done: {total} new proxies sent")
-            await asyncio.sleep(120)
-        except Exception as e:
-            logger.error(f"proxy loop error: {type(e).__name__}: {e}")
-            await asyncio.sleep(60)
-
-
-def start_proxy_scanner(bot: Bot, target_channel: str):
-    logger.info(f"Proxy scanner started (8AM/8PM) -> target: {target_channel}")
-    return asyncio.create_task(_proxy_loop(bot, target_channel))
+            try:
+                await bot.send_message(
+                    chat_id=target,
+                    text="🔄 پروکسی جدید",
+                    reply_markup=keyboard,
+                    disable_notification=True,
+                )
+                await db.add_sent_proxy(url)
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.warning(f"send proxy to target failed: {type(e).__name__}: {e}")
+    except Exception as e:
+        logger.warning(f"channel post handler failed: {type(e).__name__}: {e}")
 
 
 async def test_scan(bot: Bot, admin_id: int):
@@ -149,97 +135,42 @@ async def test_scan(bot: Bot, admin_id: int):
         await bot.send_message(chat_id=admin_id, text="❌ هیچ کانال منبع فعالی وجود ندارد.")
         return
 
-    await bot.send_message(chat_id=admin_id, text=f"🧪 شروع تست اسکن ({len(sources)} کانال)...")
+    await bot.send_message(chat_id=admin_id, text=f"🧪 بررسی کانال‌های منبع ({len(sources)} کانال)...")
 
-    total = 0
+    try:
+        me = await bot.get_me()
+        bot_id = me.id
+    except Exception:
+        bot_id = None
+
+    ready = 0
     for s in sources:
         channel = s["channel"]
         try:
-            msgs = await bot.get_chat_history(chat_id=channel, limit=5)
+            member = await bot.get_chat_member(chat_id=channel, user_id=bot_id)
+            is_admin = member.status == "administrator"
         except Exception as e:
             await bot.send_message(
                 chat_id=admin_id,
-                text=f"⚠️ خطا در خواندن {channel}: {type(e).__name__}"
+                text=f"⚠️ {channel}: بات دسترسی ندارد ({type(e).__name__})"
             )
             continue
 
-        all_urls = []
-        for m in reversed(msgs):
-            text = m.text or m.caption or ""
-            all_urls.extend(_extract_proxy_urls(text))
-
-        if not all_urls:
+        if is_admin:
+            ready += 1
             await bot.send_message(
                 chat_id=admin_id,
-                text=f"📡 {channel}: پروکسی یافت نشد"
+                text=f"✅ {channel}: بات ادمین است — پست‌های جدید دریافت می‌شوند"
             )
-            continue
+        else:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=f"⚠️ {channel}: بات ادمین نیست — پست‌های جدید دریافت نمی‌شوند"
+            )
 
-        sent_set = await db.are_proxies_sent(all_urls)
-        new_urls = [u for u in all_urls if u not in sent_set]
-
-        import asyncio as _asyncio
-        import socket as _socket
-
-        def _test(url: str) -> bool:
-            match = PROXY_PATTERN.search(url)
-            if match:
-                host = match.group(2)
-                port = int(match.group(3))
-            else:
-                mt = MT_PROTO_PATTERN.search(url)
-                if not mt:
-                    return False
-                host = mt.group(1)
-                port = int(mt.group(2))
-            try:
-                s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-                s.settimeout(4.0)
-                s.connect((host, port))
-                s.close()
-                return True
-            except Exception:
-                return False
-
-        loop = _asyncio.get_running_loop()
-        tasks = [loop.run_in_executor(None, _test, u) for u in new_urls]
-        results = await _asyncio.gather(*tasks)
-
-        working = []
-        total_all = len(all_urls)
-        new_count = len(new_urls)
-        for url, ok in zip(new_urls, results):
-            if ok:
-                working.append(url)
-
-        already = total_all - new_count
-        failed = new_count - len(working)
-
-        status = (
-            f"📡 {channel}:\n"
-            f"   کل: {total_all} | تکراری: {already} | جدید: {new_count}\n"
-            f"   ✅ متصل: {len(working)} | ❌ ناموفق: {failed}"
-        )
-        await bot.send_message(chat_id=admin_id, text=status)
-
-        for url in working:
-            label = _short_label(url)
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=f"🔗 {label}", url=url)]
-            ])
-            try:
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text=f"🔄 تست پروکسی",
-                    reply_markup=keyboard,
-                )
-                total += 1
-            except Exception as e:
-                logger.warning(f"test send to admin failed: {type(e).__name__}: {e}")
-
-        await asyncio.sleep(1)
-
+    enabled = await db.get_setting("proxy_auto_enabled", "1")
+    status = "✅ فعال" if enabled == "1" else "⛔️ غیرفعال"
     await bot.send_message(
         chat_id=admin_id,
-        text=f"🧪 تست پایان یافت. {total} پروکسی سالم یافت شد (بدون ذخیره‌سازی)."
+        text=f"🧪 پایان بررسی. {ready} کانال آماده.\n⚙️ ارسال خودکار: {status}"
     )

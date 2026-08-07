@@ -310,14 +310,39 @@ async def proxy_menu(callback: CallbackQuery):
         return
     sources = await db.get_all_proxy_sources()
     target = await db.get_proxy_target()
+    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await callback.message.edit_text(
         f"🔄 مدیریت پروکسی\n\n"
+        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
         f"📡 تعداد کانال‌های منبع: {len(sources)}\n\n"
         "برای حذف روی کانال بزنید:",
-        reply_markup=proxy_sources_keyboard(sources)
+        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
     )
     await callback.answer()
+
+
+@router.callback_query(F.data == "admin:proxy_auto_toggle")
+async def proxy_auto_toggle(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    current = await db.get_setting("proxy_auto_enabled", "1")
+    new_val = "0" if current == "1" else "1"
+    await db.set_setting("proxy_auto_enabled", new_val)
+    await callback.answer(
+        "⛔️ ارسال خودکار غیرفعال شد." if new_val == "0" else "✅ ارسال خودکار فعال شد."
+    )
+    sources = await db.get_all_proxy_sources()
+    target = await db.get_proxy_target()
+    auto_enabled = new_val == "1"
+    await callback.message.edit_text(
+        f"🔄 مدیریت پروکسی\n\n"
+        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
+        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
+        f"📡 تعداد کانال‌های منبع: {len(sources)}\n\n"
+        "برای حذف روی کانال بزنید:",
+        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
+    )
 
 
 @router.callback_query(F.data.startswith("admin:proxy_askdel:"))
@@ -358,11 +383,13 @@ async def proxy_add_save(message: Message, state: FSMContext):
     await state.clear()
     sources = await db.get_all_proxy_sources()
     target = await db.get_proxy_target()
+    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await message.answer(
         f"✅ کانال منبع اضافه شد!\n\n"
+        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
         f"📡 کانال‌های منبع: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources)
+        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
     )
 
 
@@ -372,11 +399,13 @@ async def proxy_list(callback: CallbackQuery):
         return
     sources = await db.get_all_proxy_sources()
     target = await db.get_proxy_target()
+    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await callback.message.edit_text(
         f"📋 کانال‌های منبع:\n\n"
+        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
         f"📡 کانال‌ها: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources)
+        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
     )
     await callback.answer()
 
@@ -390,11 +419,13 @@ async def proxy_delete(callback: CallbackQuery):
     await callback.answer("✅ حذف شد!")
     sources = await db.get_all_proxy_sources()
     target = await db.get_proxy_target()
+    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await callback.message.edit_text(
         f"✅ کانال حذف شد!\n\n"
+        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
         f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
         f"📡 کانال‌های منبع: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources)
+        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
     )
 
 
@@ -402,10 +433,12 @@ async def proxy_delete(callback: CallbackQuery):
 async def proxy_test(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
         return
+    sources = await db.get_all_proxy_sources()
+    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await callback.answer("🧪 در حال تست...")
     await callback.message.edit_text(
         "🧪 تست ارسال پروکسی شروع شد...\nنتیجه به صورت پیام برای شما ارسال می‌شود.",
-        reply_markup=proxy_sources_keyboard(await db.get_all_proxy_sources())
+        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
     )
     await test_scan(bot, callback.from_user.id)
 

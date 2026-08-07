@@ -84,12 +84,14 @@ def proxy_menu_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def proxy_sources_keyboard(sources: list) -> InlineKeyboardMarkup:
+def proxy_sources_keyboard(sources: list, auto_enabled: bool = True) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=f"📡 {s['channel']}", callback_data=f"admin:proxy_askdel:{s['id']}")]
         for s in sources
     ]
     rows.append([InlineKeyboardButton(text="➕ افزودن کانال", callback_data="admin:proxy_add")])
+    toggle_text = "⛔️ غیرفعال کردن ارسال خودکار" if auto_enabled else "🟢 فعال کردن ارسال خودکار"
+    rows.append([InlineKeyboardButton(text=toggle_text, callback_data="admin:proxy_auto_toggle")])
     rows.append([InlineKeyboardButton(text="🧪 تست ارسال", callback_data="admin:proxy_test")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

@@ -6,9 +6,8 @@ from aiogram.types import BotCommand, MenuButtonCommands
 
 from bot.config import BOT_TOKEN, PROXY_URL, SUB_HOST, SUB_PORT
 from bot.database.models import init_db
-from bot.database import db
 from bot.services.reminders import start_reminders
-from bot.services.proxy_scanner import start_proxy_scanner
+from bot.services.proxy_scanner import router as proxy_scanner_router
 from bot.services.subserver import start_sub_server
 
 from bot.handlers.start import router as start_router
@@ -60,13 +59,10 @@ async def main():
         admin_payments_router,
         admin_settings_router,
         admin_create_account_router,
+        proxy_scanner_router,
     )
 
     start_reminders(bot)
-
-    target_channel = await db.get_proxy_target()
-    if target_channel:
-        start_proxy_scanner(bot, target_channel)
 
     await start_sub_server(SUB_HOST, SUB_PORT)
 
