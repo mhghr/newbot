@@ -146,26 +146,47 @@ async def test_scan(bot: Bot, admin_id: int):
     ready = 0
     for s in sources:
         channel = s["channel"]
+
         try:
-            member = await bot.get_chat_member(chat_id=channel, user_id=bot_id)
-            is_admin = member.status == "administrator"
-        except Exception as e:
+            chat = await bot.get_chat(chat_id=channel)
+        except Exception:
             await bot.send_message(
                 chat_id=admin_id,
-                text=f"⚠️ {channel}: بات دسترسی ندارد ({type(e).__name__})"
+                text=(
+                    f"❌ {channel}: کانال پیدا نشد یا در دسترس نیست.\n"
+                    "مطمئن شوید یوزرنیم درست است و بات به کانال اضافه شده."
+                )
             )
             continue
 
-        if is_admin:
+        try:
+            member = await bot.get_chat_member(chat_id=chat.id, user_id=bot_id)
+        except Exception:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=(
+                    f"⚠️ {channel}: بات ادمین این کانال نیست.\n"
+                    "بات را در کانال به عنوان ادمین اضافه کنید تا پست‌ها دریافت شوند."
+                )
+            )
+            continue
+
+        if member.status == "administrator":
             ready += 1
             await bot.send_message(
                 chat_id=admin_id,
                 text=f"✅ {channel}: بات ادمین است — پست‌های جدید دریافت می‌شوند"
             )
+        elif member.status == "creator":
+            ready += 1
+            await bot.send_message(
+                chat_id=admin_id,
+                text=f"✅ {channel}: بات صاحب کانال است — پست‌های جدید دریافت می‌شوند"
+            )
         else:
             await bot.send_message(
                 chat_id=admin_id,
-                text=f"⚠️ {channel}: بات ادمین نیست — پست‌های جدید دریافت نمی‌شوند"
+                text=f"⚠️ {channel}: بات عضو است ولی ادمین نیست — پست‌ها دریافت نمی‌شوند"
             )
 
     enabled = await db.get_setting("proxy_auto_enabled", "1")
