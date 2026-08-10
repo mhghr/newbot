@@ -294,6 +294,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:search_user"),
         InlineKeyboardButton(text="📖 مدیریت آموزش", callback_data="admin:tutorials"),
         InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),
+        InlineKeyboardButton(text="📡 انتقال سرور", callback_data="admin:transfer"),
     ]))
 
 
