@@ -295,6 +295,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="📖 مدیریت آموزش", callback_data="admin:tutorials"),
         InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),
         InlineKeyboardButton(text="📡 انتقال سرور", callback_data="admin:transfer"),
+        InlineKeyboardButton(text="🔁 پر کردن دیتابیس", callback_data="admin:fill_db"),
     ]))
 
 
@@ -328,6 +329,15 @@ def admin_plans_keyboard() -> InlineKeyboardMarkup:
     ])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def fill_db_confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ شروع", callback_data="fill_db:start"),
+            InlineKeyboardButton(text="❌ انصراف", callback_data="admin:back"),
+        ],
+    ])
 
 
 def server_actions_keyboard(server) -> InlineKeyboardMarkup:

@@ -26,6 +26,7 @@ from bot.handlers.admin.payments import router as admin_payments_router
 from bot.handlers.admin.settings import router as admin_settings_router
 from bot.handlers.admin.create_account import router as admin_create_account_router
 from bot.handlers.admin.transfer import router as admin_transfer_router
+from bot.handlers.admin.restore import router as admin_restore_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,6 +62,7 @@ async def main():
         admin_settings_router,
         admin_create_account_router,
         admin_transfer_router,
+        admin_restore_router,
         proxy_scanner_router,
     )
 

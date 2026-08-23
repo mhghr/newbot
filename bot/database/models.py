@@ -95,6 +95,15 @@ async def init_db():
         """)
 
         await conn.execute("""
+            INSERT INTO apps (platform, title, url)
+            SELECT * FROM (VALUES
+                ('android', 'Happ', 'https://play.google.com/store/apps/details?id=com.happproxy'),
+                ('ios', 'Happ', 'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215')
+            ) AS v(platform, title, url)
+            WHERE NOT EXISTS (SELECT 1 FROM apps WHERE platform = v.platform)
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS refunds (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id),

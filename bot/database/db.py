@@ -419,6 +419,71 @@ async def get_configs_by_server_id(server_id: int):
         )
 
 
+async def get_config_by_server_and_email(server_id: int, client_email: str):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM configs WHERE server_id=$1 AND client_email=$2",
+            server_id, client_email
+        )
+
+
+async def upsert_config(server_id: int, user_id: int, client_email: str,
+                        sub_id: str = "", sub_url: str = None, traffic_gb: int = 0,
+                        expire_date=None, is_active: bool = True, plan_id: int = None) -> dict:
+    """Insert or update a config by (server_id, client_email). Merge-safe."""
+    if isinstance(expire_date, str):
+        expire_date = datetime.fromisoformat(expire_date)
+    existing = await get_config_by_server_and_email(server_id, client_email)
+    async with models.pool.acquire() as conn:
+        if existing:
+            await conn.execute(
+                """UPDATE configs SET
+                       user_id=$1, sub_id=$2, config_link=$3, traffic_limit_gb=$4,
+                       expire_date=$5, is_active=$6, plan_id=$7
+                   WHERE id=$8""",
+                user_id, sub_id, sub_url, traffic_gb, expire_date, is_active, plan_id,
+                existing["id"]
+            )
+            return {"id": existing["id"], "created": False}
+        return {
+            "id": await conn.fetchval(
+                """INSERT INTO configs
+                       (server_id, user_id, client_email, sub_id, config_link,
+                        traffic_limit_gb, expire_date, is_active, plan_id,
+                        reminder_traffic_sent, reminder_time_sent)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, FALSE)
+                   RETURNING id""",
+                server_id, user_id, client_email, sub_id, sub_url,
+                traffic_gb, expire_date, is_active, plan_id
+            ),
+            "created": True,
+        }
+
+
+async def upsert_order(order_id: int, user_id: int, plan_id: int, config_link: str = None) -> dict:
+    """Insert (or update) an order keeping its original id from the old database."""
+    async with models.pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT id FROM orders WHERE id=$1", order_id)
+        if existing:
+            await conn.execute(
+                """UPDATE orders SET user_id=$1, plan_id=$2, status='approved',
+                       config_link=$3, reviewed_at=NOW()
+                   WHERE id=$4""",
+                user_id, plan_id, config_link, order_id
+            )
+            return {"id": order_id, "created": False}
+        await conn.execute(
+            """INSERT INTO orders (id, user_id, plan_id, status, config_link, reviewed_at)
+               VALUES ($1, $2, $3, 'approved', $4, NOW())""",
+            order_id, user_id, plan_id, config_link
+        )
+        await conn.execute(
+            """SELECT setval(pg_get_serial_sequence('orders', 'id'),
+                            GREATEST((SELECT COALESCE(MAX(id), 1) FROM orders), 1))"""
+        )
+        return {"id": order_id, "created": True}
+
+
 async def renew_config(config_id: int, order_id: int, plan_id: int, traffic_gb: int, expire_date):
     if isinstance(expire_date, str):
         expire_date = datetime.fromisoformat(expire_date)
