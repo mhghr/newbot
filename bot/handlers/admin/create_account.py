@@ -138,25 +138,33 @@ async def acc_traffic(message: Message, state: FSMContext):
 async def acc_days(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
-    text = message.text.strip()
-    if not text.isdigit():
-        await message.answer("⚠️ فقط عدد وارد کنید. مثال: 30", reply_markup=cancel_keyboard())
-        return
-    await state.update_data(days=int(text))
-    data = await state.get_data()
-    if data.get("service_type") == "wireguard":
-        await state.update_data(users=0)
+    try:
+        text = (message.text or "").strip()
+        if not text.isdigit():
+            await message.answer("⚠️ فقط عدد وارد کنید. مثال: 30", reply_markup=cancel_keyboard())
+            return
+        await state.update_data(days=int(text))
+        data = await state.get_data()
+        logger.info(
+            "acc_days: user=%s days=%s service_type=%r",
+            message.from_user.id, text, data.get("service_type"),
+        )
+        if data.get("service_type") == "wireguard":
+            await state.update_data(users=0)
+            await message.answer(
+                "📝 نام اکانت را وارد کنید (انگلیسی، بدون فاصله):",
+                reply_markup=cancel_keyboard()
+            )
+            await state.set_state(CreateAccountStates.waiting_name)
+            return
         await message.answer(
-            "📝 نام اکانت را وارد کنید (انگلیسی، بدون فاصله):",
+            "👥 تعداد کاربر (محدودیت IP) را وارد کنید:\n(عدد، برای نامحدود 0)",
             reply_markup=cancel_keyboard()
         )
-        await state.set_state(CreateAccountStates.waiting_name)
-        return
-    await message.answer(
-        "👥 تعداد کاربر (محدودیت IP) را وارد کنید:\n(عدد، برای نامحدود 0)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(CreateAccountStates.waiting_users)
+        await state.set_state(CreateAccountStates.waiting_users)
+    except Exception as e:
+        logger.exception(f"acc_days failed: {e}")
+        await message.answer(f"❌ خطا: {str(e)[:200]}", reply_markup=cancel_keyboard())
 
 
 @router.message(CreateAccountStates.waiting_users)
@@ -288,6 +296,11 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
         await message.answer("❌ سرور وایرگارد فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
         return
 
+    logger.info(
+        "WG admin create: server=%s iface=%s subnet=%s user=%s",
+        server["name"], server.get("wg_interface"),
+        server.get("wg_client_subnet"), name,
+    )
     status_msg = await message.answer("⏳ در حال ساخت اکانت وایرگارد...")
     try:
         result = await wg.create_account(server, name)

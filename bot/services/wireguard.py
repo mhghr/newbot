@@ -400,10 +400,27 @@ def _peer_action_sync(server, action, public_key=None, peer_id=None, client_ip=N
 # Async public API
 # --------------------------------------------------------------------------- #
 
+CONNECT_TIMEOUT = 25.0
+
+
+async def _run_with_timeout(func, *args, timeout: float = CONNECT_TIMEOUT):
+    """Run a blocking RouterOS operation with a hard timeout.
+
+    routeros-api has no built-in timeout, so an unreachable router would hang
+    forever. wait_for returns control (and lets us report) after `timeout`.
+    """
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout=timeout)
+    except asyncio.TimeoutError:
+        raise WireGuardError(
+            "اتصال به روتر Timeout خورد؛ آدرس/پورت API و دسترسی شبکه را بررسی کنید."
+        )
+
+
 async def test_connection(server):
     """Connect to the router and verify the WireGuard interface exists."""
     try:
-        return await asyncio.to_thread(_test_connection_sync, dict(server))
+        return await _run_with_timeout(_test_connection_sync, dict(server))
     except WireGuardError:
         raise
     except Exception as e:
@@ -413,7 +430,7 @@ async def test_connection(server):
 async def inspect_interface(server):
     """Connect, verify access and return auto-detected WireGuard settings."""
     try:
-        return await asyncio.to_thread(_inspect_sync, dict(server))
+        return await _run_with_timeout(_inspect_sync, dict(server))
     except WireGuardError:
         raise
     except Exception as e:
@@ -428,7 +445,7 @@ async def create_account(server, user_telegram_id, used_host_numbers=None):
             server["id"], _s(server, "wg_client_subnet")
         )
     try:
-        return await asyncio.to_thread(
+        return await _run_with_timeout(
             _create_sync, dict(server), set(used_host_numbers or set()), str(user_telegram_id)
         )
     except WireGuardError:
@@ -439,25 +456,25 @@ async def create_account(server, user_telegram_id, used_host_numbers=None):
 
 async def fetch_usage(server):
     """Return {public_key: {rx, tx, disabled, peer_id, client_ip}} for peers."""
-    return await asyncio.to_thread(_fetch_usage_sync, dict(server))
+    return await _run_with_timeout(_fetch_usage_sync, dict(server), timeout=15.0)
 
 
 async def set_peer_enabled(server, enabled: bool, public_key=None, peer_id=None, client_ip=None):
     action = "enable" if enabled else "disable"
-    return await asyncio.to_thread(
-        _peer_action_sync, dict(server), action, public_key, peer_id, client_ip
+    return await _run_with_timeout(
+        _peer_action_sync, dict(server), action, public_key, peer_id, client_ip, timeout=15.0
     )
 
 
 async def delete_peer(server, public_key=None, peer_id=None, client_ip=None):
-    return await asyncio.to_thread(
-        _peer_action_sync, dict(server), "delete", public_key, peer_id, client_ip
+    return await _run_with_timeout(
+        _peer_action_sync, dict(server), "delete", public_key, peer_id, client_ip, timeout=15.0
     )
 
 
 async def reset_peer(server, public_key=None, peer_id=None, client_ip=None):
-    return await asyncio.to_thread(
-        _peer_action_sync, dict(server), "reset", public_key, peer_id, client_ip
+    return await _run_with_timeout(
+        _peer_action_sync, dict(server), "reset", public_key, peer_id, client_ip, timeout=15.0
     )
 
 
