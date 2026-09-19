@@ -143,6 +143,15 @@ async def acc_days(message: Message, state: FSMContext):
         await message.answer("⚠️ فقط عدد وارد کنید. مثال: 30", reply_markup=cancel_keyboard())
         return
     await state.update_data(days=int(text))
+    data = await state.get_data()
+    if data.get("service_type") == "wireguard":
+        await state.update_data(users=0)
+        await message.answer(
+            "📝 نام اکانت را وارد کنید (انگلیسی، بدون فاصله):",
+            reply_markup=cancel_keyboard()
+        )
+        await state.set_state(CreateAccountStates.waiting_name)
+        return
     await message.answer(
         "👥 تعداد کاربر (محدودیت IP) را وارد کنید:\n(عدد، برای نامحدود 0)",
         reply_markup=cancel_keyboard()

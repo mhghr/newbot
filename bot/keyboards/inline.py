@@ -458,23 +458,28 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
 
 def plan_actions_keyboard(plan) -> InlineKeyboardMarkup:
     pid = plan["id"]
+    is_wg = (plan.get("service_type") or "v2ray") == "wireguard"
     toggle_text = "🔴 غیرفعال کردن" if plan["is_active"] else "🟢 فعال کردن"
     traffic = "نامحدود" if (plan["traffic_gb"] or 0) == 0 else f"{plan['traffic_gb']} GB"
     duration = "نامحدود" if (plan["duration_days"] or 0) == 0 else f"{plan['duration_days']} روز"
     users = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
-    return InlineKeyboardMarkup(inline_keyboard=[
+    rows = [
         [InlineKeyboardButton(text=f"🧩 نوع سرویس : {service_label(plan.get('service_type'))}", callback_data=f"admin:edit_plan_field:{pid}:service_type")],
         [InlineKeyboardButton(text=f"📛 نام : {_trunc(plan['name'])}", callback_data=f"admin:edit_plan_field:{pid}:name")],
         [InlineKeyboardButton(text=f"📊 حجم : {traffic}", callback_data=f"admin:edit_plan_field:{pid}:traffic_gb")],
         [InlineKeyboardButton(text=f"📅 مدت : {duration}", callback_data=f"admin:edit_plan_field:{pid}:duration_days")],
-        [InlineKeyboardButton(text=f"👥 تعداد کاربر : {users}", callback_data=f"admin:edit_plan_field:{pid}:max_users")],
+    ]
+    if not is_wg:
+        rows.append([InlineKeyboardButton(text=f"👥 تعداد کاربر : {users}", callback_data=f"admin:edit_plan_field:{pid}:max_users")])
+    rows += [
         [InlineKeyboardButton(text=f"💰 قیمت : {plan['price']:,} تومان", callback_data=f"admin:edit_plan_field:{pid}:price")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{pid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_plan:{pid}"),
         ],
         [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")],
-    ])
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def plan_edit_keyboard(plan_id: int) -> InlineKeyboardMarkup:

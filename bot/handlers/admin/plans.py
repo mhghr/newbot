@@ -137,12 +137,33 @@ async def add_plan_price(message: Message, state: FSMContext):
         return
 
     await state.update_data(price=price)
+    data = await state.get_data()
+    if data.get("service_type") == "wireguard":
+        await _finalize_plan(message, state, data, max_users=0)
+        return
     await message.answer(
         "👥 تعداد کاربر مجاز را وارد کنید:\n"
         "(عدد؛ برای مثال 1 = تک‌کاربره، و 0 = نامحدود)",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(AddPlanStates.waiting_users)
+
+
+async def _finalize_plan(message: Message, state: FSMContext, data: dict, max_users: int):
+    await db.add_plan(
+        name=data["name"],
+        traffic_gb=data["traffic_gb"],
+        duration_days=data["duration_days"],
+        price=data["price"],
+        max_users=max_users,
+        service_type=data.get("service_type", "v2ray"),
+    )
+    plans = await db.get_all_plans()
+    await message.answer(
+        f"✅ پلن «{data['name']}» ({service_label(data.get('service_type'))}) اضافه شد!",
+        reply_markup=plans_list_keyboard(plans)
+    )
+    await state.clear()
 
 
 @router.message(AddPlanStates.waiting_users)
@@ -158,21 +179,7 @@ async def add_plan_users(message: Message, state: FSMContext):
         max_users = 0
 
     data = await state.get_data()
-    await db.add_plan(
-        name=data["name"],
-        traffic_gb=data["traffic_gb"],
-        duration_days=data["duration_days"],
-        price=data["price"],
-        max_users=max_users,
-        service_type=data.get("service_type", "v2ray"),
-    )
-    users_txt = "نامحدود" if max_users == 0 else f"{max_users} کاربر"
-    plans = await db.get_all_plans()
-    await message.answer(
-        f"✅ پلن «{data['name']}» ({service_label(data.get('service_type'))}) اضافه شد!",
-        reply_markup=plans_list_keyboard(plans)
-    )
-    await state.clear()
+    await _finalize_plan(message, state, data, max_users)
 
 
 @router.callback_query(F.data == "admin:list_plans")
