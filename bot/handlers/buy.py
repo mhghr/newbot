@@ -9,7 +9,8 @@ import logging
 from bot.database import db
 from bot.keyboards.inline import (
     plans_keyboard, cancel_keyboard,
-    order_approval_keyboard, main_menu_keyboard
+    order_approval_keyboard, main_menu_keyboard,
+    service_type_keyboard, service_label,
 )
 from bot.config import ADMIN_IDS
 from bot.middlewares.membership import check_membership
@@ -44,13 +45,26 @@ async def show_payment_and_wait(callback: CallbackQuery, state: FSMContext, plan
     card_number = await db.get_setting("card_number", "تنظیم نشده")
     card_holder = await db.get_setting("card_holder", "تنظیم نشده")
     title = "🔄 تمدید اشتراک" if renew_config_id else "💳 پرداخت"
+    plan_name = (
+        (plan["name"] or "")
+        .replace("_", "\\_").replace("*", "\\*")
+        .replace("`", "\\`").replace("[", "\\[")
+    )
+
+    text = (
+        f"{title}\n\n"
+        f"📦 پلن: {plan_name}\n"
+        f"💰 مبلغ: **{plan['price']:,} تومان**\n\n"
+        "━━━━━━━━━━━━━━━\n"
+        "💳 واریز به شماره کارت:\n"
+        f"`{card_number}`\n"
+        f"👤 به نام: {card_holder}\n"
+        "━━━━━━━━━━━━━━━\n\n"
+        "📎 بعد از واریز، تصویر فیش را همین‌جا ارسال کنید."
+    )
 
     await _retry(lambda: callback.message.edit_text(
-        f"{title}\n\n"
-        f"💰 مبلغ قابل پرداخت برای «{plan['name']}»: **{plan['price']:,} تومان**\n\n"
-        f"💳 شماره کارت: `{card_number}`\n"
-        f"👤 صاحب کارت: {card_holder}\n\n"
-        "لطفا بعد از واریز، تصویر فیش واریزی را در همین مرحله ارسال کنید ⬇️",
+        text,
         parse_mode="Markdown",
         reply_markup=cancel_keyboard()
     ))
@@ -64,13 +78,30 @@ async def buy_config(callback: CallbackQuery, bot: Bot):
         await callback.answer("⚠️ ابتدا در کانال ما عضو شوید. /start", show_alert=True)
         return
 
-    plans = await db.get_active_plans()
+    await _retry(lambda: callback.message.edit_text(
+        "🛒 خرید کانفیگ\n\nنوع سرویس را انتخاب کنید:",
+        reply_markup=service_type_keyboard("buy_type")
+    ))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("buy_type:"))
+async def buy_type(callback: CallbackQuery, state: FSMContext):
+    service_type = callback.data.split(":")[1]
+    if service_type not in ("v2ray", "wireguard"):
+        await callback.answer("❌ نوع نامعتبر", show_alert=True)
+        return
+
+    plans = await db.get_active_plans(service_type)
     if not plans:
-        await callback.answer("❌ در حال حاضر پلنی تعریف نشده است.", show_alert=True)
+        await callback.answer(
+            f"❌ برای {service_label(service_type)} پلن فعالی تعریف نشده است.",
+            show_alert=True
+        )
         return
 
     await _retry(lambda: callback.message.edit_text(
-        "📦 پلن مورد نظر خود را انتخاب کنید:",
+        f"📦 پلن‌های {service_label(service_type)}:\nپلن مورد نظر خود را انتخاب کنید:",
         reply_markup=plans_keyboard(plans)
     ))
     await callback.answer()

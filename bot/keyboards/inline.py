@@ -190,7 +190,7 @@ def plans_keyboard(plans: list) -> InlineKeyboardMarkup:
         for plan in plans
     ]
     rows = _rows(buttons)
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="cancel_buy")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:buy")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
