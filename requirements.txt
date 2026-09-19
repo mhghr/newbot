@@ -5,3 +5,8 @@ python-dotenv==1.0.1
 aiohttp-socks>=0.8
 yt-dlp
 paramiko>=3.4
+
+# WireGuard on MikroTik (RouterOS API)
+routeros-api>=0.21.0
+cryptography>=42.0.0
+qrcode[pil]>=7.4.2

@@ -49,7 +49,8 @@ async def search_user_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
         return
     await callback.message.edit_text(
-        "🔍 آیدی عددی تلگرام یا یوزرنیم کاربر را وارد کنید:",
+        "🔍 هر بخشی از آیدی عددی، یوزرنیم، نام یا ایمیل/نام اکانت کاربر را وارد کنید\n"
+        "(حتی چند کاراکتر کافی است، به بزرگی و کوچکی حروف حساس نیست):",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(SearchUserStates.waiting_query)
@@ -80,14 +81,19 @@ async def search_user_result(message: Message, state: FSMContext):
         )
     else:
         buttons = []
-        for u in users[:10]:
+        shown = users[:10]
+        for u in shown:
             buttons.append([InlineKeyboardButton(
                 text=f"{u['first_name'] or '-'} | @{u['username'] or 'N/A'} | {u['telegram_id']}",
                 callback_data=f"admin:user_detail:{u['id']}"
             )])
         buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+        if len(users) > len(shown):
+            header = f"🔍 {len(users)} کاربر یافت شد (۱۰ مورد اول نمایش داده می‌شود):"
+        else:
+            header = f"🔍 {len(users)} کاربر یافت شد:"
         await message.answer(
-            f"🔍 {len(users)} کاربر یافت شد:",
+            header,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
         )
 
@@ -129,17 +135,29 @@ async def config_detail(callback: CallbackQuery):
     remaining = _remaining_days(config.get("expire_date"))
     traffic_str = "نامحدود" if (config.get("traffic_gb") or 0) == 0 else f"{config['traffic_gb']} GB"
     expire_str = to_jalali(config["expire_date"]) if config.get("expire_date") else "نامحدود"
-    sub_link = config.get("sub_url") or config.get("config_link") or "-"
+    service = config.get("service_type") or "v2ray"
 
-    text = (
-        f"🔑 اطلاعات کانفیگ #{config['id']}\n\n"
-        f"📦 پلن: {config.get('plan_name') or '-'}\n"
-        f"📊 حجم: {traffic_str}\n"
-        f"📅 تاریخ انقضا: {expire_str}\n"
-        f"📅 روز باقیمانده: {remaining} روز\n"
-        f"👤 کلاینت: {config.get('client_email') or '-'}\n"
-        f"🔗 لینک اشتراک:\n`{sub_link}`"
-    )
+    if service == "wireguard":
+        text = (
+            f"🔑 اطلاعات کانفیگ وایرگارد #{config['id']}\n\n"
+            f"📦 پلن: {config.get('plan_name') or '-'}\n"
+            f"📊 حجم: {traffic_str}\n"
+            f"📅 تاریخ انقضا: {expire_str}\n"
+            f"📅 روز باقی‌مانده: {remaining} روز\n"
+            f"🌐 IP: `{config.get('wg_client_ip') or '-'}`\n"
+            f"📈 مصرف: {config.get('used_bytes') or 0} بایت"
+        )
+    else:
+        sub_link = config.get("sub_url") or config.get("config_link") or "-"
+        text = (
+            f"🔑 اطلاعات کانفیگ #{config['id']}\n\n"
+            f"📦 پلن: {config.get('plan_name') or '-'}\n"
+            f"📊 حجم: {traffic_str}\n"
+            f"📅 تاریخ انقضا: {expire_str}\n"
+            f"📅 روز باقی‌مانده: {remaining} روز\n"
+            f"👤 کلاینت: {config.get('client_email') or '-'}\n"
+            f"🔗 لینک اشتراک:\n`{sub_link}`"
+        )
     await callback.message.edit_text(
         text, parse_mode="Markdown",
         reply_markup=admin_config_detail_keyboard(config)

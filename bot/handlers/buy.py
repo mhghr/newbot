@@ -84,9 +84,9 @@ async def select_plan(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ پلن یافت نشد!", show_alert=True)
         return
 
-    servers = await db.get_active_servers()
+    servers = await db.get_active_servers(plan.get("service_type") or "v2ray")
     if not servers:
-        await callback.answer("❌ سروری فعال نیست!", show_alert=True)
+        await callback.answer("❌ سروری فعال برای این نوع سرویس نیست!", show_alert=True)
         return
 
     await show_payment_and_wait(callback, state, plan)
@@ -107,11 +107,13 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
 
     photo_id = message.photo[-1].file_id
 
+    plan = await db.get_plan(plan_id) if plan_id else None
     order_id = await db.create_order(
         user_id=user["id"],
         plan_id=plan_id,
         receipt_photo_id=photo_id,
         renew_config_id=renew_config_id,
+        service_type=(plan["service_type"] if plan else "v2ray") or "v2ray",
     )
     await state.clear()
 

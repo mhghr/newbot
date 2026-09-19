@@ -117,9 +117,9 @@ async def sync_from_panels(report) -> dict:
     }
     failed_servers = []
 
-    servers = await db.get_active_servers()
+    servers = await db.get_active_servers("v2ray")
     if not servers:
-        report("⚠️ سرور فعالی در دیتابیس نیست. اول سرورها را اضافه کنید.")
+        report("⚠️ سرور فعال V2Ray در دیتابیس نیست. اول سرورها را اضافه کنید.")
         return stats
 
     plans = await db.get_all_plans()

@@ -18,7 +18,7 @@ async def handle_sub(request: web.Request) -> web.Response:
     if not user:
         return web.Response(status=404, text="Not found")
 
-    master = await db.get_master_server()
+    master = await db.get_master_server("v2ray")
     if not master:
         return web.Response(status=500, text="No master server")
 
