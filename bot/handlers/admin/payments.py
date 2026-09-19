@@ -10,6 +10,7 @@ from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
 from bot.services import wireguard as wg
+from bot.utils.jalali import to_jalali
 from bot.keyboards.inline import order_approval_keyboard
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ async def _send_wg_config(bot: Bot, chat_id: int, config_text: str, caption: str
     try:
         await _retry(lambda: bot.send_document(
             chat_id=chat_id, document=_wg_document(config_text, filename),
-            caption=caption, parse_mode="Markdown"
+            caption=caption,
         ))
         sent = True
     except Exception as e:
@@ -92,8 +93,7 @@ async def _send_wg_config(bot: Bot, chat_id: int, config_text: str, caption: str
     if not sent:
         await _retry(lambda: bot.send_message(
             chat_id=chat_id,
-            text=caption + f"\n\n```\n{config_text}\n```",
-            parse_mode="Markdown"
+            text=caption + f"\n\n{config_text}",
         ))
 
 
@@ -162,10 +162,12 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
             renew_config_id, order_id, order["plan_id"], traffic_gb, new_expire
         )
 
-        caption = (
-            "✅ اشتراک وایرگارد شما تمدید شد!\n\n"
-            f"🌐 IP: `{config['wg_client_ip']}`\n"
-            "فایل کانفیگ به‌روزرسانی‌شده در ادامه ارسال شد."
+        caption = wg.build_delivery_caption(
+            "تمدید",
+            plan_name=order["plan_name"] or "",
+            duration_days=duration_days,
+            traffic_gb=traffic_gb,
+            expiry_text=to_jalali(new_expire) if new_expire else "",
         )
         await _send_wg_config(bot, tg_id, config_text, caption, config["wg_client_ip"])
         await db.update_order_status(order_id, "approved", config["wg_client_ip"])
@@ -208,11 +210,12 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
         endpoint=endpoint, port=port, peer_id=result["peer_id"],
     )
 
-    caption = (
-        "✅ اشتراک وایرگارد شما آماده شد!\n\n"
-        f"🌐 IP: `{result['client_ip']}`\n"
-        f"📡 Endpoint: `{endpoint}:{port}`\n\n"
-        "فایل کانفیگ را در اپلیکیشن WireGuard ایمپورت کنید."
+    caption = wg.build_delivery_caption(
+        "آماده",
+        plan_name=order["plan_name"] or "",
+        duration_days=duration_days,
+        traffic_gb=traffic_gb,
+        expiry_text=to_jalali(expire_date) if expire_date else "",
     )
     await _send_wg_config(bot, tg_id, config_text, caption, result["client_ip"])
     await db.update_order_status(order_id, "approved", result["client_ip"])

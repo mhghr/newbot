@@ -511,3 +511,44 @@ def make_qr_png(data: str):
     buffer = BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+WIREGUARD_APPS = (
+    ("اندروید", "https://play.google.com/store/apps/details?id=com.wireguard.android"),
+    ("آیفون", "https://apps.apple.com/us/app/wireguard/id1441195209"),
+    ("ویندوز", "https://www.wireguard.com/install/"),
+)
+
+
+def build_delivery_caption(action_word: str, plan_name: str = "",
+                           duration_days: int = 0, traffic_gb: int = 0,
+                           expiry_text: str = "") -> str:
+    """User-facing caption for a delivered WireGuard config.
+
+    Intentionally does not print the client IP / endpoint; those live in
+    «کانفیگ‌های من» and the .conf file.
+    """
+    lines = [f"✅ اشتراک وایرگارد شما {action_word} شد!", ""]
+    if plan_name:
+        lines.append(f"📦 پلن: {plan_name}")
+    if duration_days and duration_days > 0:
+        lines.append(f"📅 مدت: {duration_days} روز")
+    if expiry_text:
+        lines.append(f"⏳ تاریخ انقضا: {expiry_text}")
+    lines.append(f"📊 حجم: {'نامحدود' if not traffic_gb else str(traffic_gb) + ' GB'}")
+    lines += [
+        "",
+        "📲 نحوه اتصال:",
+        "۱) اپلیکیشن WireGuard را نصب کنید.",
+        "۲) فایل کانفیگ را ایمپورت کنید (یا QR را اسکن کنید).",
+        "۳) اتصال را روشن کنید.",
+        "",
+        "🔗 دانلود اپلیکیشن:",
+    ]
+    for label, url in WIREGUARD_APPS:
+        lines.append(f"• {label}: {url}")
+    lines += [
+        "",
+        "ℹ️ مشخصات اکانت شما همیشه در «📋 کانفیگ های من» قابل مشاهده است.",
+    ]
+    return "\n".join(lines)
