@@ -125,14 +125,9 @@ class AddServerStates(StatesGroup):
     waiting_wg_api_port = State()
     waiting_wg_api_user = State()
     waiting_wg_api_pass = State()
+    waiting_wg_interface = State()
     waiting_wg_name = State()
     waiting_wg_location = State()
-    waiting_wg_interface = State()
-    waiting_wg_endpoint = State()
-    waiting_wg_port = State()
-    waiting_wg_subnet = State()
-    waiting_wg_ip_range = State()
-    waiting_wg_dns = State()
 
 
 class InboundStates(StatesGroup):
@@ -356,6 +351,17 @@ async def add_wg_api_user(message: Message, state: FSMContext):
 async def add_wg_api_pass(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS: return
     await state.update_data(password=message.text.strip())
+    await message.answer(
+        "📡 نام اینترفیس WireGuard روی روتر را وارد کنید:\n(مثال: wg1)",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(AddServerStates.waiting_wg_interface)
+
+
+@router.message(AddServerStates.waiting_wg_interface)
+async def add_wg_interface(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    await state.update_data(wg_interface=message.text.strip())
     await message.answer("📛 نام سرور را وارد کنید:", reply_markup=cancel_keyboard())
     await state.set_state(AddServerStates.waiting_wg_name)
 
@@ -372,95 +378,9 @@ async def add_wg_name(message: Message, state: FSMContext):
 async def add_wg_location(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS: return
     await state.update_data(location=message.text.strip())
-    await message.answer(
-        "📡 نام اینترفیس WireGuard روی روتر را وارد کنید:\n(مثال: wg1)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_interface)
-
-
-@router.message(AddServerStates.waiting_wg_interface)
-async def add_wg_interface(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(wg_interface=message.text.strip())
-    data = await state.get_data()
-    await message.answer(
-        "🌐 آدرس عمومی endpoint برای اتصال کلاینت‌ها را وارد کنید:\n"
-        f"(خالی بگذارید = همان آدرس روتر: {data.get('url')})",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_endpoint)
-
-
-@router.message(AddServerStates.waiting_wg_endpoint)
-async def add_wg_endpoint(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    text = message.text.strip()
-    await state.update_data(wg_endpoint="" if text in ("", "-") else text)
-    await message.answer(
-        "🔌 پورت WireGuard روی روتر را وارد کنید:\n(مثال: 51820)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_port)
-
-
-@router.message(AddServerStates.waiting_wg_port)
-async def add_wg_port(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    text = message.text.strip()
-    if not text.isdigit():
-        await message.answer("⚠️ فقط عدد وارد کنید. مثال: 51820", reply_markup=cancel_keyboard())
-        return
-    await state.update_data(wg_port=int(text))
-    await message.answer(
-        "🌍 شبکه کلاینت‌ها (subnet) را وارد کنید:\n(مثال: 10.66.66.0)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_subnet)
-
-
-@router.message(AddServerStates.waiting_wg_subnet)
-async def add_wg_subnet(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    subnet = message.text.strip()
-    if subnet.count(".") != 3:
-        await message.answer("⚠️ فرمت subnet نامعتبر است. مثال: 10.66.66.0", reply_markup=cancel_keyboard())
-        return
-    await state.update_data(wg_client_subnet=subnet)
-    await message.answer(
-        "📊 بازه IP کلاینت‌ها را وارد کنید:\n(فرمت: شروع-پایان، مثال: 10-250)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_ip_range)
-
-
-@router.message(AddServerStates.waiting_wg_ip_range)
-async def add_wg_ip_range(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    text = message.text.strip().replace("–", "-").replace("—", "-")
-    parts = text.split("-")
-    if len(parts) != 2 or not parts[0].strip().isdigit() or not parts[1].strip().isdigit():
-        await message.answer("⚠️ فرمت نامعتبر. مثال: 10-250", reply_markup=cancel_keyboard())
-        return
-    start, end = int(parts[0]), int(parts[1])
-    if end < start:
-        start, end = end, start
-    await state.update_data(wg_ip_range_start=start, wg_ip_range_end=end)
-    await message.answer(
-        "🧭 DNS کلاینت‌ها را وارد کنید:\n(خالی بگذارید = پیش‌فرض 1.1.1.1,8.8.8.8)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_dns)
-
-
-@router.message(AddServerStates.waiting_wg_dns)
-async def add_wg_dns(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    text = message.text.strip()
-    await state.update_data(wg_dns="" if text in ("", "-") else text)
     data = await state.get_data()
 
-    await message.answer("⏳ در حال تست اتصال به روتر و بررسی اینترفیس...")
+    status = await message.answer("⏳ در حال بررسی دسترسی به روتر و خواندن تنظیمات...")
     server_probe = {
         "url": data["url"],
         "api_port": data["api_port"],
@@ -469,38 +389,47 @@ async def add_wg_dns(message: Message, state: FSMContext):
         "wg_interface": data["wg_interface"],
     }
     try:
-        info = await wg.test_connection(server_probe)
+        info = await wg.inspect_interface(server_probe)
     except Exception as e:
-        await message.answer(
-            f"❌ اتصال به روتر ناموفق بود!\n{str(e)}",
-            reply_markup=cancel_keyboard()
-        )
         await state.clear()
+        error_text = (
+            "❌ دسترسی تایید نشد!\n\n"
+            f"{str(e)}\n\n"
+            "آدرس، پورت API، یوزر/پسورد و نام اینترفیس را بررسی کنید."
+        )
+        try:
+            await status.edit_text(error_text)
+        except Exception:
+            await message.answer(error_text)
         return
 
-    server_public_key = info.get("public_key", "")
+    public_key = info.get("public_key") or ""
     server_id = await db.add_server(
         name=data["name"], url=data["url"], location=data["location"],
         username=data["username"], password=data["password"],
         service_type="wireguard", api_port=data["api_port"],
         wg_interface=data["wg_interface"],
-        wg_server_public_key=server_public_key,
-        wg_endpoint=data.get("wg_endpoint") or data["url"],
-        wg_port=data["wg_port"],
-        wg_client_subnet=data["wg_client_subnet"],
-        wg_dns=data.get("wg_dns") or "1.1.1.1,8.8.8.8",
-        wg_ip_range_start=data["wg_ip_range_start"],
-        wg_ip_range_end=data["wg_ip_range_end"],
+        wg_server_public_key=public_key,
+        wg_endpoint=data["url"],
+        wg_port=info.get("listen_port", 51820),
+        wg_client_subnet=info.get("cidr") or info.get("subnet"),
+        wg_dns=info.get("dns") or "1.1.1.1,8.8.8.8",
+        wg_ip_range_start=info.get("range_start", 2),
+        wg_ip_range_end=info.get("range_end", 253),
     )
     await state.clear()
 
     servers = await db.get_all_servers()
-    note = "" if server_public_key else "\n⚠️ کلید عمومی سرور خوانده نشد؛ هنگام ساخت اکانت دوباره تلاش می‌شود."
-    await message.answer(
-        f"✅ روتر «{data['name']}» اضافه شد!\n"
+    key_preview = f"{public_key[:18]}…" if public_key else "خوانده نشد ⚠️"
+    await status.edit_text(
+        "✅ دسترسی تایید شد و روتر اضافه شد!\n\n"
+        f"📛 {data['name']} — {data['location']}\n"
         f"📡 اینترفیس: {data['wg_interface']}\n"
-        f"🌍 شبکه: {data['wg_client_subnet']} | بازه: {data['wg_ip_range_start']}-{data['wg_ip_range_end']}"
-        f"{note}",
+        f"🌍 شبکه کلاینت: {info.get('cidr')}\n"
+        f"📊 بازه IP: {info.get('range_start')}-{info.get('range_end')}\n"
+        f"🔌 پورت WireGuard: {info.get('listen_port')}\n"
+        f"🧭 DNS: {info.get('dns')}\n"
+        f"🔑 Public Key سرور: {key_preview}",
         reply_markup=servers_list_keyboard(servers)
     )
 

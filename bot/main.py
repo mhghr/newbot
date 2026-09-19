@@ -4,8 +4,9 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, MenuButtonCommands
 
-from bot.config import BOT_TOKEN, PROXY_URL, SUB_HOST, SUB_PORT
+from bot.config import BOT_TOKEN, PROXY_URL, SUB_HOST, SUB_PORT, ADMIN_IDS
 from bot.database.models import init_db
+from bot.database import db
 from bot.services.reminders import start_reminders
 from bot.services.proxy_scanner import router as proxy_scanner_router
 from bot.services.subserver import start_sub_server
@@ -36,6 +37,26 @@ logging.basicConfig(
         logging.FileHandler("bot.log", encoding="utf-8"),
     ],
 )
+
+
+async def _notify_transfer_done(bot: Bot):
+    """Announce a completed server transfer to admins, once."""
+    try:
+        pending = await db.get_setting("transfer_notify_pending", "")
+        if pending != "1":
+            return
+        for admin_id in ADMIN_IDS:
+            try:
+                await bot.send_message(
+                    admin_id,
+                    "✅ انتقال سرور انجام شد و ربات روی سرور جدید فعال است.\n"
+                    "از این پس ربات روی سرور جدید کار می‌کند.",
+                )
+            except Exception as e:
+                logging.warning(f"transfer notify to {admin_id} failed: {e}")
+        await db.set_setting("transfer_notify_pending", "0")
+    except Exception as e:
+        logging.warning(f"transfer notify check failed: {e}")
 
 
 async def main():
@@ -79,4 +100,5 @@ async def main():
         logging.warning(f"Failed to set bot commands/menu: {e}")
 
     logging.info("Bot starting...")
+    await _notify_transfer_done(bot)
     await dp.start_polling(bot)

@@ -1,5 +1,6 @@
 import bot.database.models as models
 from datetime import datetime
+import ipaddress
 import secrets
 import uuid as uuidlib
 
@@ -781,22 +782,31 @@ async def update_refund(refund_id: int, status: str = None, admin_response: str 
 # WireGuard helpers
 # --------------------------------------------------------------------------- #
 
-def _last_octet(ip: str):
-    if not ip or ip.count(".") != 3:
+def parse_wg_network(subnet: str):
+    """Parse a subnet into an ip_network. Accepts '10.0.0.0/24' or '10.0.0.0'."""
+    value = (subnet or "").strip()
+    if not value:
         return None
+    if "/" not in value:
+        value += "/24"
     try:
-        return int(ip.rsplit(".", 1)[-1])
+        return ipaddress.ip_network(value, strict=False)
     except ValueError:
         return None
 
 
-async def get_wg_used_last_octets(server_id: int, subnet: str) -> set:
-    """Last octets already used by active WireGuard configs of a server."""
-    base = (subnet or "").split("/")[0].strip()
-    parts = base.rsplit(".", 1)
-    if len(parts) != 2:
+def _host_number(ip: str, net):
+    try:
+        return int(ipaddress.ip_address(ip)) - int(net.network_address)
+    except (ValueError, TypeError):
+        return None
+
+
+async def get_wg_used_host_numbers(server_id: int, subnet: str) -> set:
+    """Host offsets already used by active WireGuard configs of a server."""
+    net = parse_wg_network(subnet)
+    if net is None:
         return set()
-    prefix = parts[0] + "."
     async with models.pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT wg_client_ip FROM configs
@@ -806,11 +816,9 @@ async def get_wg_used_last_octets(server_id: int, subnet: str) -> set:
         )
     used = set()
     for row in rows:
-        ip = row["wg_client_ip"]
-        if ip and ip.startswith(prefix):
-            octet = _last_octet(ip)
-            if octet is not None:
-                used.add(octet)
+        number = _host_number(row["wg_client_ip"], net)
+        if number is not None and number > 0:
+            used.add(number)
     return used
 
 

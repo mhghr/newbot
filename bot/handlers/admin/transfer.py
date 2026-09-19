@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import re
+import subprocess
 import tempfile
 import threading
 
@@ -19,6 +20,8 @@ router = Router()
 REMOTE_DIR = "/opt/migmig-bot"
 SERVICE_NAME = "migmig-bot"
 EXCLUDE_UPLOAD = {".git", "venv", "__pycache__", "backups", ".env.example", ".gitignore"}
+REMOTE_START_DELAY = 30  # seconds before the new server starts the bot
+LOCAL_STOP_DELAY = 12    # seconds before the old server stops its bot
 
 
 class TransferStates(StatesGroup):
@@ -196,6 +199,19 @@ async def start_transfer(callback: CallbackQuery, state: FSMContext, bot: Bot):
     except Exception:
         pass
 
+    if not transfer_error:
+        _schedule_local_stop(LOCAL_STOP_DELAY)
+        try:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"🔌 سرویس این سرور تا {LOCAL_STOP_DELAY} ثانیه دیگر خاموش می‌شود.\n"
+                    "پس از روشن‌شدن ربات روی سرور جدید، پیام تایید برای شما ارسال می‌شود."
+                ),
+            )
+        except Exception:
+            pass
+
 
 def _do_transfer(host: str, username: str, password: str, report: callable):
     import paramiko
@@ -215,6 +231,12 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
 
     try:
         report("✅ اتصال برقرار شد.")
+
+        uid = _run(ssh, "id -u").strip()
+        if uid != "0":
+            report("❌ کاربر SSH باید root باشد (یا دسترسی root داشته باشد).")
+            report("لطفاً با یوزر root دوباره تلاش کنید.")
+            return
 
         # --- Step 1: System dependencies ---
         report("📦 نصب پیش‌نیازهای سیستمی...")
@@ -333,25 +355,54 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
         sftp.close()
         _run(ssh, "systemctl daemon-reload")
         _run(ssh, f"systemctl enable {SERVICE_NAME}")
-        _run(ssh, f"systemctl restart {SERVICE_NAME}")
 
-        import time
-        time.sleep(4)
+        # --- Step 9: Handover (stop old, then start new) ---
+        report("🔁 آماده‌سازی تحویل (خاموشی سرور قدیم و روشن‌شدن سرور جدید)...")
 
-        # --- Step 9: Verify ---
-        report("✅ بررسی وضعیت ربات روی سرور جدید...")
-        result = _run(ssh, f"systemctl is-active {SERVICE_NAME}")
-        if "active" in result:
-            report("🎉 انتقال با موفقیت انجام شد! ربات روی سرور جدید فعال است.")
-            report("⚠️ فراموش نکنید توکن ربات را از @BotFather تغییر ندهید.")
-        else:
-            report(f"⚠️ ربات روی سرور جدید اجرا نشد. وضعیت: {result.strip()}")
-            report(f"برای بررسی دستی:")
-            report(f"  ssh {username}@{host}")
-            report(f"  journalctl -u {SERVICE_NAME} -n 50 --no-pager")
+        # Mark the remote DB so the new bot announces itself once it is up.
+        _run(ssh, (
+            f"sudo -u postgres psql -d {db_info['db']} -c "
+            f"\"CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);\""
+        ))
+        _run(ssh, (
+            f"sudo -u postgres psql -d {db_info['db']} -c "
+            f"\"INSERT INTO settings(key,value) VALUES('transfer_notify_pending','1') "
+            f"ON CONFLICT (key) DO UPDATE SET value='1';\""
+        ))
+
+        # Start the new bot after the old one has stopped, to avoid a Telegram
+        # getUpdates conflict. Scheduled with a transient systemd timer so it
+        # survives the SSH session closing.
+        _schedule_remote_start(ssh, REMOTE_START_DELAY)
+        report(f"⏳ سرور جدید حدود {REMOTE_START_DELAY} ثانیه دیگر روشن می‌شود.")
+        report("🎉 انتقال انجام شد! سرور قدیمی به‌زودی خاموش و سرور جدید فعال می‌شود.")
+        report("📩 به‌محض فعال‌شدن ربات روی سرور جدید، پیام تایید برای شما ارسال می‌شود.")
 
     finally:
         ssh.close()
+
+
+def _schedule_remote_start(ssh, delay: int):
+    """Start the bot service on the remote host after `delay` seconds."""
+    cmd = (
+        f"systemd-run --collect --on-active={delay}s --unit=migmig-transfer-start "
+        f"systemctl restart {SERVICE_NAME} 2>/dev/null || "
+        f"{{ setsid sh -c 'sleep {delay}; systemctl restart {SERVICE_NAME}' >/dev/null 2>&1 & }}"
+    )
+    _run(ssh, cmd)
+
+
+def _schedule_local_stop(delay: int):
+    """Stop the current (old) bot service after `delay` seconds."""
+    cmd = (
+        f"systemd-run --collect --on-active={delay}s --unit=migmig-transfer-stop "
+        f"systemctl stop {SERVICE_NAME} 2>/dev/null || "
+        f"{{ setsid sh -c 'sleep {delay}; systemctl stop {SERVICE_NAME}' >/dev/null 2>&1 & }}"
+    )
+    try:
+        subprocess.Popen(["/bin/sh", "-c", cmd], start_new_session=True)
+    except Exception as e:
+        logger.error(f"Failed to schedule local stop: {e}")
 
 
 def _run(ssh, cmd: str) -> str:

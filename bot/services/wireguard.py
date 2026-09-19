@@ -8,6 +8,7 @@ A WireGuard "server" is a MikroTik router whose ``servers`` row has
 """
 import asyncio
 import base64
+import ipaddress
 import logging
 
 logger = logging.getLogger(__name__)
@@ -92,12 +93,37 @@ def generate_keypair():
     )
 
 
-def _split_prefix(subnet: str) -> str:
-    base = (subnet or "").split("/")[0].strip()
-    parts = base.rsplit(".", 1)
-    if len(parts) != 2:
-        raise WireGuardError("subnet وایرگارد نامعتبر است (مثال: 10.66.66.0)")
-    return parts[0] + "."
+def _parse_network(subnet: str):
+    value = (subnet or "").strip()
+    if not value:
+        return None
+    if "/" not in value:
+        value += "/24"
+    try:
+        return ipaddress.ip_network(value, strict=False)
+    except ValueError:
+        return None
+
+
+def _host_number(ip: str, net):
+    try:
+        return int(ipaddress.ip_address(ip)) - int(net.network_address)
+    except (ValueError, TypeError):
+        return None
+
+
+def _friendly_error(exc: Exception) -> str:
+    text = str(exc)
+    low = text.lower()
+    if "authentication" in low or "login" in low or "invalid user" in low or "password" in low:
+        return "یوزرنیم یا پسورد API اشتباه است."
+    if "timed out" in low or "timeout" in low:
+        return "اتصال به روتر Timeout شد. IP/پورت و دسترسی شبکه را بررسی کنید."
+    if "refused" in low:
+        return "اتصال رد شد. احتمالاً سرویس API روی روتر فعال نیست یا پورت اشتباه است."
+    if "unreachable" in low or "no route" in low:
+        return "روتر در دسترس نیست. IP را بررسی کنید."
+    return text
 
 
 def format_endpoint_host(host: str) -> str:
@@ -158,13 +184,93 @@ def _test_connection_sync(server):
         _disconnect(pool)
 
 
-def _create_sync(server, used_last_octets, user_telegram_id):
+def _inspect_sync(server):
+    """Connect, verify access and auto-detect every WireGuard setting.
+
+    Reads the interface (public key + listen port), its IP address on the
+    router (/ip/address) and the router DNS. Derives the client subnet and the
+    usable IP range, reserving the first and last usable addresses.
+    """
     iface = _s(server, "wg_interface")
-    prefix = _split_prefix(_s(server, "wg_client_subnet"))
-    start = _to_int(_s(server, "wg_ip_range_start", 10)) or 10
-    end = _to_int(_s(server, "wg_ip_range_end", 250)) or 250
-    if end < start:
-        start, end = end, start
+    pool = _open_pool(server)
+    try:
+        api = pool.get_api()
+        interfaces = api.get_resource("/interface/wireguard").get()
+        match = next((i for i in interfaces if i.get("name") == iface), None)
+        if not match:
+            names = ", ".join(i.get("name", "?") for i in interfaces) or "-"
+            raise WireGuardError(
+                f"اینترفیس WireGuard «{iface}» روی روتر پیدا نشد.\n"
+                f"اینترفیس‌های موجود: {names}"
+            )
+
+        public_key = match.get("public-key", "") or ""
+        listen_port = _to_int(match.get("listen-port")) or 51820
+
+        addresses = api.get_resource("/ip/address").get()
+        cidr = ""
+        for item in addresses:
+            if item.get("interface") == iface and item.get("address"):
+                cidr = item.get("address", "").strip()
+                break
+        if not cidr:
+            raise WireGuardError(
+                f"اینترفیس «{iface}» هیچ آدرس IP ندارد.\n"
+                "اول روی روتر یک آدرس مثل 10.66.66.1/24 به اینترفیس بده."
+            )
+
+        net = _parse_network(cidr)
+        if net is None:
+            raise WireGuardError(f"آدرس اینترفیس نامعتبر است: {cidr}")
+
+        server_ip = cidr.split("/")[0].strip()
+        server_host = _host_number(server_ip, net)
+        total_hosts = net.num_addresses - 2  # exclude network + broadcast
+        if total_hosts < 2:
+            raise WireGuardError(f"شبکه {cidr} برای تخصیص کلاینت کافی نیست.")
+
+        # Reserve the first usable (the router itself) and the last usable.
+        start = max(2, (server_host + 1) if server_host and server_host >= 1 else 2)
+        end = total_hosts - 1
+        if end < start:
+            start, end = 1, total_hosts
+
+        dns = ""
+        try:
+            dns_rows = api.get_resource("/ip/dns").get()
+            if dns_rows:
+                dns = (dns_rows[0].get("servers") or "").strip()
+        except Exception:
+            dns = ""
+        if not dns:
+            dns = DEFAULT_DNS
+
+        return {
+            "public_key": public_key,
+            "listen_port": listen_port,
+            "cidr": f"{net.network_address}/{net.prefixlen}",
+            "subnet": str(net.network_address),
+            "server_ip": server_ip,
+            "prefix": net.prefixlen,
+            "range_start": start,
+            "range_end": end,
+            "dns": dns,
+            "interfaces": [i.get("name") for i in interfaces],
+        }
+    finally:
+        _disconnect(pool)
+
+
+def _create_sync(server, used_host_numbers, user_telegram_id):
+    iface = _s(server, "wg_interface")
+    net = _parse_network(_s(server, "wg_client_subnet"))
+    if net is None:
+        raise WireGuardError("subnet وایرگارد تنظیم نشده یا نامعتبر است (مثال: 10.66.66.0/24)")
+    total_hosts = net.num_addresses - 2
+    start = _to_int(_s(server, "wg_ip_range_start", 2)) or 2
+    end = _to_int(_s(server, "wg_ip_range_end", total_hosts - 1)) or (total_hosts - 1)
+    start = max(1, min(start, total_hosts))
+    end = max(start, min(end, total_hosts))
 
     public_key, private_key = generate_keypair()
 
@@ -180,19 +286,17 @@ def _create_sync(server, used_last_octets, user_telegram_id):
         peers_res = api.get_resource("/interface/wireguard/peers")
         peers = peers_res.get()
 
-        used = set(used_last_octets or set())
+        used = set(used_host_numbers or set())
         for peer in peers:
             addr = (peer.get("allowed-address") or "").split("/")[0].strip()
-            if addr.count(".") == 3 and addr.startswith(prefix):
-                try:
-                    used.add(int(addr.rsplit(".", 1)[-1]))
-                except ValueError:
-                    continue
+            number = _host_number(addr, net)
+            if number is not None and number > 0:
+                used.add(number)
 
         client_ip = None
-        for i in range(start, end + 1):
-            if i not in used:
-                client_ip = f"{prefix}{i}"
+        for number in range(start, end + 1):
+            if number not in used:
+                client_ip = str(net.network_address + number)
                 break
         if not client_ip:
             raise WireGuardError("IP آزادی در بازه تعیین‌شده یافت نشد")
@@ -298,19 +402,39 @@ def _peer_action_sync(server, action, public_key=None, peer_id=None, client_ip=N
 
 async def test_connection(server):
     """Connect to the router and verify the WireGuard interface exists."""
-    return await asyncio.to_thread(_test_connection_sync, dict(server))
+    try:
+        return await asyncio.to_thread(_test_connection_sync, dict(server))
+    except WireGuardError:
+        raise
+    except Exception as e:
+        raise WireGuardError(_friendly_error(e))
 
 
-async def create_account(server, user_telegram_id, used_last_octets=None):
+async def inspect_interface(server):
+    """Connect, verify access and return auto-detected WireGuard settings."""
+    try:
+        return await asyncio.to_thread(_inspect_sync, dict(server))
+    except WireGuardError:
+        raise
+    except Exception as e:
+        raise WireGuardError(_friendly_error(e))
+
+
+async def create_account(server, user_telegram_id, used_host_numbers=None):
     """Create a WireGuard peer for the user and return its details."""
-    if used_last_octets is None:
+    if used_host_numbers is None:
         from bot.database import db
-        used_last_octets = await db.get_wg_used_last_octets(
+        used_host_numbers = await db.get_wg_used_host_numbers(
             server["id"], _s(server, "wg_client_subnet")
         )
-    return await asyncio.to_thread(
-        _create_sync, dict(server), set(used_last_octets or set()), str(user_telegram_id)
-    )
+    try:
+        return await asyncio.to_thread(
+            _create_sync, dict(server), set(used_host_numbers or set()), str(user_telegram_id)
+        )
+    except WireGuardError:
+        raise
+    except Exception as e:
+        raise WireGuardError(_friendly_error(e))
 
 
 async def fetch_usage(server):
