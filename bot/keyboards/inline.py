@@ -532,7 +532,11 @@ def admin_user_detail_keyboard(user, configs: list) -> InlineKeyboardMarkup:
     ]
     for c in configs:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
-        rows.append([InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"admin:config_detail:{c['id']}")])
+        badge = SERVICE_SHORT.get(c.get("service_type"), "V2Ray")
+        rows.append([InlineKeyboardButton(
+            text=f"🔑 [{badge}] {_trunc(label, 26)}",
+            callback_data=f"admin:config_detail:{c['id']}",
+        )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:search_user")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

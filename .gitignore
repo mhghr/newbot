@@ -22,3 +22,11 @@ backups/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local AI / tooling artifacts (not part of the bot)
+.claude/
+.repowise/
+.kilo/
+.opencode/
+.mcp.json
+*.pkl

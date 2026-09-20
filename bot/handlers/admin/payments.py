@@ -11,6 +11,7 @@ from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
 from bot.services import wireguard as wg
 from bot.utils.jalali import to_jalali
+from bot.utils.helpers import admin_order_caption
 from bot.keyboards.inline import order_approval_keyboard
 
 logger = logging.getLogger(__name__)
@@ -43,17 +44,6 @@ async def _send_config_to_user(bot: Bot, chat_id: int, qr_url: str, caption: str
         await _retry(lambda: bot.send_message(
             chat_id=chat_id, text=caption, parse_mode="Markdown"
         ))
-
-
-def _order_caption(order) -> str:
-    return (
-        f"\u200f🆕 سفارش #{order['id']}\n\n"
-        f"\u200f👤 کاربر: {order['first_name']} (@{order['username'] or 'ندارد'})\n"
-        f"\u200f🆔 آیدی: {order['telegram_id']}\n"
-        f"\u200f📦 پلن: {order['plan_name']}\n"
-        f"\u200f💰 مبلغ: {order['price']:,} تومان\n"
-        f"\u200f🌍 لوکیشن: همه سرورهای فعال"
-    )
 
 
 def _wg_document(config_text: str, filename: str) -> BufferedInputFile:
@@ -261,7 +251,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 service_type = existing_type
 
     await db.update_order_status(order_id, "processing")
-    base_caption = _order_caption(order)
+    base_caption = admin_order_caption(order, service_type=service_type)
 
     try:
         try:
@@ -269,7 +259,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 caption=base_caption + (
                     "\n\n⏳ در حال ساخت اکانت وایرگارد روی روتر..."
                     if service_type == "wireguard"
-                    else "\n\n⏳ در حال ساخت کانفیگ روی همه اینباندها..."
+                    else "\n\n⏳ در حال ساخت کانفیگ..."
                 ),
                 reply_markup=order_approval_keyboard(order_id)
             )
@@ -299,7 +289,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                     reality_ids.append(ib["id"])
 
         if not reality_ids:
-            raise Exception("هیچ اینباندی تنظیم نشده. از «مدیریت سرور → اینباندها» اقدام کنید")
+            raise Exception("سرور V2Ray به‌درستی تنظیم نشده. از «مدیریت سرور» اقدام کنید")
 
         renew_config_id = order["renew_config_id"]
         plan_max_users = order["max_users"] or 0
@@ -398,7 +388,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         try:
             await callback.message.edit_caption(
-                caption=base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد | {len(reality_ids)} اینباند\n🔗 {sub_url}",
+                caption=base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد\n🔗 {sub_url}",
                 reply_markup=None,
             )
         except Exception:

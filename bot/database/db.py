@@ -70,6 +70,9 @@ async def search_user(query: str):
                   OR u.first_name ILIKE $1
                   OR u.last_name ILIKE $1
                   OR c.client_email ILIKE $1
+                  OR c.sub_id ILIKE $1
+                  OR c.wg_client_ip ILIKE $1
+                  OR c.wg_public_key ILIKE $1
                ORDER BY u.id""",
             pattern,
         )

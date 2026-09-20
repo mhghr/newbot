@@ -14,6 +14,7 @@ from bot.keyboards.inline import (
 )
 from bot.config import ADMIN_IDS
 from bot.middlewares.membership import check_membership
+from bot.utils.helpers import admin_order_caption
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +150,9 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
     await state.clear()
 
     order = await db.get_order(order_id)
-    order_kind = "🔄 تمدید" if renew_config_id else "🆕 سفارش جدید"
+    caption = admin_order_caption(
+        order, kind=("renew" if renew_config_id else "new")
+    )
 
     if not ADMIN_IDS:
         logger.error("ADMIN_IDS is empty - receipt cannot be sent to any admin")
@@ -160,14 +163,7 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
             await _retry(lambda aid=admin_id: bot.send_photo(
                 chat_id=aid,
                 photo=photo_id,
-                caption=(
-                    f"\u200f{order_kind} #{order_id}\n\n"
-                    f"\u200f👤 کاربر: {order['first_name']} (@{order['username'] or 'ندارد'})\n"
-                    f"\u200f🆔 آیدی: {order['telegram_id']}\n"
-                    f"\u200f📦 پلن: {order['plan_name']}\n"
-                    f"\u200f💰 مبلغ: {order['price']:,} تومان\n"
-                    f"\u200f🌍 لوکیشن: همه سرورهای فعال"
-                ),
+                caption=caption,
                 reply_markup=order_approval_keyboard(order_id),
             ))
             sent += 1

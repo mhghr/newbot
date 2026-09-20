@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DNS = "1.1.1.1,8.8.8.8"
 
+# Seconds between keepalive packets, applied both to the router-side peer and
+# the generated client .conf so the tunnel stays alive behind NAT.
+PERSISTENT_KEEPALIVE = 25
+
 
 class WireGuardError(Exception):
     """Raised for any expected/validation failure while talking to MikroTik."""
@@ -301,12 +305,15 @@ def _create_sync(server, used_host_numbers, user_telegram_id):
         if not client_ip:
             raise WireGuardError("IP آزادی در بازه تعیین‌شده یافت نشد")
 
-        comment = f"{user_telegram_id}-wg-{client_ip.rsplit('.', 1)[-1]}"
+        # The peer comment carries the user identifier so an admin can map a
+        # peer back to its owner directly from the router.
+        comment = f"user={user_telegram_id} wg={client_ip}"
         peers_res.add(
             **{
                 "interface": iface,
                 "public-key": public_key,
                 "allowed-address": f"{client_ip}/32",
+                "persistent-keepalive": f"{PERSISTENT_KEEPALIVE}s",
                 "comment": comment,
             }
         )
@@ -495,7 +502,7 @@ def build_config_text(private_key: str, client_ip: str, dns: str,
         f"PublicKey = {server_public_key}",
         "AllowedIPs = 0.0.0.0/0, ::/0",
         f"Endpoint = {endpoint_host}:{port}",
-        "PersistentKeepalive = 25",
+        f"PersistentKeepalive = {PERSISTENT_KEEPALIVE}",
     ]
     return "\n".join(lines)
 

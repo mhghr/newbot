@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime
+from html import escape as _esc
 
 from bot.config import ADMIN_IDS
 from bot.database import db
@@ -36,11 +37,12 @@ def _remaining_days(expire_date) -> int:
 def _user_info_lines(user) -> list[str]:
     name_parts = [p for p in [user.get("first_name"), user.get("last_name")] if p]
     name = " ".join(name_parts) if name_parts else "-"
+    username = user.get("username")
     return [
-        f"🆔 آیدی: `{user['telegram_id']}`",
-        f"📛 نام: {name}",
-        f"👤 یوزرنیم: @{user.get('username') or 'ندارد'}",
-        f"📅 تاریخ عضویت: {to_jalali(user['created_at'], with_time=True)}",
+        f"🆔 آیدی: <code>{user['telegram_id']}</code>",
+        f"📛 نام: {_esc(name)}",
+        f"👤 یوزرنیم: @{_esc(username) if username else 'ندارد'}",
+        f"📅 تاریخ عضویت: {_esc(to_jalali(user['created_at'], with_time=True))}",
     ]
 
 
@@ -62,6 +64,13 @@ async def search_user_result(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
 
+    if not message.text:
+        await message.answer(
+            "⚠️ لطفا متن جستجو را ارسال کنید (آیدی، یوزرنیم، نام یا نام اکانت).",
+            reply_markup=cancel_keyboard(),
+        )
+        return
+
     query = message.text.strip().lstrip("@")
     users = await db.search_user(query)
 
@@ -76,7 +85,7 @@ async def search_user_result(message: Message, state: FSMContext):
         info = "\n".join(_user_info_lines(user))
         text = f"👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
         await message.answer(
-            text, parse_mode="Markdown",
+            text, parse_mode="HTML",
             reply_markup=admin_user_detail_keyboard(user, configs)
         )
     else:
@@ -115,7 +124,7 @@ async def user_detail(callback: CallbackQuery):
     info = "\n".join(_user_info_lines(user))
     text = f"👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
     await callback.message.edit_text(
-        text, parse_mode="Markdown",
+        text, parse_mode="HTML",
         reply_markup=admin_user_detail_keyboard(user, configs)
     )
     await callback.answer()
@@ -140,26 +149,26 @@ async def config_detail(callback: CallbackQuery):
     if service == "wireguard":
         text = (
             f"🔑 اطلاعات کانفیگ وایرگارد #{config['id']}\n\n"
-            f"📦 پلن: {config.get('plan_name') or '-'}\n"
+            f"📦 پلن: {_esc(config.get('plan_name') or '-')}\n"
             f"📊 حجم: {traffic_str}\n"
             f"📅 تاریخ انقضا: {expire_str}\n"
             f"📅 روز باقی‌مانده: {remaining} روز\n"
-            f"🌐 IP: `{config.get('wg_client_ip') or '-'}`\n"
+            f"🌐 IP: <code>{_esc(config.get('wg_client_ip') or '-')}</code>\n"
             f"📈 مصرف: {config.get('used_bytes') or 0} بایت"
         )
     else:
         sub_link = config.get("sub_url") or config.get("config_link") or "-"
         text = (
             f"🔑 اطلاعات کانفیگ #{config['id']}\n\n"
-            f"📦 پلن: {config.get('plan_name') or '-'}\n"
+            f"📦 پلن: {_esc(config.get('plan_name') or '-')}\n"
             f"📊 حجم: {traffic_str}\n"
             f"📅 تاریخ انقضا: {expire_str}\n"
             f"📅 روز باقی‌مانده: {remaining} روز\n"
-            f"👤 کلاینت: {config.get('client_email') or '-'}\n"
-            f"🔗 لینک اشتراک:\n`{sub_link}`"
+            f"👤 کلاینت: {_esc(config.get('client_email') or '-')}\n"
+            f"🔗 لینک اشتراک:\n<code>{_esc(sub_link)}</code>"
         )
     await callback.message.edit_text(
-        text, parse_mode="Markdown",
+        text, parse_mode="HTML",
         reply_markup=admin_config_detail_keyboard(config)
     )
     await callback.answer()
@@ -207,7 +216,7 @@ async def delete_config_confirm(callback: CallbackQuery):
         info = "\n".join(_user_info_lines(user))
         text = f"✅ کانفیگ #{config_id} با موفقیت حذف شد.\n\n👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
         await callback.message.edit_text(
-            text, parse_mode="Markdown",
+            text, parse_mode="HTML",
             reply_markup=admin_user_detail_keyboard(user, configs)
         )
     else:
