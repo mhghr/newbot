@@ -7,6 +7,17 @@ logging.basicConfig(
 
 logger = logging.getLogger("vpn_bot")
 
+ONE_GB = 1024 * 1024 * 1024
+
+
+def format_gb(num_bytes, decimals: int = 2) -> str:
+    """Format a byte count as gigabytes, e.g. 1610612736 -> '1.50 GB'."""
+    try:
+        value = int(num_bytes or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return f"{value / ONE_GB:.{decimals}f} GB"
+
 
 def admin_order_caption(order, service_type: str = None, kind: str = "new") -> str:
     """Caption shown to admins for a new order or a renewal.

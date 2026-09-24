@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from bot.middlewares.membership import check_membership
-from bot.keyboards.inline import main_menu_keyboard, landing_keyboard, join_channel_keyboard, back_to_menu_keyboard
+from bot.keyboards.inline import main_menu_keyboard, join_channel_keyboard, back_to_menu_keyboard
 from bot.database import db
 
 router = Router()
@@ -25,12 +25,13 @@ SUPPORT_TEXT = (
 )
 
 
-def welcome_text() -> str:
+def main_menu_text() -> str:
     return (
         "🌸 سلام\n"
-        "به ربات **میگ‌میگ** خوش آمدید 🎉\n\n"
-        "این ربات برای کمک به اتصال شما به اینترنت آزاد، پرسرعت و بدون محدودیت طراحی شده است.\n\n"
-        "برای شروع، از منوی زیر گزینه‌ی موردنظر را انتخاب کنید 👇"
+        "به ربات میگ‌میگ خوش آمدید 🎉\n\n"
+        "🛒 منوی اصلی\n"
+        "✅ در حال حاضر دو پروتکل V2Ray و WireGuard ارائه می‌شود.\n\n"
+        "از گزینه‌های زیر انتخاب کنید 👇"
     )
 
 
@@ -54,9 +55,8 @@ async def cmd_start(message: Message, bot: Bot):
     )
 
     await message.answer(
-        welcome_text(),
-        parse_mode="Markdown",
-        reply_markup=landing_keyboard(message.from_user.id)
+        main_menu_text(),
+        reply_markup=main_menu_keyboard(message.from_user.id)
     )
 
 
@@ -78,9 +78,8 @@ async def recheck_membership(callback: CallbackQuery, bot: Bot):
     )
 
     await callback.message.edit_text(
-        welcome_text(),
-        parse_mode="Markdown",
-        reply_markup=landing_keyboard(callback.from_user.id)
+        main_menu_text(),
+        reply_markup=main_menu_keyboard(callback.from_user.id)
     )
     await callback.answer("✅ عضویت تایید شد!")
 
@@ -88,9 +87,8 @@ async def recheck_membership(callback: CallbackQuery, bot: Bot):
 @router.callback_query(F.data == "main:home")
 async def show_landing(callback: CallbackQuery):
     await callback.message.edit_text(
-        welcome_text(),
-        parse_mode="Markdown",
-        reply_markup=landing_keyboard(callback.from_user.id)
+        main_menu_text(),
+        reply_markup=main_menu_keyboard(callback.from_user.id)
     )
     await callback.answer()
 
@@ -98,7 +96,7 @@ async def show_landing(callback: CallbackQuery):
 @router.callback_query(F.data == "main:configs")
 async def show_configs_menu(callback: CallbackQuery):
     await callback.message.edit_text(
-        "🛒 منوی کانفیگ\nاز گزینه‌های زیر انتخاب کنید:",
+        main_menu_text(),
         reply_markup=main_menu_keyboard(callback.from_user.id)
     )
     await callback.answer()
@@ -107,7 +105,7 @@ async def show_configs_menu(callback: CallbackQuery):
 @router.callback_query(F.data == "main:back")
 async def back_to_menu(callback: CallbackQuery):
     await callback.message.edit_text(
-        "🛒 منوی کانفیگ\nاز گزینه‌های زیر انتخاب کنید:",
+        main_menu_text(),
         reply_markup=main_menu_keyboard(callback.from_user.id)
     )
     await callback.answer()

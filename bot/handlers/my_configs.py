@@ -2,16 +2,19 @@ from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, BufferedInputFile
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
+from urllib.parse import quote
 
 from bot.database import db
 from bot.keyboards.inline import (
-    my_configs_keyboard, config_detail_keyboard, wg_config_detail_keyboard,
+    my_configs_keyboard, account_detail_keyboard,
     renew_choice_keyboard, renew_plans_keyboard, back_to_menu_keyboard
 )
 from bot.middlewares.membership import check_membership
-from bot.services.xui import XUIClient, format_bytes
+from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
 from bot.utils.jalali import to_jalali
+from bot.utils.helpers import format_gb
+from html import escape as _esc
 
 router = Router()
 
@@ -27,11 +30,28 @@ async def _get_owned_config(telegram_id: int, config_id: int):
 
 
 async def _config_traffic(config):
-    """Return {used, total, remaining} for either service type."""
+    """Return {used, total, remaining} for either service type.
+
+    For WireGuard the value stored in the DB is only refreshed by the background
+    reminder loop, so we merge in the live router counters (delta since the last
+    stored baseline) to show an up-to-date number without double counting.
+    """
     service = config.get("service_type") or "v2ray"
     if service == "wireguard":
         total = (config.get("traffic_gb") or 0) * ONE_GB
         used = config.get("used_bytes") or 0
+        server = await db.get_server(config["server_id"]) if config.get("server_id") else None
+        if server and config.get("wg_public_key"):
+            try:
+                usage = await wg.fetch_usage(server)
+                peer = usage.get(config["wg_public_key"])
+                if peer:
+                    used, _, _ = wg.merge_usage(
+                        used, config.get("wg_last_rx"), config.get("wg_last_tx"),
+                        peer.get("rx", 0), peer.get("tx", 0),
+                    )
+            except Exception:
+                pass
         remaining = max(0, total - used) if total > 0 else 0
         return {"used": used, "total": total, "remaining": remaining}
 
@@ -70,14 +90,14 @@ async def my_configs(callback: CallbackQuery, bot: Bot):
     configs = await db.get_configs_by_telegram_id(callback.from_user.id)
     if not configs:
         await callback.message.edit_text(
-            "📋 شما هیچ کانفیگ فعالی ندارید.\nاز بخش «خرید کانفیگ» اقدام کنید.",
+            "📋 شما هیچ اکانت فعالی ندارید.\nاز بخش «خرید» اقدام کنید.",
             reply_markup=back_to_menu_keyboard()
         )
         await callback.answer()
         return
 
     await callback.message.edit_text(
-        "📋 کانفیگ‌های شما:\nروی هرکدام بزنید تا جزئیاتش را ببینید.",
+        "📋 اکانت‌های شما:\nروی هرکدام بزنید تا جزئیاتش را ببینید.",
         reply_markup=my_configs_keyboard(configs)
     )
     await callback.answer()
@@ -98,51 +118,67 @@ async def view_config(callback: CallbackQuery):
     traffic = await _config_traffic(config)
     if traffic:
         if traffic.get("total", 0) > 0:
-            traffic_info = (
-                f"📊 مصرف: {format_bytes(traffic['used'])} از {format_bytes(traffic['total'])}\n"
-                f"📊 باقیمانده: {format_bytes(traffic['remaining'])}\n"
-            )
+            traffic_str = f"{format_gb(traffic['used'])} از {format_gb(traffic['total'])}"
         else:
-            traffic_info = f"📊 مصرف: {format_bytes(traffic['used'])} (نامحدود)\n"
+            traffic_str = f"{format_gb(traffic['used'])} (نامحدود)"
     else:
-        traffic_info = "📊 ترافیک: در دسترس نیست\n"
+        traffic_str = "در دسترس نیست"
 
     service = config.get("service_type") or "v2ray"
+    expire_str = to_jalali(config["expire_date"]) if config["expire_date"] else "نامحدود"
+    plan_name = _esc(config.get("plan_name") or "-")
 
+    lines = [
+        f"🔑 اکانت {'WireGuard' if service == 'wireguard' else 'V2Ray'} #{config['id']}",
+        "",
+        f"📦 پلن: {plan_name}",
+        f"📅 روزهای باقی‌مانده: {remaining_days} روز",
+        f"⏳ تاریخ انقضا: {expire_str}",
+        f"📊 مصرف: {traffic_str}",
+    ]
     if service == "wireguard":
-        endpoint = config.get("wg_endpoint") or config.get("server_wg_endpoint") or "-"
-        port = config.get("wg_port") or config.get("server_wg_port") or 51820
-        text = (
-            f"🔑 کانفیگ وایرگارد #{config['id']}\n\n"
-            f"📦 پلن: {config.get('plan_name') or '-'}\n"
-            f"📅 تاریخ انقضا: {to_jalali(config['expire_date']) if config['expire_date'] else 'نامحدود'}\n"
-            f"📅 روز باقیمانده: {remaining_days} روز\n"
-            f"{traffic_info}\n"
-            f"🌐 IP: `{config.get('wg_client_ip') or '-'}`\n"
-            f"📡 Endpoint: `{endpoint}:{port}`\n\n"
-            "برای دریافت فایل کانفیگ، دکمه زیر را بزنید."
-        )
-        await callback.message.edit_text(
-            text, parse_mode="Markdown",
-            reply_markup=wg_config_detail_keyboard(config_id, True)
-        )
-        await callback.answer()
-        return
-
-    text = (
-        f"🔑 کانفیگ #{config['id']}\n\n"
-        f"📦 پلن: {config.get('plan_name') or '-'}\n"
-        f"📅 تاریخ انقضا: {to_jalali(config['expire_date']) if config['expire_date'] else 'نامحدود'}\n"
-        f"📅 روز باقیمانده: {remaining_days} روز\n"
-        f"{traffic_info}\n"
-        f"🔗 لینک اشتراک:\n`{config['sub_url']}`"
-    )
+        lines.append(f"🌐 IP: {_esc(config.get('wg_client_ip') or '-')}")
+    else:
+        sub_link = config.get("sub_url") or config.get("config_link") or "-"
+        lines += ["", "🔗 لینک اشتراک:", f"<code>{_esc(sub_link)}</code>"]
 
     await callback.message.edit_text(
-        text, parse_mode="Markdown",
-        reply_markup=config_detail_keyboard(config_id, True)
+        "\n".join(lines), parse_mode="HTML",
+        reply_markup=account_detail_keyboard(config["id"], service),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data == "cfg_noop")
+async def cfg_noop(callback: CallbackQuery):
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("qr:"))
+async def show_qr(callback: CallbackQuery, bot: Bot):
+    config_id = int(callback.data.split(":")[1])
+    config = await _get_owned_config(callback.from_user.id, config_id)
+    if not config or (config.get("service_type") or "v2ray") != "v2ray":
+        await callback.answer("❌ اکانت V2Ray یافت نشد!", show_alert=True)
+        return
+    sub_url = config.get("sub_url") or config.get("config_link")
+    if not sub_url:
+        await callback.answer("❌ لینک اشتراک یافت نشد!", show_alert=True)
+        return
+    qr_url = (
+        "https://api.qrserver.com/v1/create-qr-code/"
+        f"?size=500x500&qzone=2&margin=10&data={quote(sub_url, safe='')}"
+    )
+    try:
+        await bot.send_photo(
+            chat_id=callback.from_user.id,
+            photo=qr_url,
+            caption="📷 QR کد اشتراک V2Ray\nبا اپلیکیشن خود اسکن کنید.",
+        )
+    except Exception:
+        await callback.answer("❌ ارسال تصویر ناموفق بود.", show_alert=True)
+        return
+    await callback.answer("✅ ارسال شد!")
 
 
 @router.callback_query(F.data.startswith("wg_resend:"))
@@ -150,7 +186,7 @@ async def wg_resend(callback: CallbackQuery, bot: Bot):
     config_id = int(callback.data.split(":")[1])
     config = await _get_owned_config(callback.from_user.id, config_id)
     if not config or (config.get("service_type") or "v2ray") != "wireguard":
-        await callback.answer("❌ کانفیگ وایرگارد یافت نشد!", show_alert=True)
+        await callback.answer("❌ کانفیگ WireGuard یافت نشد!", show_alert=True)
         return
 
     server = await db.get_server(config["server_id"]) if config["server_id"] else None
@@ -162,7 +198,7 @@ async def wg_resend(callback: CallbackQuery, bot: Bot):
             chat_id=callback.from_user.id,
             document=BufferedInputFile(config_text.encode("utf-8"), filename=filename),
             caption=(
-                "📄 فایل کانفیگ وایرگارد شما\n"
+                "📄 فایل کانفیگ WireGuard شما\n"
                 f"🌐 IP: `{config.get('wg_client_ip') or '-'}`"
             ),
             parse_mode="Markdown",
@@ -170,7 +206,7 @@ async def wg_resend(callback: CallbackQuery, bot: Bot):
     except Exception:
         await bot.send_message(
             chat_id=callback.from_user.id,
-            text=f"📄 کانفیگ وایرگارد:\n\n```\n{config_text}\n```",
+            text=f"📄 کانفیگ WireGuard:\n\n```\n{config_text}\n```",
             parse_mode="Markdown",
         )
     await callback.answer("✅ ارسال شد!")

@@ -10,3 +10,6 @@ paramiko>=3.4
 routeros-api>=0.21.0
 cryptography>=42.0.0
 qrcode[pil]>=7.4.2
+
+# Userbot used to read proxy source channels
+telethon>=1.36.0

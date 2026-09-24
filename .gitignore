@@ -1,6 +1,11 @@
 # Secrets / environment
 .env
 
+# Telethon userbot session (login credentials — never commit)
+*.session
+*.session-journal
+*.login.json
+
 # Python
 __pycache__/
 *.py[cod]

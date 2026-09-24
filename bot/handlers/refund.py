@@ -14,8 +14,9 @@ from bot.keyboards.inline import (
     back_to_menu_keyboard, main_menu_keyboard, cancel_keyboard
 )
 from bot.middlewares.membership import check_membership
-from bot.services.xui import XUIClient, format_bytes
+from bot.services.xui import XUIClient
 from bot.utils.jalali import to_jalali
+from bot.utils.helpers import format_gb
 
 logger = logging.getLogger(__name__)
 
@@ -161,13 +162,13 @@ async def _notify_admins_refund(bot: Bot, refund_id: int):
     used_txt = "نامشخص"
     try:
         if (refund.get("service_type") or "v2ray") == "wireguard":
-            used_txt = format_bytes(refund.get("used_bytes") or 0)
+            used_txt = format_gb(refund.get("used_bytes") or 0)
         else:
             master = await db.get_master_server("v2ray")
             if master:
                 xui = XUIClient(master["url"], api_token=master["api_token"])
                 traffic = await xui.get_client_traffic(refund["client_email"])
-                used_txt = format_bytes(traffic["used"])
+                used_txt = format_gb(traffic["used"])
     except Exception:
         pass
 

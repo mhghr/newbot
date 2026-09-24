@@ -75,7 +75,7 @@ async def _send_wg_config(bot: Bot, chat_id: int, config_text: str, caption: str
             await _retry(lambda: bot.send_photo(
                 chat_id=chat_id,
                 photo=BufferedInputFile(qr_png, filename=f"{client_ip or 'config'}.png"),
-                caption="📷 QR کانفیگ وایرگارد — با اپ WireGuard اسکن کنید.",
+                caption="📷 QR کانفیگ WireGuard — با اپ WireGuard اسکن کنید.",
             ))
         except Exception as e:
             logger.warning(f"WG QR send failed: {e}")
@@ -115,7 +115,7 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
         if not server:
             server = await db.get_active_server_by_type("wireguard")
         if not server:
-            raise Exception("سرور وایرگارد فعالی یافت نشد")
+            raise Exception("سرور WireGuard فعالی یافت نشد")
 
         now = datetime.now()
         if duration_days > 0:
@@ -164,7 +164,7 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
 
         try:
             await callback.message.edit_caption(
-                caption=base_caption + "\n\n✅ تمدید وایرگارد انجام و برای کاربر ارسال شد.",
+                caption=base_caption + "\n\n✅ تمدید WireGuard انجام و برای کاربر ارسال شد.",
                 reply_markup=None,
             )
         except Exception:
@@ -173,7 +173,7 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
 
     server = await _resolve_wg_server(order)
     if not server:
-        raise Exception("سرور وایرگارد فعالی یافت نشد")
+        raise Exception("سرور WireGuard فعالی یافت نشد")
 
     result = await wg.create_account(server, tg_id)
     endpoint = server["wg_endpoint"] or server["url"]
@@ -212,7 +212,7 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
 
     try:
         await callback.message.edit_caption(
-            caption=base_caption + f"\n\n✅ اکانت وایرگارد ساخته و ارسال شد\n🌐 {result['client_ip']}",
+            caption=base_caption + f"\n\n✅ اکانت WireGuard ساخته و ارسال شد\n🌐 {result['client_ip']}",
             reply_markup=None,
         )
     except Exception:
@@ -257,7 +257,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         try:
             await callback.message.edit_caption(
                 caption=base_caption + (
-                    "\n\n⏳ در حال ساخت اکانت وایرگارد روی روتر..."
+                    "\n\n⏳ در حال ساخت اکانت WireGuard روی روتر..."
                     if service_type == "wireguard"
                     else "\n\n⏳ در حال ساخت کانفیگ..."
                 ),
@@ -268,7 +268,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         if service_type == "wireguard":
             await _approve_wireguard_order(callback, bot, order, base_caption)
-            await callback.answer("✅ اکانت وایرگارد ساخته و ارسال شد!")
+            await callback.answer("✅ اکانت WireGuard ساخته و ارسال شد!")
             return
 
         master = await db.get_master_server("v2ray")

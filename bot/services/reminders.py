@@ -82,17 +82,17 @@ async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict, 
     usage_map = usage_cache[server["id"]]
 
     used = config["used_bytes"] or 0
-    if usage_map:
-        peer = usage_map.get(config["wg_public_key"]) or {}
+    peer = (
+        usage_map.get(config["wg_public_key"])
+        if usage_map and config.get("wg_public_key")
+        else None
+    )
+    if peer is not None:
         rx = peer.get("rx", 0)
         tx = peer.get("tx", 0)
-        total_now = rx + tx
-        prev_total = (config["wg_last_rx"] or 0) + (config["wg_last_tx"] or 0)
-        if total_now >= prev_total:
-            used = used + (total_now - prev_total)
-        else:
-            # Router/peer counter reset — treat current counter as fresh usage.
-            used = used + total_now
+        used, rx, tx = wg.merge_usage(
+            used, config["wg_last_rx"], config["wg_last_tx"], rx, tx
+        )
         try:
             await db.update_wg_usage(config["id"], rx, tx, used)
         except Exception as e:

@@ -118,36 +118,6 @@ async def init_db():
             )
         """)
 
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS proxy_sources (
-                id SERIAL PRIMARY KEY,
-                channel TEXT NOT NULL,
-                is_active BOOLEAN DEFAULT TRUE,
-                last_scan_id BIGINT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS proxy_pending (
-                id SERIAL PRIMARY KEY,
-                text TEXT,
-                photo_id TEXT,
-                doc_id TEXT,
-                target_channel TEXT NOT NULL,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS sent_proxies (
-                id SERIAL PRIMARY KEY,
-                url TEXT UNIQUE NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-
         try:
             await conn.execute("ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_token TEXT DEFAULT ''")
         except Exception:

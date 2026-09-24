@@ -80,7 +80,15 @@ async def buy_config(callback: CallbackQuery, bot: Bot):
         return
 
     await _retry(lambda: callback.message.edit_text(
-        "🛒 خرید کانفیگ\n\nنوع سرویس را انتخاب کنید:",
+        "🛒 خرید\n\n"
+        "نوع سرویس را انتخاب کنید:\n\n"
+        "🔵 V2Ray\n"
+        "• چندکاربره است؛ یک اشتراک را می‌توانید روی چند دستگاه یا چند نفر استفاده کنید.\n"
+        "• چند لوکیشن/سرور دارد و برای شرایط مختلف شبکه مناسب‌تر است.\n\n"
+        "🟢 WireGuard\n"
+        "• فقط تک‌کاربره است (یک دستگاه).\n"
+        "• سبک، سریع و پایدار؛ مناسب استفاده روزمره روی یک دستگاه.\n\n"
+        "👇 یکی از گزینه‌های زیر را انتخاب کنید:",
         reply_markup=service_type_keyboard("buy_type")
     ))
     await callback.answer()

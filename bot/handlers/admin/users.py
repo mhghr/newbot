@@ -13,6 +13,7 @@ from bot.keyboards.inline import (
     admin_config_delete_confirm_keyboard,
 )
 from bot.utils.jalali import to_jalali
+from bot.utils.helpers import format_gb
 
 router = Router()
 
@@ -148,13 +149,13 @@ async def config_detail(callback: CallbackQuery):
 
     if service == "wireguard":
         text = (
-            f"🔑 اطلاعات کانفیگ وایرگارد #{config['id']}\n\n"
+            f"🔑 اطلاعات کانفیگ WireGuard #{config['id']}\n\n"
             f"📦 پلن: {_esc(config.get('plan_name') or '-')}\n"
             f"📊 حجم: {traffic_str}\n"
             f"📅 تاریخ انقضا: {expire_str}\n"
             f"📅 روز باقی‌مانده: {remaining} روز\n"
             f"🌐 IP: <code>{_esc(config.get('wg_client_ip') or '-')}</code>\n"
-            f"📈 مصرف: {config.get('used_bytes') or 0} بایت"
+            f"📈 مصرف: {format_gb(config.get('used_bytes'))}"
         )
     else:
         sub_link = config.get("sub_url") or config.get("config_link") or "-"

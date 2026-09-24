@@ -3,13 +3,12 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from bot.config import ADMIN_IDS
+from bot.config import ADMIN_IDS, PROXY_SOURCE_CHANNELS
 from bot.database import db
 from bot.keyboards.inline import (
     admin_settings_keyboard, admin_tutorial_keyboard,
     admin_menu_keyboard, cancel_keyboard,
-    proxy_menu_keyboard, proxy_sources_keyboard,
-    proxy_delete_confirm_keyboard,
+    proxy_menu_keyboard,
     admin_tutorial_apps_keyboard, admin_tutorial_app_keyboard,
 )
 from bot.handlers.tutorial import DEFAULT_APP_TUTORIALS
@@ -34,7 +33,6 @@ class SettingsStates(StatesGroup):
 
 
 class ProxyStates(StatesGroup):
-    waiting_source_channel = State()
     waiting_target_channel = State()
 
 
@@ -304,20 +302,28 @@ async def admin_tutorial_video_delete(callback: CallbackQuery):
 
 # ---- Proxy menu ----
 
+def _proxy_menu_text(target: str, auto_enabled: bool) -> str:
+    if PROXY_SOURCE_CHANNELS:
+        src_list = "\n".join(f"• {s}" for s in PROXY_SOURCE_CHANNELS)
+    else:
+        src_list = "(در .env تنظیم نشده)"
+    return (
+        f"🔄 مدیریت پروکسی\n\n"
+        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
+        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
+        f"📡 کانال‌های منبع (از .env):\n{src_list}"
+    )
+
+
 @router.callback_query(F.data == "admin:proxy")
 async def proxy_menu(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         return
-    sources = await db.get_all_proxy_sources()
     target = await db.get_proxy_target()
     auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await callback.message.edit_text(
-        f"🔄 مدیریت پروکسی\n\n"
-        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
-        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
-        f"📡 تعداد کانال‌های منبع: {len(sources)}\n\n"
-        "برای حذف روی کانال بزنید:",
-        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
+        _proxy_menu_text(target, auto_enabled),
+        reply_markup=proxy_menu_keyboard(auto_enabled),
     )
     await callback.answer()
 
@@ -332,100 +338,11 @@ async def proxy_auto_toggle(callback: CallbackQuery):
     await callback.answer(
         "⛔️ ارسال خودکار غیرفعال شد." if new_val == "0" else "✅ ارسال خودکار فعال شد."
     )
-    sources = await db.get_all_proxy_sources()
     target = await db.get_proxy_target()
     auto_enabled = new_val == "1"
     await callback.message.edit_text(
-        f"🔄 مدیریت پروکسی\n\n"
-        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
-        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
-        f"📡 تعداد کانال‌های منبع: {len(sources)}\n\n"
-        "برای حذف روی کانال بزنید:",
-        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
-    )
-
-
-@router.callback_query(F.data.startswith("admin:proxy_askdel:"))
-async def proxy_ask_delete(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    source_id = int(callback.data.split(":")[2])
-    sources = await db.get_all_proxy_sources()
-    src = next((s for s in sources if s["id"] == source_id), None)
-    if not src:
-        await callback.answer("❌ کانال یافت نشد!", show_alert=True)
-        return
-    await callback.message.edit_text(
-        f"⚠️ آیا از حذف کانال `{src['channel']}` اطمینان دارید؟",
-        parse_mode="Markdown",
-        reply_markup=proxy_delete_confirm_keyboard(source_id)
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data == "admin:proxy_add")
-async def proxy_add_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    await callback.message.edit_text(
-        "➕ کانال منبع پروکسی را وارد کنید (یوزرنیم مثل @proxy_channel):",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(ProxyStates.waiting_source_channel)
-    await callback.answer()
-
-
-@router.message(ProxyStates.waiting_source_channel)
-async def proxy_add_save(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    await db.add_proxy_source(message.text.strip())
-    await state.clear()
-    sources = await db.get_all_proxy_sources()
-    target = await db.get_proxy_target()
-    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
-    await message.answer(
-        f"✅ کانال منبع اضافه شد!\n\n"
-        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
-        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
-        f"📡 کانال‌های منبع: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
-    )
-
-
-@router.callback_query(F.data == "admin:proxy_list")
-async def proxy_list(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    sources = await db.get_all_proxy_sources()
-    target = await db.get_proxy_target()
-    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
-    await callback.message.edit_text(
-        f"📋 کانال‌های منبع:\n\n"
-        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
-        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
-        f"📡 کانال‌ها: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("admin:proxy_del:"))
-async def proxy_delete(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    sid = int(callback.data.split(":")[2])
-    await db.delete_proxy_source(sid)
-    await callback.answer("✅ حذف شد!")
-    sources = await db.get_all_proxy_sources()
-    target = await db.get_proxy_target()
-    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
-    await callback.message.edit_text(
-        f"✅ کانال حذف شد!\n\n"
-        f"⚙️ ارسال خودکار: {'✅ فعال' if auto_enabled else '⛔️ غیرفعال'}\n"
-        f"🎯 کانال مقصد: {target or '(تنظیم نشده)'}\n"
-        f"📡 کانال‌های منبع: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
+        _proxy_menu_text(target, auto_enabled),
+        reply_markup=proxy_menu_keyboard(auto_enabled),
     )
 
 
@@ -433,12 +350,11 @@ async def proxy_delete(callback: CallbackQuery):
 async def proxy_test(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
         return
-    sources = await db.get_all_proxy_sources()
     auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await callback.answer("🧪 در حال تست...")
     await callback.message.edit_text(
-        "🧪 تست ارسال پروکسی شروع شد...\nنتیجه به صورت پیام برای شما ارسال می‌شود.",
-        reply_markup=proxy_sources_keyboard(sources, auto_enabled)
+        "🧪 تست اتصال پروکسی شروع شد...\nنتیجه به صورت پیام برای شما ارسال می‌شود.",
+        reply_markup=proxy_menu_keyboard(auto_enabled),
     )
     await test_scan(bot, callback.from_user.id)
 
@@ -463,8 +379,8 @@ async def proxy_target_save(message: Message, state: FSMContext):
     target = message.text.strip()
     await db.set_setting("proxy_target_channel", target)
     await state.clear()
-    sources = await db.get_all_proxy_sources()
+    auto_enabled = await db.get_setting("proxy_auto_enabled", "1") == "1"
     await message.answer(
-        f"✅ کانال مقصد ذخیره شد: {target}\n\n📡 کانال‌های منبع: {len(sources)} عدد",
-        reply_markup=proxy_sources_keyboard(sources)
+        f"✅ کانال مقصد ذخیره شد: {target}",
+        reply_markup=proxy_menu_keyboard(auto_enabled),
     )

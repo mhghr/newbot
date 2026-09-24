@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -8,7 +9,7 @@ from bot.config import BOT_TOKEN, PROXY_URL, SUB_HOST, SUB_PORT, ADMIN_IDS
 from bot.database.models import init_db
 from bot.database import db
 from bot.services.reminders import start_reminders
-from bot.services.proxy_scanner import router as proxy_scanner_router
+from bot.services.proxy_scanner import start_proxy_userbot
 from bot.services.subserver import start_sub_server
 
 from bot.handlers.start import router as start_router
@@ -17,7 +18,6 @@ from bot.handlers.my_configs import router as my_configs_router
 from bot.handlers.tutorial import router as tutorial_router
 from bot.handlers.apps import router as apps_router
 from bot.handlers.refund import router as refund_router
-from bot.handlers.proxy import router as proxy_router
 from bot.handlers.download import router as download_router
 from bot.handlers.admin.menu import router as admin_menu_router
 from bot.handlers.admin.servers import router as admin_servers_router
@@ -73,7 +73,6 @@ async def main():
         tutorial_router,
         apps_router,
         refund_router,
-        proxy_router,
         download_router,
         admin_menu_router,
         admin_servers_router,
@@ -84,10 +83,10 @@ async def main():
         admin_create_account_router,
         admin_transfer_router,
         admin_restore_router,
-        proxy_scanner_router,
     )
 
     start_reminders(bot)
+    asyncio.create_task(start_proxy_userbot(bot))
 
     await start_sub_server(SUB_HOST, SUB_PORT)
 

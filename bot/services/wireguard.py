@@ -74,6 +74,23 @@ def _is_disabled(value) -> bool:
     return str(value).strip().lower() in ("true", "yes")
 
 
+def merge_usage(used_bytes, last_rx, last_tx, rx, tx):
+    """Fold fresh peer counters into the stored usage baseline.
+
+    RouterOS peer counters are cumulative but reset to zero on peer reset or
+    router reboot. Each direction is handled independently, so a reset of one
+    counter cannot corrupt the other. Returns ``(new_used_bytes, rx, tx)``.
+    """
+    used = _to_int(used_bytes)
+    prev_rx = _to_int(last_rx)
+    prev_tx = _to_int(last_tx)
+    rx = _to_int(rx)
+    tx = _to_int(tx)
+    delta_rx = rx - prev_rx if rx >= prev_rx else rx
+    delta_tx = tx - prev_tx if tx >= prev_tx else tx
+    return max(0, used + delta_rx + delta_tx), rx, tx
+
+
 def generate_keypair():
     """Return (public_key, private_key) base64 encoded X25519 keys."""
     _, x25519, serialization = _load_deps()
@@ -269,7 +286,7 @@ def _create_sync(server, used_host_numbers, user_telegram_id):
     iface = _s(server, "wg_interface")
     net = _parse_network(_s(server, "wg_client_subnet"))
     if net is None:
-        raise WireGuardError("subnet وایرگارد تنظیم نشده یا نامعتبر است (مثال: 10.66.66.0/24)")
+        raise WireGuardError("subnet WireGuard تنظیم نشده یا نامعتبر است (مثال: 10.66.66.0/24)")
     total_hosts = net.num_addresses - 2
     start = _to_int(_s(server, "wg_ip_range_start", 2)) or 2
     end = _to_int(_s(server, "wg_ip_range_end", total_hosts - 1)) or (total_hosts - 1)
@@ -535,7 +552,7 @@ def build_delivery_caption(action_word: str, plan_name: str = "",
     Intentionally does not print the client IP / endpoint; those live in
     «کانفیگ‌های من» and the .conf file.
     """
-    lines = [f"✅ اشتراک وایرگارد شما {action_word} شد!", ""]
+    lines = [f"✅ اشتراک WireGuard شما {action_word} شد!", ""]
     if plan_name:
         lines.append(f"📦 پلن: {plan_name}")
     if duration_days and duration_days > 0:

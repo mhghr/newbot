@@ -293,7 +293,7 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
                                    traffic_gb: int, days: int, plan_id):
     server = await db.get_active_server_by_type("wireguard")
     if not server:
-        await message.answer("❌ سرور وایرگارد فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
+        await message.answer("❌ سرور WireGuard فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
         return
 
     logger.info(
@@ -301,7 +301,7 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
         server["name"], server.get("wg_interface"),
         server.get("wg_client_subnet"), name,
     )
-    status_msg = await message.answer("⏳ در حال ساخت اکانت وایرگارد...")
+    status_msg = await message.answer("⏳ در حال ساخت اکانت WireGuard...")
     try:
         result = await wg.create_account(server, name)
         endpoint = server["wg_endpoint"] or server["url"]
@@ -331,7 +331,7 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
             linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
 
         caption = (
-            f"✅ اکانت وایرگارد ساخته شد!\n\n"
+            f"✅ اکانت WireGuard ساخته شد!\n\n"
             f"📝 نام: {name}\n"
             f"📊 حجم: {'نامحدود' if traffic_gb == 0 else str(traffic_gb) + ' GB'}\n"
             f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
@@ -359,7 +359,7 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
                 await _retry(lambda: bot.send_photo(
                     chat_id=message.from_user.id,
                     photo=BufferedInputFile(qr_png, filename=f"{result['client_ip']}.png"),
-                    caption="📷 QR کانفیگ وایرگارد",
+                    caption="📷 QR کانفیگ WireGuard",
                 ))
             except Exception:
                 pass
@@ -373,7 +373,7 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
     except Exception as e:
         logger.exception(f"Admin WG account creation failed: {e}")
         try:
-            await status_msg.edit_text(f"❌ خطا در ساخت اکانت وایرگارد:\n{str(e)[:250]}")
+            await status_msg.edit_text(f"❌ خطا در ساخت اکانت WireGuard:\n{str(e)[:250]}")
         except Exception:
-            await message.answer(f"❌ خطا در ساخت اکانت وایرگارد:\n{str(e)[:250]}")
+            await message.answer(f"❌ خطا در ساخت اکانت WireGuard:\n{str(e)[:250]}")
         await message.answer("منوی مدیریت:", reply_markup=admin_menu_keyboard())

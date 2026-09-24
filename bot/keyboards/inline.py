@@ -17,8 +17,10 @@ def _trunc(value, n: int = 30) -> str:
     return s if len(s) <= n else s[:n - 1] + "…"
 
 
-SERVICE_LABELS = {"v2ray": "وی‌تو‌ری (V2Ray)", "wireguard": "وایرگارد (WireGuard)"}
+SERVICE_LABELS = {"v2ray": "V2Ray", "wireguard": "WireGuard"}
 SERVICE_SHORT = {"v2ray": "V2Ray", "wireguard": "WireGuard"}
+# Compact badge used in account/config lists so the protocol is obvious.
+SERVICE_BADGE = {"v2ray": "V2Ray", "wireguard": "WG"}
 
 
 def service_label(service_type) -> str:
@@ -27,26 +29,16 @@ def service_label(service_type) -> str:
 
 def service_type_keyboard(prefix: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔵 وی‌تو‌ری (V2Ray / 3x-ui)", callback_data=f"{prefix}:v2ray")],
-        [InlineKeyboardButton(text="🟢 وایرگارد (WireGuard / MikroTik)", callback_data=f"{prefix}:wireguard")],
+        [InlineKeyboardButton(text="🔵 V2Ray (3x-ui)", callback_data=f"{prefix}:v2ray")],
+        [InlineKeyboardButton(text="🟢 WireGuard (MikroTik)", callback_data=f"{prefix}:wireguard")],
         [InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_action")],
     ])
 
 
-def landing_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    buttons = [
-        [InlineKeyboardButton(text="🛒 پروکسی", callback_data="main:configs")],
-        [InlineKeyboardButton(text="🎬 دانلود ویدیو", callback_data="main:download")],
-    ]
-    if user_id in ADMIN_IDS:
-        buttons.append([InlineKeyboardButton(text="⚙️ مدیریت", callback_data="main:admin")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
 def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = [
-        InlineKeyboardButton(text="🛒 خرید کانفیگ", callback_data="main:buy"),
-        InlineKeyboardButton(text="📋 کانفیگ های من", callback_data="main:my_configs"),
+        InlineKeyboardButton(text="🛒 خرید", callback_data="main:buy"),
+        InlineKeyboardButton(text="📋 اکانت های من", callback_data="main:my_configs"),
         InlineKeyboardButton(text="📖 آموزش اتصال", callback_data="main:tutorial"),
         InlineKeyboardButton(text="🧩 نرم‌افزارها", callback_data="main:apps"),
         InlineKeyboardButton(text="💵 عودت وجه", callback_data="main:refund"),
@@ -91,34 +83,13 @@ def refund_upload_keyboard(refund_id: int) -> InlineKeyboardMarkup:
     ])
 
 
-def proxy_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ افزودن کانال منبع", callback_data="admin:proxy_add")],
-        [InlineKeyboardButton(text="📋 لیست کانال‌های منبع", callback_data="admin:proxy_list")],
-        [InlineKeyboardButton(text="🎯 تنظیم کانال مقصد", callback_data="admin:proxy_target")],
-        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
-    ])
-
-
-def proxy_sources_keyboard(sources: list, auto_enabled: bool = True) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(text=f"📡 {s['channel']}", callback_data=f"admin:proxy_askdel:{s['id']}")]
-        for s in sources
-    ]
-    rows.append([InlineKeyboardButton(text="➕ افزودن کانال", callback_data="admin:proxy_add")])
+def proxy_menu_keyboard(auto_enabled: bool = True) -> InlineKeyboardMarkup:
     toggle_text = "⛔️ غیرفعال کردن ارسال خودکار" if auto_enabled else "🟢 فعال کردن ارسال خودکار"
-    rows.append([InlineKeyboardButton(text=toggle_text, callback_data="admin:proxy_auto_toggle")])
-    rows.append([InlineKeyboardButton(text="🧪 تست ارسال", callback_data="admin:proxy_test")])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def proxy_delete_confirm_keyboard(source_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ بله، حذف شود", callback_data=f"admin:proxy_del:{source_id}"),
-            InlineKeyboardButton(text="❌ انصراف", callback_data="admin:proxy"),
-        ],
+        [InlineKeyboardButton(text="🎯 تنظیم کانال مقصد", callback_data="admin:proxy_target")],
+        [InlineKeyboardButton(text=toggle_text, callback_data="admin:proxy_auto_toggle")],
+        [InlineKeyboardButton(text="🧪 تست اتصال", callback_data="admin:proxy_test")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
     ])
 
 
@@ -218,22 +189,25 @@ def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
     buttons = []
     for c in configs:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
-        buttons.append(InlineKeyboardButton(text=f"🔑 {label}", callback_data=f"cfg:{c['id']}"))
+        badge = SERVICE_BADGE.get(c.get("service_type"), "V2Ray")
+        buttons.append(InlineKeyboardButton(
+            text=f"🔑 [{badge}] {_trunc(label, 26)}",
+            callback_data=f"cfg:{c['id']}",
+        ))
     rows = _rows(buttons)
     rows.append([InlineKeyboardButton(text="🔙 بازگشت به منو", callback_data="main:configs")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def config_detail_keyboard(config_id: int, show_renew: bool) -> InlineKeyboardMarkup:
+def account_detail_keyboard(config_id: int, service_type: str,
+                            show_renew: bool = True) -> InlineKeyboardMarkup:
+    """Action buttons for an account (protocol aware). Account info lives in the message text."""
+    service = service_type or "v2ray"
     rows = []
-    if show_renew:
-        rows.append([InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:my_configs")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def wg_config_detail_keyboard(config_id: int, show_renew: bool = True) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(text="📄 دریافت مجدد کانفیگ", callback_data=f"wg_resend:{config_id}")]]
+    if service == "wireguard":
+        rows.append([InlineKeyboardButton(text="📄 دریافت مجدد کانفیگ", callback_data=f"wg_resend:{config_id}")])
+    else:
+        rows.append([InlineKeyboardButton(text="📷 دریافت تصویر QR کد", callback_data=f"qr:{config_id}")])
     if show_renew:
         rows.append([InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:my_configs")])
@@ -519,17 +493,8 @@ def admin_tutorial_keyboard() -> InlineKeyboardMarkup:
 
 
 def admin_user_detail_keyboard(user, configs: list) -> InlineKeyboardMarkup:
-    first = user.get("first_name") or "-"
-    last = user.get("last_name") or ""
-    name = first
-    if last:
-        name = f"{first} {last}"
-    rows = [
-        [InlineKeyboardButton(text=f"🆔 آیدی: {user['telegram_id']}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"📛 نام: {_trunc(name)}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"👤 یوزرنیم: @{user.get('username') or 'ندارد'}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"📅 تاریخ عضویت: {_trunc(str(user.get('created_at') or '-'))}", callback_data="admin:noop")],
-    ]
+    """Config navigation for a user. User info lives in the message text."""
+    rows = []
     for c in configs:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
         badge = SERVICE_SHORT.get(c.get("service_type"), "V2Ray")
@@ -542,28 +507,9 @@ def admin_user_detail_keyboard(user, configs: list) -> InlineKeyboardMarkup:
 
 
 def admin_config_detail_keyboard(config) -> InlineKeyboardMarkup:
+    """Action buttons for an admin viewing a config. Config info lives in the message text."""
     cid = config["id"]
-    traffic_str = "نامحدود" if (config.get("traffic_gb") or 0) == 0 else f"{config.get('traffic_gb')} GB"
-    expire_str = str(config.get("expire_date") or "نامحدود")
-    service = config.get("service_type") or "v2ray"
     rows = [
-        [InlineKeyboardButton(text=f"🧩 نوع: {service_label(service)}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"📦 پلن: {_trunc(config.get('plan_name') or '-')}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"📊 حجم: {traffic_str}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"📅 تاریخ انقضا: {_trunc(expire_str)}", callback_data="admin:noop")],
-        [InlineKeyboardButton(text=f"👤 کلاینت: {_trunc(config.get('client_email') or '-')}", callback_data="admin:noop")],
-    ]
-    if service == "wireguard":
-        rows += [
-            [InlineKeyboardButton(text=f"🌐 IP: {_trunc(config.get('wg_client_ip') or '-')}", callback_data="admin:noop")],
-            [InlineKeyboardButton(text=f"📊 مصرف: {_trunc(config.get('used_bytes') or 0)} بایت", callback_data="admin:noop")],
-        ]
-    else:
-        rows += [
-            [InlineKeyboardButton(text=f"🔗 لینک: {_trunc(config.get('sub_url') or '-')}", callback_data="admin:noop")],
-            [InlineKeyboardButton(text=f"🌐 ساب‌دامین: {_trunc(config.get('config_link') or config.get('sub_url') or '-')}", callback_data="admin:noop")],
-        ]
-    rows += [
         [InlineKeyboardButton(text="🗑 حذف کانفیگ", callback_data=f"admin:delete_config:{cid}")],
         [InlineKeyboardButton(text="🔙 بازگشت به کاربر", callback_data=f"admin:user_detail:{config.get('user_id')}")],
     ]

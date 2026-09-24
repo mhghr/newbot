@@ -4,7 +4,7 @@ from bot.config import ADMIN_IDS
 
 def main_menu_keyboard(user_id: int) -> ReplyKeyboardMarkup:
     buttons = [
-        [KeyboardButton(text="🛒 خرید کانفیگ"), KeyboardButton(text="📋 کانفیگ های من")],
+        [KeyboardButton(text="🛒 خرید"), KeyboardButton(text="📋 اکانت های من")],
         [KeyboardButton(text="📖 آموزش اتصال")],
     ]
     if user_id in ADMIN_IDS:
