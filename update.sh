@@ -55,10 +55,23 @@ fi
 # ---------- 2) Update code ----------
 if [ -d "$PROJECT_DIR/.git" ]; then
     info "Pulling latest changes from git..."
-    if git -C "$PROJECT_DIR" pull --rebase --autostash; then
-        info "Code updated from git."
+    cd "$PROJECT_DIR"
+
+    # Recover from a half-finished rebase/merge left behind by an earlier
+    # update (local edits on the server conflicting with incoming commits).
+    git rebase --abort 2>/dev/null || true
+    git merge --abort 2>/dev/null || true
+
+    branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+    [ "$branch" = "HEAD" ] && branch="main"
+
+    # Force-sync the server copy with the remote. This is safe: .env, backups/,
+    # venv/ and logs are gitignored and are never touched by reset/clean.
+    if git fetch origin && git reset --hard "origin/$branch"; then
+        git clean -fd >/dev/null 2>&1 || true
+        info "Code updated from git (branch: $branch)."
     else
-        warn "git pull failed. Copy the new files manually and re-run."
+        warn "git update failed. Copy the new files manually and re-run."
     fi
 else
     warn "This directory is not a git repo."
