@@ -101,9 +101,9 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
             logger.exception("Failed to send sync error notification to admin")
 
 FIELD_LABELS = {
-    "name": "نام", "url": "آدرس", "api_token": "توکن",
+    "name": "نام", "url": "آدرس API", "api_token": "توکن",
     "location": "لوکیشن", "sub_domain": "آدرس ساب", "sub_port": "پورت ساب",
-    "username": "یوزر SSH/API", "password": "پسورد SSH/API", "api_port": "پورت SSH/API",
+    "username": "یوزر API", "password": "پسورد API", "api_port": "پورت API",
     "wg_interface": "اینترفیس WireGuard", "wg_endpoint": "آدرس endpoint",
     "wg_port": "پورت WireGuard", "wg_client_subnet": "شبکه کلاینت",
     "wg_dns": "DNS", "wg_ip_range_start": "شروع بازه IP", "wg_ip_range_end": "پایان بازه IP",
@@ -321,7 +321,7 @@ async def add_wg_host(message: Message, state: FSMContext):
     host = host.replace("http://", "").replace("https://", "").rstrip("/")
     await state.update_data(url=host)
     await message.answer(
-        "🔢 پورت SSH روتر را وارد کنید:\n(پیش‌فرض 22 — مثلاً روی برخی سرورها 32)",
+        "🔢 پورت API روتر را وارد کنید:\n(پیش‌فرض 8728 — برای API SSL معمولا 8729)",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(AddServerStates.waiting_wg_api_port)
@@ -395,7 +395,7 @@ async def add_wg_location(message: Message, state: FSMContext):
         error_text = (
             "❌ دسترسی تایید نشد!\n\n"
             f"{str(e)}\n\n"
-            "آدرس، پورت SSH، یوزر/پسورد و نام اینترفیس را بررسی کنید."
+            "آدرس، پورت API، یوزر/پسورد و نام اینترفیس را بررسی کنید."
         )
         try:
             await status.edit_text(error_text)

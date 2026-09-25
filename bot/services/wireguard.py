@@ -1,20 +1,15 @@
-"""MikroTik WireGuard account management over **SSH**.
+"""MikroTik WireGuard account management over the RouterOS API.
 
-We talk to RouterOS through its SSH CLI (paramiko) rather than the binary API:
-on some RouterOS/CHR builds ``/interface/wireguard/peers/print`` hangs over the
-binary API while the same command over SSH returns instantly. Every network
-operation is blocking, so it runs in a worker thread via ``asyncio.to_thread``.
+The RouterOS API client is synchronous, so every network operation is executed
+in a worker thread via ``asyncio.to_thread`` to keep the aiogram event loop free.
 
-A "server" is a MikroTik router whose ``servers`` row has
-``service_type='wireguard'`` and the ``wg_*`` columns filled in. ``api_port``
-holds the **SSH** port (default 22), ``username``/``password`` are the SSH
-credentials.
+A WireGuard "server" is a MikroTik router whose ``servers`` row has
+``service_type='wireguard'`` and the ``wg_*`` / ``api_port`` columns filled in.
 """
 import asyncio
 import base64
 import ipaddress
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +19,23 @@ DEFAULT_DNS = "1.1.1.1,8.8.8.8"
 # the generated client .conf so the tunnel stays alive behind NAT.
 PERSISTENT_KEEPALIVE = 25
 
-CONNECT_TIMEOUT = 25.0
-DEFAULT_SSH_PORT = 22
-CLI_TIMEOUT = 15.0
-
 
 class WireGuardError(Exception):
     """Raised for any expected/validation failure while talking to MikroTik."""
 
 
-def _load_paramiko():
+def _load_deps():
     try:
-        import paramiko
+        from routeros_api import RouterOsApiPool
     except ImportError:
-        return None
-    return paramiko
+        RouterOsApiPool = None
+    try:
+        from cryptography.hazmat.primitives.asymmetric import x25519
+        from cryptography.hazmat.primitives import serialization
+    except ImportError:
+        x25519 = None
+        serialization = None
+    return RouterOsApiPool, x25519, serialization
 
 
 def _s(server, key, default=""):
@@ -96,10 +93,8 @@ def merge_usage(used_bytes, last_rx, last_tx, rx, tx):
 
 def generate_keypair():
     """Return (public_key, private_key) base64 encoded X25519 keys."""
-    try:
-        from cryptography.hazmat.primitives.asymmetric import x25519
-        from cryptography.hazmat.primitives import serialization
-    except ImportError:
+    _, x25519, serialization = _load_deps()
+    if x25519 is None:
         raise WireGuardError("کتابخانه cryptography نصب نیست (pip install cryptography)")
 
     private = x25519.X25519PrivateKey.generate()
@@ -141,16 +136,14 @@ def _host_number(ip: str, net):
 def _friendly_error(exc: Exception) -> str:
     text = str(exc)
     low = text.lower()
-    if "authentication" in low or "auth" in low or "login" in low or "invalid user" in low or "password" in low:
-        return "یوزرنیم یا پسورد SSH روتر اشتباه است."
-    if "banner" in low or "not a valid ssh" in low or "protocol banner" in low:
-        return "پورت اشتباه است یا سرویس SSH روی روتر فعال نیست."
+    if "authentication" in low or "login" in low or "invalid user" in low or "password" in low:
+        return "یوزرنیم یا پسورد API اشتباه است."
     if "timed out" in low or "timeout" in low:
-        return "اتصال SSH به روتر Timeout شد. آدرس/پورت SSH و دسترسی شبکه را بررسی کنید."
+        return "اتصال به روتر Timeout شد. IP/پورت و دسترسی شبکه را بررسی کنید."
     if "refused" in low:
-        return "اتصال SSH رد شد. پورت یا فعال بودن SSH روی روتر را بررسی کنید."
-    if "unreachable" in low or "no route" in low or "name or service not known" in low:
-        return "روتر در دسترس نیست. آدرس را بررسی کنید."
+        return "اتصال رد شد. احتمالاً سرویس API روی روتر فعال نیست یا پورت اشتباه است."
+    if "unreachable" in low or "no route" in low:
+        return "روتر در دسترس نیست. IP را بررسی کنید."
     return text
 
 
@@ -160,130 +153,34 @@ def format_endpoint_host(host: str) -> str:
     return host
 
 
-# --------------------------------------------------------------------------- #
-# SSH transport
-# --------------------------------------------------------------------------- #
-
-def _open_ssh(server):
-    paramiko = _load_paramiko()
-    if paramiko is None:
-        raise WireGuardError("کتابخانه paramiko نصب نیست (pip install paramiko)")
+def _open_pool(server):
+    RouterOsApiPool, _, _ = _load_deps()
+    if RouterOsApiPool is None:
+        raise WireGuardError("کتابخانه routeros-api نصب نیست (pip install routeros-api)")
 
     host = _s(server, "url")
     if not host:
         raise WireGuardError("آدرس روتر تنظیم نشده است")
-    port = _to_int(_s(server, "api_port", DEFAULT_SSH_PORT)) or DEFAULT_SSH_PORT
-
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(
-        hostname=host,
-        port=port,
-        username=_s(server, "username"),
-        password=_s(server, "password"),
-        timeout=CONNECT_TIMEOUT,
-        banner_timeout=CONNECT_TIMEOUT,
-        auth_timeout=CONNECT_TIMEOUT,
-        look_for_keys=False,
-        allow_agent=False,
-    )
-    return client
+    port = _to_int(_s(server, "api_port", 8728)) or 8728
+    kwargs = {
+        "username": _s(server, "username"),
+        "password": _s(server, "password"),
+        "port": port,
+        "plaintext_login": True,
+    }
+    if port == 8729:
+        kwargs["use_ssl"] = True
+        kwargs["ssl_verify"] = False
+        kwargs["ssl_verify_hostname"] = False
+    pool = RouterOsApiPool(host, **kwargs)
+    return pool
 
 
-def _close_ssh(client):
+def _disconnect(pool):
     try:
-        client.close()
+        pool.disconnect()
     except Exception:
         pass
-
-
-def _run_cli(ssh, command: str, timeout: float = CLI_TIMEOUT) -> str:
-    stdin, stdout, stderr = ssh.exec_command(command, timeout=timeout)
-    out = stdout.read().decode("utf-8", errors="replace")
-    err = stderr.read().decode("utf-8", errors="replace")
-    text = (out + "\n" + err).strip()
-    low = text.lower()
-    for marker in ("failure:", "syntax error", "no such item", "bad command",
-                   "expected end of command", "unknown command"):
-        if marker in low:
-            raise WireGuardError(text.splitlines()[0].strip() if text else "خطای نامشخص روتر")
-    return out
-
-
-_TERSE_KV = re.compile(r'([A-Za-z0-9._\-]+)=("[^"]*"|\S+)')
-
-
-def _parse_terse(text: str) -> list:
-    """Parse RouterOS ``print terse`` output into a list of dicts."""
-    records = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("Flags:") or line.startswith("Columns:"):
-            continue
-        line = re.sub(r'^\d+\s+[A-Z]*\s*', '', line)
-        fields = {}
-        for m in _TERSE_KV.finditer(line):
-            key, val = m.group(1), m.group(2)
-            if len(val) >= 2 and val[0] == '"' and val[-1] == '"':
-                val = val[1:-1]
-            fields[key] = val
-        if fields:
-            records.append(fields)
-    return records
-
-
-def _interfaces(ssh):
-    return _parse_terse(_run_cli(ssh, "/interface/wireguard/print terse"))
-
-
-def _peers(ssh):
-    return _parse_terse(_run_cli(ssh, "/interface/wireguard/peers/print terse"))
-
-
-def _addresses(ssh):
-    return _parse_terse(_run_cli(ssh, "/ip/address/print terse"))
-
-
-def _dns_servers(ssh) -> str:
-    text = _run_cli(ssh, "/ip/dns/print")
-    servers = []
-    capture = False
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        if line.lower().startswith("servers:"):
-            capture = True
-            rest = line.split(":", 1)[1].strip()
-            servers += [s.strip() for s in re.split(r"[,\s]+", rest) if s.strip()]
-            continue
-        if capture:
-            if ":" in line:
-                break
-            servers += [s.strip() for s in re.split(r"[,\s]+", line) if s.strip()]
-    return ",".join(servers)
-
-
-def _find_peer(peers, public_key=None, client_ip=None):
-    if public_key:
-        for peer in peers:
-            if peer.get("public-key") == public_key:
-                return peer
-    if client_ip:
-        wanted = client_ip.split("/")[0]
-        for peer in peers:
-            addr = (peer.get("allowed-address") or "").split("/")[0].strip()
-            if addr == wanted:
-                return peer
-    return None
-
-
-def _find_expr(public_key=None, client_ip=None) -> str:
-    if public_key:
-        return f'[find public-key="{public_key}"]'
-    if client_ip:
-        return f'[find allowed-address="{client_ip.split("/")[0]}/32"]'
-    raise WireGuardError("شناسه peer برای عملیات مشخص نیست")
 
 
 # --------------------------------------------------------------------------- #
@@ -292,27 +189,34 @@ def _find_expr(public_key=None, client_ip=None) -> str:
 
 def _test_connection_sync(server):
     iface = _s(server, "wg_interface")
-    ssh = _open_ssh(server)
+    pool = _open_pool(server)
     try:
-        interfaces = _interfaces(ssh)
+        api = pool.get_api()
+        interfaces = api.get_resource("/interface/wireguard").get()
         names = [i.get("name") for i in interfaces]
-        if iface and iface not in names:
-            raise WireGuardError(f"اینترفیس WireGuard «{iface}» روی روتر پیدا نشد")
         public_key = ""
         for i in interfaces:
             if i.get("name") == iface:
                 public_key = i.get("public-key", "") or ""
+        if iface and iface not in names:
+            raise WireGuardError(f"اینترفیس WireGuard «{iface}» روی روتر پیدا نشد")
         return {"interfaces": names, "public_key": public_key}
     finally:
-        _close_ssh(ssh)
+        _disconnect(pool)
 
 
 def _inspect_sync(server):
-    """Connect over SSH, verify access and auto-detect every WireGuard setting."""
+    """Connect, verify access and auto-detect every WireGuard setting.
+
+    Reads the interface (public key + listen port), its IP address on the
+    router (/ip/address) and the router DNS. Derives the client subnet and the
+    usable IP range, reserving the first and last usable addresses.
+    """
     iface = _s(server, "wg_interface")
-    ssh = _open_ssh(server)
+    pool = _open_pool(server)
     try:
-        interfaces = _interfaces(ssh)
+        api = pool.get_api()
+        interfaces = api.get_resource("/interface/wireguard").get()
         match = next((i for i in interfaces if i.get("name") == iface), None)
         if not match:
             names = ", ".join(i.get("name", "?") for i in interfaces) or "-"
@@ -324,8 +228,9 @@ def _inspect_sync(server):
         public_key = match.get("public-key", "") or ""
         listen_port = _to_int(match.get("listen-port")) or 51820
 
+        addresses = api.get_resource("/ip/address").get()
         cidr = ""
-        for item in _addresses(ssh):
+        for item in addresses:
             if item.get("interface") == iface and item.get("address"):
                 cidr = item.get("address", "").strip()
                 break
@@ -351,7 +256,13 @@ def _inspect_sync(server):
         if end < start:
             start, end = 1, total_hosts
 
-        dns = _dns_servers(ssh)
+        dns = ""
+        try:
+            dns_rows = api.get_resource("/ip/dns").get()
+            if dns_rows:
+                dns = (dns_rows[0].get("servers") or "").strip()
+        except Exception:
+            dns = ""
         if not dns:
             dns = DEFAULT_DNS
 
@@ -368,7 +279,7 @@ def _inspect_sync(server):
             "interfaces": [i.get("name") for i in interfaces],
         }
     finally:
-        _close_ssh(ssh)
+        _disconnect(pool)
 
 
 def _create_sync(server, used_host_numbers, user_telegram_id):
@@ -384,16 +295,20 @@ def _create_sync(server, used_host_numbers, user_telegram_id):
 
     public_key, private_key = generate_keypair()
 
-    ssh = _open_ssh(server)
+    pool = _open_pool(server)
     try:
-        interfaces = _interfaces(ssh)
+        api = pool.get_api()
+        interfaces = api.get_resource("/interface/wireguard").get()
         match = next((i for i in interfaces if i.get("name") == iface), None)
         if not match:
             raise WireGuardError(f"اینترفیس WireGuard «{iface}» روی روتر پیدا نشد")
         server_public_key = match.get("public-key", "") or ""
 
+        peers_res = api.get_resource("/interface/wireguard/peers")
+        peers = peers_res.get()
+
         used = set(used_host_numbers or set())
-        for peer in _peers(ssh):
+        for peer in peers:
             addr = (peer.get("allowed-address") or "").split("/")[0].strip()
             number = _host_number(addr, net)
             if number is not None and number > 0:
@@ -410,15 +325,18 @@ def _create_sync(server, used_host_numbers, user_telegram_id):
         # The peer comment carries the user identifier so an admin can map a
         # peer back to its owner directly from the router.
         comment = f"user={user_telegram_id} wg={client_ip}"
-        _run_cli(
-            ssh,
-            f'/interface/wireguard/peers/add interface="{iface}" public-key="{public_key}" '
-            f'allowed-address={client_ip}/32 persistent-keepalive={PERSISTENT_KEEPALIVE}s '
-            f'comment="{comment}"',
+        peers_res.add(
+            **{
+                "interface": iface,
+                "public-key": public_key,
+                "allowed-address": f"{client_ip}/32",
+                "persistent-keepalive": f"{PERSISTENT_KEEPALIVE}s",
+                "comment": comment,
+            }
         )
 
         peer_id = ""
-        for peer in _peers(ssh):
+        for peer in peers_res.get():
             if (peer.get("public-key") or "") == public_key:
                 peer_id = peer.get(".id", "") or ""
                 break
@@ -432,67 +350,94 @@ def _create_sync(server, used_host_numbers, user_telegram_id):
             "comment": comment,
         }
     finally:
-        _close_ssh(ssh)
+        _disconnect(pool)
 
 
 def _fetch_usage_sync(server):
     iface = _s(server, "wg_interface")
-    ssh = _open_ssh(server)
+    pool = _open_pool(server)
     try:
+        api = pool.get_api()
+        peers = api.get_resource("/interface/wireguard/peers").get()
         usage = {}
-        for peer in _peers(ssh):
+        for peer in peers:
             if iface and peer.get("interface") != iface:
                 continue
             public_key = peer.get("public-key")
             if not public_key:
                 continue
             usage[public_key] = {
-                "rx": _to_int(peer.get("rx")),
-                "tx": _to_int(peer.get("tx")),
+                "rx": _to_int(peer.get("rx") or peer.get("rx-byte")),
+                "tx": _to_int(peer.get("tx") or peer.get("tx-byte")),
                 "disabled": _is_disabled(peer.get("disabled")),
                 "peer_id": peer.get(".id", "") or "",
                 "client_ip": (peer.get("allowed-address") or "").split("/")[0].strip(),
             }
         return usage
     finally:
-        _close_ssh(ssh)
+        _disconnect(pool)
+
+
+def _find_peer(peers, public_key=None, peer_id=None, client_ip=None):
+    for peer in peers:
+        if peer_id and peer.get(".id") == peer_id:
+            return peer
+    for peer in peers:
+        if public_key and peer.get("public-key") == public_key:
+            return peer
+    for peer in peers:
+        if client_ip:
+            addr = (peer.get("allowed-address") or "").split("/")[0].strip()
+            if addr == client_ip:
+                return peer
+    return None
 
 
 def _peer_action_sync(server, action, public_key=None, peer_id=None, client_ip=None):
-    ssh = _open_ssh(server)
+    pool = _open_pool(server)
     try:
-        peer = _find_peer(_peers(ssh), public_key, client_ip)
+        api = pool.get_api()
+        res = api.get_resource("/interface/wireguard/peers")
+        peer = _find_peer(res.get(), public_key, peer_id, client_ip)
         if not peer:
             return False
-        expr = _find_expr(public_key or peer.get("public-key"),
-                          client_ip or peer.get("allowed-address"))
+        pid = peer.get(".id")
+        if not pid:
+            return False
         if action == "disable":
-            _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=yes")
+            res.set(**{".id": pid, "disabled": "yes"})
         elif action == "enable":
-            _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=no")
+            res.set(**{".id": pid, "disabled": "no"})
         elif action == "delete":
-            _run_cli(ssh, f"/interface/wireguard/peers/remove {expr}")
+            res.remove(**{".id": pid})
         elif action == "reset":
-            _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=yes")
-            _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=no")
+            res.set(**{".id": pid, "disabled": "yes"})
+            res.set(**{".id": pid, "disabled": "no"})
         else:
             raise WireGuardError(f"عملیات نامعتبر: {action}")
         return True
     finally:
-        _close_ssh(ssh)
+        _disconnect(pool)
 
 
 # --------------------------------------------------------------------------- #
 # Async public API
 # --------------------------------------------------------------------------- #
 
+CONNECT_TIMEOUT = 25.0
+
+
 async def _run_with_timeout(func, *args, timeout: float = CONNECT_TIMEOUT):
-    """Run a blocking MicroTik SSH operation with a hard timeout."""
+    """Run a blocking RouterOS operation with a hard timeout.
+
+    routeros-api has no built-in timeout, so an unreachable router would hang
+    forever. wait_for returns control (and lets us report) after `timeout`.
+    """
     try:
         return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout=timeout)
     except asyncio.TimeoutError:
         raise WireGuardError(
-            "اتصال SSH به روتر Timeout خورد؛ آدرس/پورت SSH و دسترسی شبکه را بررسی کنید."
+            "اتصال به روتر Timeout خورد؛ آدرس/پورت API و دسترسی شبکه را بررسی کنید."
         )
 
 
@@ -535,25 +480,25 @@ async def create_account(server, user_telegram_id, used_host_numbers=None):
 
 async def fetch_usage(server):
     """Return {public_key: {rx, tx, disabled, peer_id, client_ip}} for peers."""
-    return await _run_with_timeout(_fetch_usage_sync, dict(server), timeout=CONNECT_TIMEOUT)
+    return await _run_with_timeout(_fetch_usage_sync, dict(server), timeout=15.0)
 
 
 async def set_peer_enabled(server, enabled: bool, public_key=None, peer_id=None, client_ip=None):
     action = "enable" if enabled else "disable"
     return await _run_with_timeout(
-        _peer_action_sync, dict(server), action, public_key, peer_id, client_ip, timeout=CONNECT_TIMEOUT
+        _peer_action_sync, dict(server), action, public_key, peer_id, client_ip, timeout=15.0
     )
 
 
 async def delete_peer(server, public_key=None, peer_id=None, client_ip=None):
     return await _run_with_timeout(
-        _peer_action_sync, dict(server), "delete", public_key, peer_id, client_ip, timeout=CONNECT_TIMEOUT
+        _peer_action_sync, dict(server), "delete", public_key, peer_id, client_ip, timeout=15.0
     )
 
 
 async def reset_peer(server, public_key=None, peer_id=None, client_ip=None):
     return await _run_with_timeout(
-        _peer_action_sync, dict(server), "reset", public_key, peer_id, client_ip, timeout=CONNECT_TIMEOUT
+        _peer_action_sync, dict(server), "reset", public_key, peer_id, client_ip, timeout=15.0
     )
 
 
