@@ -111,36 +111,47 @@ async def view_config(callback: CallbackQuery):
         await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
         return
 
-    remaining_days = 0
-    if config["expire_date"]:
-        remaining_days = max(0, (config["expire_date"] - datetime.now()).days)
-
-    traffic = await _config_traffic(config)
-    if traffic:
-        if traffic.get("total", 0) > 0:
-            traffic_str = f"{format_gb(traffic['used'])} از {format_gb(traffic['total'])}"
-        else:
-            traffic_str = f"{format_gb(traffic['used'])} (نامحدود)"
-    else:
-        traffic_str = "در دسترس نیست"
-
     service = config.get("service_type") or "v2ray"
-    expire_str = to_jalali(config["expire_date"]) if config["expire_date"] else "نامحدود"
     plan_name = _esc(config.get("plan_name") or "-")
 
+    if config["expire_date"]:
+        days_str = f"{max(0, (config['expire_date'] - datetime.now()).days)} روز"
+        expire_str = to_jalali(config["expire_date"])
+    else:
+        days_str = "نامحدود"
+        expire_str = "نامحدود"
+
+    traffic = await _config_traffic(config)
+    if traffic is None:
+        used_str, total_str = None, None
+    else:
+        used_str = format_gb(traffic["used"])
+        total_str = format_gb(traffic["total"]) if traffic.get("total", 0) > 0 else None
+
+    rtl = "\u200f"  # RTL mark: keeps every line right-aligned even when it starts with LTR text
+    sep = f"{rtl}━━━━━━━━━━━━━━━━━"
+    service_name = "WireGuard" if service == "wireguard" else "V2Ray"
+
     lines = [
-        f"🔑 اکانت {'WireGuard' if service == 'wireguard' else 'V2Ray'} #{config['id']}",
-        "",
-        f"📦 پلن: {plan_name}",
-        f"📅 روزهای باقی‌مانده: {remaining_days} روز",
-        f"⏳ تاریخ انقضا: {expire_str}",
-        f"📊 مصرف: {traffic_str}",
+        f"{rtl}🔑 <b>اکانت {service_name}</b> <code>#{config['id']}</code>",
+        sep,
+        f"{rtl}📦 <b>پلن:</b> {plan_name}",
+        f"{rtl}📅 <b>روز باقی‌مانده:</b> {days_str}",
+        f"{rtl}⏳ <b>انقضا:</b> <code>{expire_str}</code>",
+        sep,
     ]
+    if used_str is None:
+        lines.append(f"{rtl}📊 <b>مصرف:</b> در دسترس نیست")
+    else:
+        lines.append(f"{rtl}📊 <b>مصرف شده:</b> <code>{used_str}</code>")
+        total_text = f"<code>{total_str}</code>" if total_str else "نامحدود"
+        lines.append(f"{rtl}📈 <b>حجم کل:</b> {total_text}")
+
     if service == "wireguard":
-        lines.append(f"🌐 IP: {_esc(config.get('wg_client_ip') or '-')}")
+        lines.append(f"{rtl}🌐 <b>آی‌پی:</b> <code>{_esc(config.get('wg_client_ip') or '-')}</code>")
     else:
         sub_link = config.get("sub_url") or config.get("config_link") or "-"
-        lines += ["", "🔗 لینک اشتراک:", f"<code>{_esc(sub_link)}</code>"]
+        lines += [sep, f"{rtl}🔗 <b>لینک اشتراک:</b>", f"{rtl}<code>{_esc(sub_link)}</code>"]
 
     await callback.message.edit_text(
         "\n".join(lines), parse_mode="HTML",
