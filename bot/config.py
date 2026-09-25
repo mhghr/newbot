@@ -27,8 +27,27 @@ def _parse_channel(value: str):
     return value if value.startswith("@") else "@" + value
 
 
+def _parse_channel_url(value: str) -> str:
+    """Normalize CHANNEL_URL into a valid clickable https://t.me/... link.
+
+    Telegram rejects a bare ``@username`` (or ``username``) as an inline button
+    URL ("Wrong HTTP URL"), so accept all common forms and normalize them:
+    ``https://t.me/x``, ``t.me/x``, ``@x`` and ``x`` all become
+    ``https://t.me/x``.
+    """
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if value.startswith(("http://", "https://")):
+        return value
+    username = value.lstrip("@").lstrip("/")
+    if username.startswith("t.me/"):
+        return "https://" + username
+    return f"https://t.me/{username}"
+
+
 CHANNEL_ID = _parse_channel(os.getenv("CHANNEL_ID", ""))
-CHANNEL_URL = os.getenv("CHANNEL_URL", "")
+CHANNEL_URL = _parse_channel_url(os.getenv("CHANNEL_URL", ""))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:123@localhost:5432/newbot")
 PROXY_URL = os.getenv("PROXY_URL", "")
 BASE_URL = os.getenv("BASE_URL", "")

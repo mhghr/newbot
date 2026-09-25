@@ -146,10 +146,11 @@ def back_to_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def join_channel_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📢 عضویت در کانال", url=CHANNEL_URL)],
-        [InlineKeyboardButton(text="✅ عضو شدم، بررسی کن", callback_data="check_membership")],
-    ])
+    rows = []
+    if CHANNEL_URL:
+        rows.append([InlineKeyboardButton(text="📢 عضویت در کانال", url=CHANNEL_URL)])
+    rows.append([InlineKeyboardButton(text="✅ عضو شدم، بررسی کن", callback_data="check_membership")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def plans_keyboard(plans: list) -> InlineKeyboardMarkup:
