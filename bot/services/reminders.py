@@ -6,6 +6,7 @@ from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.database import db
+from bot.config import ADMIN_IDS
 from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
 
@@ -13,6 +14,39 @@ logger = logging.getLogger(__name__)
 
 ONE_GB = 1024 * 1024 * 1024
 CHECK_INTERVAL = 1800  # 30 minutes
+
+# Per-server WireGuard connection state, so the admin is notified once on a
+# failure and once when it recovers instead of every check.
+_wg_server_down: dict = {}
+
+
+async def _notify_admins(bot: Bot, text: str):
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(chat_id=admin_id, text=text)
+        except Exception as e:
+            logger.warning(f"Failed to notify admin {admin_id}: {type(e).__name__}: {e}")
+
+
+def _wg_connectivity_message(server, ok: bool, error: Exception = None):
+    """Return an admin alert only on a state change (down<->up), else None."""
+    sid = server["id"]
+    was_down = _wg_server_down.get(sid, False)
+    if ok:
+        if was_down:
+            _wg_server_down[sid] = False
+            return f"✅ اتصال ربات به روتر «{server.get('name') or sid}» برقرار شد."
+        return None
+    if not was_down:
+        _wg_server_down[sid] = True
+        return (
+            "⚠️ اتصال ربات به روتر WireGuard برقرار نشد!\n\n"
+            f"🖥 سرور: {server.get('name') or sid}\n"
+            f"🌐 آدرس: {server.get('url')}:{server.get('api_port')}\n\n"
+            "به همین دلیل ترافیک کاربران این روتر بررسی نمی‌شود.\n"
+            f"خطا: {type(error).__name__}: {error}"
+        )
+    return None
 
 
 def _renew_keyboard(config_id: int) -> InlineKeyboardMarkup:
@@ -76,9 +110,13 @@ async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict, 
     if server["id"] not in usage_cache:
         try:
             usage_cache[server["id"]] = await wg.fetch_usage(server)
+            alert = _wg_connectivity_message(server, True)
         except Exception as e:
             logger.warning(f"WG usage fetch failed for server {server['id']}: {e}")
             usage_cache[server["id"]] = None
+            alert = _wg_connectivity_message(server, False, e)
+        if alert:
+            await _notify_admins(bot, alert)
     usage_map = usage_cache[server["id"]]
 
     used = config["used_bytes"] or 0
