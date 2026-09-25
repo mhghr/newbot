@@ -351,8 +351,8 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         rows += [
             [InlineKeyboardButton(text=f"🔗 آدرس روتر : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
             [InlineKeyboardButton(text=f"🔢 پورت SSH : {server.get('api_port') or 22}", callback_data=f"admin:edit_server:{sid}:api_port")],
-            [InlineKeyboardButton(text=f"👤 یوزر API : {_trunc(server.get('username'))}", callback_data=f"admin:edit_server:{sid}:username")],
-            [InlineKeyboardButton(text=f"🔑 پسورد API : {_trunc(server.get('password'))}", callback_data=f"admin:edit_server:{sid}:password")],
+            [InlineKeyboardButton(text=f"👤 یوزر SSH : {_trunc(server.get('username'))}", callback_data=f"admin:edit_server:{sid}:username")],
+            [InlineKeyboardButton(text=f"🔑 پسورد SSH : {_trunc(server.get('password'))}", callback_data=f"admin:edit_server:{sid}:password")],
             [InlineKeyboardButton(text=f"📡 اینترفیس : {_trunc(server.get('wg_interface'))}", callback_data=f"admin:edit_server:{sid}:wg_interface")],
             [InlineKeyboardButton(text=f"🌐 endpoint : {_trunc(server.get('wg_endpoint'))}", callback_data=f"admin:edit_server:{sid}:wg_endpoint")],
             [InlineKeyboardButton(text=f"🔌 پورت WG : {server.get('wg_port') or 51820}", callback_data=f"admin:edit_server:{sid}:wg_port")],
