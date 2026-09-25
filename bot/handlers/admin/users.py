@@ -14,6 +14,7 @@ from bot.keyboards.inline import (
 )
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
+from bot.services import config_ops
 
 router = Router()
 
@@ -207,7 +208,15 @@ async def delete_config_confirm(callback: CallbackQuery):
         await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
         return
 
-    await db.delete_config(config_id)
+    remote_ok = await config_ops.delete_config(config)
+    where = "روتر" if (config.get("service_type") or "v2ray") == "wireguard" else "پنل"
+    if remote_ok:
+        result_note = f"✅ کانفیگ #{config_id} از {where} و ربات حذف شد."
+    else:
+        result_note = (
+            f"⚠️ کانفیگ #{config_id} از ربات حذف شد، اما حذف از {where} ناموفق بود؛ "
+            "لطفاً دستی حذف کنید."
+        )
 
     user_id = config.get("user_id", 0)
     user = await db.get_user_by_id(user_id)
@@ -215,18 +224,18 @@ async def delete_config_confirm(callback: CallbackQuery):
     if user:
         configs = await db.get_configs_by_user_id(user_id)
         info = "\n".join(_user_info_lines(user))
-        text = f"✅ کانفیگ #{config_id} با موفقیت حذف شد.\n\n👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
+        text = f"{result_note}\n\n👤 اطلاعات کاربر:\n\n{info}\n\n📋 کانفیگ‌ها: {len(configs)} عدد"
         await callback.message.edit_text(
             text, parse_mode="HTML",
             reply_markup=admin_user_detail_keyboard(user, configs)
         )
     else:
-        await callback.message.edit_text(
-            f"✅ کانفیگ #{config_id} حذف شد.",
-            reply_markup=admin_menu_keyboard()
-        )
+        await callback.message.edit_text(result_note, reply_markup=admin_menu_keyboard())
 
-    await callback.answer("✅ کانفیگ با موفقیت حذف شد.", show_alert=True)
+    await callback.answer(
+        "✅ کانفیگ حذف شد." if remote_ok else "⚠️ حذف از سرور ناموفق بود!",
+        show_alert=not remote_ok,
+    )
 
 
 @router.callback_query(F.data == "admin:noop")

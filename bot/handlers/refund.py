@@ -15,6 +15,7 @@ from bot.keyboards.inline import (
 )
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient
+from bot.services import config_ops
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
 
@@ -255,6 +256,18 @@ async def refund_receipt_photo(message: Message, state: FSMContext, bot: Bot):
     await db.update_refund(refund_id, status="approved", receipt_photo_id=photo_id)
     refund = await db.get_refund(refund_id)
 
+    # The refund is final now: remove the account from its panel/router.
+    config = await db.get_config(refund["config_id"]) if refund and refund.get("config_id") else None
+    if config:
+        remote_ok = await config_ops.delete_config(config)
+        where = "روتر" if (config.get("service_type") or "v2ray") == "wireguard" else "پنل"
+        if remote_ok:
+            delete_note = f"\n🗑 اکانت از {where} حذف شد."
+        else:
+            delete_note = f"\n⚠️ حذف اکانت از {where} ناموفق بود؛ لطفاً دستی حذف کنید."
+    else:
+        delete_note = "\nℹ️ اکانت مرتبط یافت نشد (قبلاً حذف شده است)."
+
     text = (
         "✅ درخواست عودت وجه شما تایید شد.\n\n"
         f"{refund['admin_response'] or ''}"
@@ -263,10 +276,13 @@ async def refund_receipt_photo(message: Message, state: FSMContext, bot: Bot):
         await _retry(lambda: bot.send_photo(
             chat_id=refund["telegram_id"], photo=photo_id, caption=text
         ))
-        await message.answer("✅ پاسخ و فیش برای کاربر ارسال شد.", reply_markup=main_menu_keyboard(message.from_user.id))
+        await message.answer(
+            "✅ پاسخ و فیش برای کاربر ارسال شد." + delete_note,
+            reply_markup=main_menu_keyboard(message.from_user.id),
+        )
     except Exception as e:
         logger.error(f"Failed to send refund result to user: {type(e).__name__}: {e}")
-        await message.answer("⚠️ ارسال به کاربر ناموفق بود، بعداً دوباره تلاش می‌شود.")
+        await message.answer("⚠️ ارسال به کاربر ناموفق بود، بعداً دوباره تلاش می‌شود." + delete_note)
 
 
 @router.message(RefundStates.admin_receipt_photo)
