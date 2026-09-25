@@ -350,7 +350,7 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
     if (server.get("service_type") or "v2ray") == "wireguard":
         rows += [
             [InlineKeyboardButton(text=f"🔗 آدرس روتر : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
-            [InlineKeyboardButton(text=f"🔢 پورت API : {server.get('api_port') or 8728}", callback_data=f"admin:edit_server:{sid}:api_port")],
+            [InlineKeyboardButton(text=f"🔢 پورت SSH : {server.get('api_port') or 22}", callback_data=f"admin:edit_server:{sid}:api_port")],
             [InlineKeyboardButton(text=f"👤 یوزر API : {_trunc(server.get('username'))}", callback_data=f"admin:edit_server:{sid}:username")],
             [InlineKeyboardButton(text=f"🔑 پسورد API : {_trunc(server.get('password'))}", callback_data=f"admin:edit_server:{sid}:password")],
             [InlineKeyboardButton(text=f"📡 اینترفیس : {_trunc(server.get('wg_interface'))}", callback_data=f"admin:edit_server:{sid}:wg_interface")],
