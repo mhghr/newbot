@@ -15,9 +15,14 @@ logger = logging.getLogger(__name__)
 ONE_GB = 1024 * 1024 * 1024
 CHECK_INTERVAL = 1800  # 30 minutes
 
-# Per-server WireGuard connection state, so the admin is notified once on a
-# failure and once when it recovers instead of every check.
-_wg_server_down: dict = {}
+# Seconds to wait after a failed router connection before retrying. A single
+# timeout is retried once after 1 minute and again after 2 minutes; only if all
+# three attempts fail is the admin alerted (avoids false alarms).
+WG_RETRY_DELAYS = (60, 120)
+
+# server_id -> True once the admin has been alerted for the current outage,
+# so the same outage is not reported on every check.
+_wg_server_alerted: dict = {}
 
 
 async def _notify_admins(bot: Bot, text: str):
@@ -28,25 +33,49 @@ async def _notify_admins(bot: Bot, text: str):
             logger.warning(f"Failed to notify admin {admin_id}: {type(e).__name__}: {e}")
 
 
-def _wg_connectivity_message(server, ok: bool, error: Exception = None):
-    """Return an admin alert only on a state change (down<->up), else None."""
+def _wg_failure_message(server, error: Exception) -> str:
+    """Admin alert for a router the bot could not reach."""
+    return (
+        "⚠️ ارتباط ربات با روتر میکروتیک برقرار نیست.\n\n"
+        f"🌐 آی‌پی: {server.get('url')}\n"
+        f"🖥 سرور: {server.get('name') or server['id']}\n\n"
+        "به همین دلیل ترافیک کاربران این روتر بررسی نمی‌شود.\n"
+        f"خطا: {type(error).__name__}: {error}"
+    )
+
+
+def _mark_alerted(server) -> bool:
+    """Return True only the first time we alert for the current outage."""
     sid = server["id"]
-    was_down = _wg_server_down.get(sid, False)
-    if ok:
-        if was_down:
-            _wg_server_down[sid] = False
-            return f"✅ اتصال ربات به روتر «{server.get('name') or sid}» برقرار شد."
-        return None
-    if not was_down:
-        _wg_server_down[sid] = True
-        return (
-            "⚠️ اتصال ربات به روتر WireGuard برقرار نشد!\n\n"
-            f"🖥 سرور: {server.get('name') or sid}\n"
-            f"🌐 آدرس: {server.get('url')}:{server.get('api_port')}\n\n"
-            "به همین دلیل ترافیک کاربران این روتر بررسی نمی‌شود.\n"
-            f"خطا: {type(error).__name__}: {error}"
-        )
-    return None
+    if _wg_server_alerted.get(sid):
+        return False
+    _wg_server_alerted[sid] = True
+    return True
+
+
+def _clear_alert(server):
+    _wg_server_alerted[server["id"]] = False
+
+
+async def _fetch_usage_checked(server):
+    """Fetch WireGuard usage, retrying a timeout before giving up.
+
+    Returns ``(usage_map, error)``. On failure it retries after 60s and then
+    after 120s; the error is returned only when every attempt failed.
+    """
+    last_error = None
+    for attempt in range(len(WG_RETRY_DELAYS) + 1):
+        try:
+            return await wg.fetch_usage(server), None
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"WG usage fetch failed for server {server['id']} "
+                f"(attempt {attempt + 1}/{len(WG_RETRY_DELAYS) + 1}): {e}"
+            )
+            if attempt < len(WG_RETRY_DELAYS):
+                await asyncio.sleep(WG_RETRY_DELAYS[attempt])
+    return None, last_error
 
 
 def _renew_keyboard(config_id: int) -> InlineKeyboardMarkup:
@@ -108,15 +137,12 @@ async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict, 
         return
 
     if server["id"] not in usage_cache:
-        try:
-            usage_cache[server["id"]] = await wg.fetch_usage(server)
-            alert = _wg_connectivity_message(server, True)
-        except Exception as e:
-            logger.warning(f"WG usage fetch failed for server {server['id']}: {e}")
-            usage_cache[server["id"]] = None
-            alert = _wg_connectivity_message(server, False, e)
-        if alert:
-            await _notify_admins(bot, alert)
+        usage, error = await _fetch_usage_checked(server)
+        usage_cache[server["id"]] = usage
+        if error is None:
+            _clear_alert(server)
+        elif _mark_alerted(server):
+            await _notify_admins(bot, _wg_failure_message(server, error))
     usage_map = usage_cache[server["id"]]
 
     used = config["used_bytes"] or 0
