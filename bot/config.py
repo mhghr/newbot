@@ -54,6 +54,18 @@ BASE_URL = os.getenv("BASE_URL", "")
 SUB_HOST = os.getenv("SUB_HOST", "0.0.0.0")
 SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
 
+# ArvanCloud CDN API — used for automatic DNS failover between WireGuard entry
+# routers. The endpoint domain is read from servers.wg_endpoint (a shared domain),
+# so it is not configured here unless DNS_FAILOVER_DOMAIN is set to override it.
+ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")
+ARVAN_API_BASE = os.getenv("ARVAN_API_BASE", "https://napi.arvancloud.ir/cdn/4.0")
+DNS_FAILOVER_DOMAIN = os.getenv("DNS_FAILOVER_DOMAIN", "")
+DNS_FAILOVER_TTL = int(os.getenv("DNS_FAILOVER_TTL", "120"))
+DNS_FAILOVER_INTERVAL = int(os.getenv("DNS_FAILOVER_INTERVAL", "120"))
+DNS_FAILOVER_ENABLED = os.getenv(
+    "DNS_FAILOVER_ENABLED", "1" if ARVAN_API_KEY else "0"
+).strip().lower() in ("1", "true", "yes", "on")
+
 # Telethon userbot used to read proxy source channels the bot itself is not a
 # member of. Leave empty to disable the proxy relay entirely.
 try:

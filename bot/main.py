@@ -11,6 +11,7 @@ from bot.database import db
 from bot.services.reminders import start_reminders
 from bot.services.proxy_scanner import start_proxy_userbot
 from bot.services.subserver import start_sub_server
+from bot.services.dns_failover import start_dns_failover
 
 from bot.handlers.start import router as start_router
 from bot.handlers.buy import router as buy_router
@@ -86,6 +87,7 @@ async def main():
     )
 
     start_reminders(bot)
+    start_dns_failover(bot)
     asyncio.create_task(start_proxy_userbot(bot))
 
     await start_sub_server(SUB_HOST, SUB_PORT)

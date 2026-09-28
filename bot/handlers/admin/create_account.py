@@ -306,7 +306,8 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
     )
     status_msg = await message.answer("⏳ در حال ساخت اکانت WireGuard...")
     try:
-        result = await wg.create_account(server, name)
+        cluster = await db.get_wg_cluster(server) or [server]
+        result = await wg.create_account_multi(cluster, name)
         endpoint = server["wg_endpoint"] or server["url"]
         port = server["wg_port"] or 51820
         dns = server["wg_dns"] or "1.1.1.1,8.8.8.8"

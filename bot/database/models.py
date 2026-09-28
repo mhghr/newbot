@@ -77,6 +77,23 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
+        # Per-router WireGuard counters. A user's peer can exist on several
+        # entry routers at once (failover), so the "last seen" counter is kept
+        # per (config, router). Total usage lives in configs.used_bytes.
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS wg_router_usage (
+                id SERIAL PRIMARY KEY,
+                config_id INTEGER NOT NULL REFERENCES configs(id) ON DELETE CASCADE,
+                server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+                public_key TEXT NOT NULL DEFAULT '',
+                last_rx BIGINT DEFAULT 0,
+                last_tx BIGINT DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE (config_id, server_id)
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS wg_router_usage_config_idx ON wg_router_usage (config_id)")
+
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,

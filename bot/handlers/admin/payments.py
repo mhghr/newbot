@@ -137,13 +137,14 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
         )
 
         try:
-            await wg.set_peer_enabled(
-                server, True, public_key=config["wg_public_key"],
-                peer_id=config["wg_peer_id"], client_ip=config["wg_client_ip"],
+            cluster = await db.get_wg_cluster(server) or [server]
+            await wg.set_peer_enabled_multi(
+                cluster, True, public_key=config["wg_public_key"],
+                client_ip=config["wg_client_ip"],
             )
-            await wg.reset_peer(
-                server, public_key=config["wg_public_key"],
-                peer_id=config["wg_peer_id"], client_ip=config["wg_client_ip"],
+            await wg.reset_peer_multi(
+                cluster, public_key=config["wg_public_key"],
+                client_ip=config["wg_client_ip"],
             )
         except Exception as e:
             logger.warning(f"WG renew peer update failed for config {renew_config_id}: {e}")
@@ -175,7 +176,8 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
     if not server:
         raise Exception("سرور WireGuard فعالی یافت نشد")
 
-    result = await wg.create_account(server, tg_id)
+    cluster = await db.get_wg_cluster(server) or [server]
+    result = await wg.create_account_multi(cluster, tg_id)
     endpoint = server["wg_endpoint"] or server["url"]
     port = server["wg_port"] or 51820
     dns = server["wg_dns"] or "1.1.1.1,8.8.8.8"

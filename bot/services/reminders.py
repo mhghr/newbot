@@ -9,6 +9,7 @@ from bot.database import db
 from bot.config import ADMIN_IDS
 from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
+from bot.services import wg_usage
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,19 @@ async def _fetch_usage_checked(server):
     return None, last_error
 
 
+async def _load_usage_cache(bot: Bot, servers):
+    """Fetch usage from every active entry router once per poll."""
+    cache = {}
+    for server in servers:
+        usage, error = await _fetch_usage_checked(server)
+        cache[server["id"]] = usage
+        if error is None:
+            _clear_alert(server)
+        elif _mark_alerted(server):
+            await _notify_admins(bot, _wg_failure_message(server, error))
+    return cache
+
+
 def _renew_keyboard(config_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")]
@@ -131,36 +145,18 @@ async def _get_wg_server(cache: dict, config):
     return cache[server_id]
 
 
-async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict, usage_cache: dict):
+async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict,
+                           usage_cache: dict, groups: dict):
     server = await _get_wg_server(server_cache, config)
     if not server or (server["service_type"] or "v2ray") != "wireguard":
         return
 
-    if server["id"] not in usage_cache:
-        usage, error = await _fetch_usage_checked(server)
-        usage_cache[server["id"]] = usage
-        if error is None:
-            _clear_alert(server)
-        elif _mark_alerted(server):
-            await _notify_admins(bot, _wg_failure_message(server, error))
-    usage_map = usage_cache[server["id"]]
-
-    used = config["used_bytes"] or 0
-    peer = (
-        usage_map.get(config["wg_public_key"])
-        if usage_map and config.get("wg_public_key")
-        else None
-    )
-    if peer is not None:
-        rx = peer.get("rx", 0)
-        tx = peer.get("tx", 0)
-        used, rx, tx = wg.merge_usage(
-            used, config["wg_last_rx"], config["wg_last_tx"], rx, tx
-        )
-        try:
-            await db.update_wg_usage(config["id"], rx, tx, used)
-        except Exception as e:
-            logger.warning(f"WG usage save failed for config {config['id']}: {e}")
+    cluster = wg_usage.cluster_for(server, groups)
+    used = await wg_usage.accumulate(config, cluster, usage_cache)
+    try:
+        await db.set_config_used_bytes(config["id"], used)
+    except Exception as e:
+        logger.warning(f"WG usage save failed for config {config['id']}: {e}")
 
     limit_bytes = (config["traffic_gb"] or 0) * ONE_GB
     expired = bool(config["expire_date"]) and config["expire_date"] <= now
@@ -168,13 +164,12 @@ async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict, 
 
     if expired or exhausted:
         try:
-            await wg.set_peer_enabled(
-                server, False,
+            await wg.set_peer_enabled_multi(
+                cluster, False,
                 public_key=config["wg_public_key"],
-                peer_id=config["wg_peer_id"],
                 client_ip=config["wg_client_ip"],
             )
-            logger.info(f"Disabled WG peer for config {config['id']} (expired={expired}, exhausted={exhausted})")
+            logger.info(f"Disabled WG peer on cluster for config {config['id']} (expired={expired}, exhausted={exhausted})")
         except Exception as e:
             logger.warning(f"Failed to disable WG peer for config {config['id']}: {e}")
 
@@ -199,12 +194,14 @@ async def _check_once(bot: Bot):
     now = datetime.now()
 
     server_cache = {}
-    usage_cache = {}
+    wg_servers = await db.get_active_wg_servers()
+    usage_cache = await _load_usage_cache(bot, wg_servers)
+    groups = wg_usage.group_servers(wg_servers)
 
     for c in configs:
         try:
             if (c.get("service_type") or "v2ray") == "wireguard":
-                await _check_wg_config(bot, c, now, server_cache, usage_cache)
+                await _check_wg_config(bot, c, now, server_cache, usage_cache, groups)
             else:
                 await _check_v2ray_config(bot, c, now, xui)
         except Exception as e:

@@ -592,6 +592,321 @@ def make_qr_png(data: str):
     return buffer.getvalue()
 
 
+# --------------------------------------------------------------------------- #
+# Multi-router (cluster) operations
+#
+# The same user peer is provisioned on every entry router of a cluster so a
+# client works whichever router the endpoint domain points to. All helpers here
+# operate by public key (stable across routers).
+# --------------------------------------------------------------------------- #
+
+def _all_used_host_numbers(ssh, net):
+    used = set()
+    for peer in _peers(ssh):
+        addr = (peer.get("allowed-address") or "").split("/")[0].strip()
+        number = _host_number(addr, net)
+        if number is not None and number > 0:
+            used.add(number)
+    return used
+
+
+def _create_multi_sync(servers, used_host_numbers, user_telegram_id):
+    if not servers:
+        raise WireGuardError("سروری برای ساخت اکانت مشخص نشد")
+    primary = servers[0]
+    iface = _s(primary, "wg_interface")
+    net = _parse_network(_s(primary, "wg_client_subnet"))
+    if net is None:
+        raise WireGuardError("subnet WireGuard تنظیم نشده یا نامعتبر است (مثال: 10.66.66.0/24)")
+    total_hosts = net.num_addresses - 2
+    start = _to_int(_s(primary, "wg_ip_range_start", 2)) or 2
+    end = _to_int(_s(primary, "wg_ip_range_end", total_hosts - 1)) or (total_hosts - 1)
+    start = max(1, min(start, total_hosts))
+    end = max(start, min(end, total_hosts))
+
+    public_key, private_key = generate_keypair()
+    open_ssh = []
+    try:
+        used = set(used_host_numbers or set())
+        server_public_key = ""
+        for server in servers:
+            ssh = _open_ssh(server)
+            open_ssh.append((server, ssh))
+            match = next((i for i in _interfaces(ssh) if i.get("name") == iface), None)
+            if not match:
+                raise WireGuardError(
+                    f'اینترفیس WireGuard «{iface}» روی روتر {_s(server, "url")} پیدا نشد'
+                )
+            if not server_public_key:
+                server_public_key = match.get("public-key", "") or ""
+            used |= _all_used_host_numbers(ssh, net)
+
+        client_ip = None
+        for number in range(start, end + 1):
+            if number not in used:
+                client_ip = str(net.network_address + number)
+                break
+        if not client_ip:
+            raise WireGuardError("IP آزادی در بازه تعیین‌شده یافت نشد")
+
+        comment = f"user={user_telegram_id} wg={client_ip}"
+        for server, ssh in open_ssh:
+            _run_cli(
+                ssh,
+                f'/interface/wireguard/peers/add interface="{iface}" public-key="{public_key}" '
+                f'allowed-address={client_ip}/32 persistent-keepalive={PERSISTENT_KEEPALIVE}s '
+                f'comment="{comment}"',
+            )
+
+        peer_ids = {}
+        for server, ssh in open_ssh:
+            for peer in _peers(ssh):
+                if (peer.get("public-key") or "") == public_key:
+                    peer_ids[_s(server, "id")] = peer.get(".id", "") or ""
+                    break
+
+        return {
+            "client_ip": client_ip,
+            "public_key": public_key,
+            "private_key": private_key,
+            "server_public_key": server_public_key,
+            "comment": comment,
+            "peer_id": peer_ids.get(_s(primary, "id"), ""),
+            "peer_ids": peer_ids,
+            "server_ids": [_s(s, "id") for s, _ in open_ssh],
+        }
+    except Exception:
+        # Roll back so a partially provisioned cluster never stays inconsistent.
+        for _server, ssh in open_ssh:
+            try:
+                _run_cli(ssh, f'/interface/wireguard/peers/remove [find public-key="{public_key}"]')
+            except Exception:
+                pass
+        raise
+    finally:
+        for _server, ssh in open_ssh:
+            _close_ssh(ssh)
+
+
+def _multi_action_sync(servers, action, public_key=None, client_ip=None):
+    if not public_key and not client_ip:
+        raise WireGuardError("شناسه peer برای عملیات مشخص نیست")
+    done = 0
+    errors = []
+    for server in servers:
+        try:
+            ssh = _open_ssh(server)
+            try:
+                peer = _find_peer(_peers(ssh), public_key, client_ip)
+                if not peer:
+                    continue
+                pk = public_key or peer.get("public-key")
+                expr = f'[find public-key="{pk}"]'
+                if action == "disable":
+                    _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=yes")
+                elif action == "enable":
+                    _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=no")
+                elif action == "delete":
+                    _run_cli(ssh, f"/interface/wireguard/peers/remove {expr}")
+                elif action == "reset":
+                    _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=yes")
+                    _run_cli(ssh, f"/interface/wireguard/peers/set {expr} disabled=no")
+                else:
+                    raise WireGuardError(f"عملیات نامعتبر: {action}")
+                done += 1
+            finally:
+                _close_ssh(ssh)
+        except Exception as e:
+            errors.append(f'{_s(server, "url")}: {e}')
+    if done == 0 and errors:
+        raise WireGuardError("; ".join(errors))
+    return done
+
+
+async def create_account_multi(servers, user_telegram_id, used_host_numbers=None):
+    """Create the same peer on every router of a cluster. Returns peer details."""
+    servers = [dict(s) for s in servers]
+    if not servers:
+        raise WireGuardError("سروری برای ساخت اکانت مشخص نشد")
+    if used_host_numbers is None:
+        from bot.database import db
+        subnet = _s(servers[0], "wg_client_subnet")
+        server_ids = [_s(s, "id") for s in servers]
+        used_host_numbers = await db.get_wg_used_host_numbers_multi(server_ids, subnet)
+    try:
+        return await _run_with_timeout(
+            _create_multi_sync, servers, set(used_host_numbers or set()), str(user_telegram_id),
+            timeout=60.0,
+        )
+    except WireGuardError:
+        raise
+    except Exception as e:
+        raise WireGuardError(_friendly_error(e))
+
+
+async def _multi_action_async(servers, action, public_key=None, client_ip=None):
+    servers = [dict(s) for s in servers]
+    if not servers:
+        return 0
+    return await _run_with_timeout(
+        _multi_action_sync, servers, action, public_key, client_ip, timeout=60.0
+    )
+
+
+async def set_peer_enabled_multi(servers, enabled: bool, public_key=None, client_ip=None):
+    return await _multi_action_async(
+        servers, "enable" if enabled else "disable", public_key, client_ip
+    )
+
+
+async def delete_peer_multi(servers, public_key=None, client_ip=None):
+    return await _multi_action_async(servers, "delete", public_key, client_ip)
+
+
+async def reset_peer_multi(servers, public_key=None, client_ip=None):
+    return await _multi_action_async(servers, "reset", public_key, client_ip)
+
+
+# --------------------------------------------------------------------------- #
+# Health check (for DNS failover)
+# --------------------------------------------------------------------------- #
+
+_DURATION_RE = re.compile(r'(\d+)([wdhms])', re.IGNORECASE)
+
+
+def _parse_router_duration(value) -> int:
+    """Parse RouterOS durations like ``1m2s``/``2h``/``3d`` into seconds.
+
+    Returns a very large number for ``never``/empty so a peer that never
+    handshaked is treated as stale.
+    """
+    text = str(value or "").strip().lower()
+    if not text or text in ("never", "none", "n/a"):
+        return 10 ** 9
+    total = 0
+    for amount, unit in _DURATION_RE.findall(text):
+        unit = unit.lower()
+        factor = {"w": 604800, "d": 86400, "h": 3600, "m": 60, "s": 1}[unit]
+        total += int(amount) * factor
+    return total if total else 10 ** 9
+
+
+def _ping_loss(ssh, ip: str, count: int = 5):
+    try:
+        text = _run_cli(ssh, f"/ping {ip} count={count}", timeout=20.0)
+    except Exception:
+        return None
+    m = re.search(r'packet-loss=(\d+)%', text)
+    if m:
+        return int(m.group(1))
+    m = re.search(r'(\d+)%', text)
+    return int(m.group(1)) if m else None
+
+
+def _other_host_in_subnet(cidr: str):
+    net = _parse_network(cidr)
+    if net is None:
+        return None
+    local = cidr.split("/")[0].strip()
+    try:
+        hosts = [str(h) for h in net.hosts()]
+    except Exception:
+        return None
+    for host in hosts:
+        if host != local:
+            return host
+    return None
+
+
+def _ensure_health_mark(ssh, test_ips, routing_table="wg-table"):
+    """Make locally-originated test pings follow the users' routing table."""
+    try:
+        existing = _run_cli(ssh, '/ip/firewall/mangle/print terse where comment="BOT-HC"')
+    except Exception:
+        existing = ""
+    for ip in test_ips:
+        if f'dst-address={ip}' in existing:
+            continue
+        try:
+            _run_cli(
+                ssh,
+                f'/ip/firewall/mangle/add chain=output action=mark-routing '
+                f'new-routing-mark={routing_table} dst-address={ip} protocol=icmp '
+                f'comment="BOT-HC"',
+            )
+        except Exception:
+            pass
+
+
+def _health_sync(server, test_ips):
+    iface = _s(server, "wg_interface")
+    ssh = _open_ssh(server)
+    metrics = {"ssh": True, "healthy": False, "reason": ""}
+    try:
+        interfaces = _interfaces(ssh)
+        names = [i.get("name") for i in interfaces]
+        if iface not in names:
+            metrics["reason"] = "wg-interface-missing"
+            return metrics
+
+        peers = _peers(ssh)
+        upstream_iface = None
+        upstream_age = 10 ** 9
+        for peer in peers:
+            p_iface = peer.get("interface")
+            if not p_iface or p_iface == iface:
+                continue
+            allowed = peer.get("allowed-address") or ""
+            if "0.0.0.0/0" in allowed or "::/0" in allowed:
+                age = _parse_router_duration(peer.get("last-handshake"))
+                if age < upstream_age:
+                    upstream_age = age
+                    upstream_iface = p_iface
+        metrics["upstream_interface"] = upstream_iface
+        metrics["upstream_handshake_age"] = upstream_age if upstream_age < 10 ** 8 else None
+
+        tunnel_loss = None
+        if upstream_iface:
+            remote_ip = None
+            for item in _addresses(ssh):
+                if item.get("interface") == upstream_iface and item.get("address"):
+                    remote_ip = _other_host_in_subnet(item["address"])
+                    break
+            if remote_ip:
+                tunnel_loss = _ping_loss(ssh, remote_ip)
+        metrics["tunnel_loss"] = tunnel_loss
+
+        _ensure_health_mark(ssh, test_ips)
+        e2e_losses = {ip: _ping_loss(ssh, ip) for ip in test_ips}
+        metrics["e2e_loss"] = e2e_losses
+        e2e_ok = any(v is not None and v < 40 for v in e2e_losses.values())
+
+        handshake_ok = upstream_age <= 180
+        tunnel_ok = tunnel_loss is not None and tunnel_loss < 50
+        metrics["healthy"] = bool(handshake_ok and (tunnel_ok or e2e_ok))
+        if not metrics["healthy"]:
+            reasons = []
+            if not handshake_ok:
+                reasons.append("tunnel-handshake-stale")
+            if not tunnel_ok:
+                reasons.append("tunnel-ping-loss")
+            if not e2e_ok:
+                reasons.append("internet-reachability")
+            metrics["reason"] = ",".join(reasons)
+        return metrics
+    finally:
+        _close_ssh(ssh)
+
+
+async def check_health(server, test_ips=("9.9.9.9", "1.1.1.1")):
+    try:
+        return await _run_with_timeout(
+            _health_sync, dict(server), tuple(test_ips), timeout=60.0
+        )
+    except Exception as e:
+        return {"ssh": False, "healthy": False, "reason": f"{type(e).__name__}: {e}"}
+
+
 WIREGUARD_APPS = (
     ("اندروید", "https://play.google.com/store/apps/details?id=com.wireguard.android"),
     ("آیفون", "https://apps.apple.com/us/app/wireguard/id1441195209"),

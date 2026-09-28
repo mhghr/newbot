@@ -12,6 +12,7 @@ from bot.keyboards.inline import (
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
+from bot.services import wg_usage
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
 from html import escape as _esc
@@ -39,19 +40,10 @@ async def _config_traffic(config):
     service = config.get("service_type") or "v2ray"
     if service == "wireguard":
         total = (config.get("traffic_gb") or 0) * ONE_GB
-        used = config.get("used_bytes") or 0
-        server = await db.get_server(config["server_id"]) if config.get("server_id") else None
-        if server and config.get("wg_public_key"):
-            try:
-                usage = await wg.fetch_usage(server)
-                peer = usage.get(config["wg_public_key"])
-                if peer:
-                    used, _, _ = wg.merge_usage(
-                        used, config.get("wg_last_rx"), config.get("wg_last_tx"),
-                        peer.get("rx", 0), peer.get("tx", 0),
-                    )
-            except Exception:
-                pass
+        try:
+            used = await wg_usage.live_used(config)
+        except Exception:
+            used = config.get("used_bytes") or 0
         remaining = max(0, total - used) if total > 0 else 0
         return {"used": used, "total": total, "remaining": remaining}
 

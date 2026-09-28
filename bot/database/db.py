@@ -803,3 +803,97 @@ async def renew_wg_config(config_id: int, order_id: int, plan_id: int,
                WHERE id=$5""",
             order_id, plan_id, traffic_gb, expire_date, config_id
         )
+        # Drop per-router baselines so the next poll re-baselines at the
+        # current counter value instead of counting pre-renew history.
+        await conn.execute("DELETE FROM wg_router_usage WHERE config_id=$1", config_id)
+
+
+# --------------------------------------------------------------------------- #
+# Multi-router WireGuard accounting
+# --------------------------------------------------------------------------- #
+
+async def get_active_wg_servers():
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            """SELECT * FROM servers
+               WHERE is_active=TRUE AND service_type='wireguard'
+               ORDER BY id"""
+        )
+
+
+async def get_wg_cluster(server):
+    """Entry routers that share the same WireGuard interface/key as *server*.
+
+    Such routers host identical peers, so a user can connect to any of them and
+    provisioning/usage must span the whole cluster.
+    """
+    if not server:
+        return []
+    iface = server.get("wg_interface") if hasattr(server, "get") else server["wg_interface"]
+    pubkey = server.get("wg_server_public_key") if hasattr(server, "get") else server["wg_server_public_key"]
+    if not pubkey:
+        return [server]
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            """SELECT * FROM servers
+               WHERE is_active=TRUE AND service_type='wireguard'
+                 AND COALESCE(wg_interface,'')=$1 AND COALESCE(wg_server_public_key,'')=$2
+               ORDER BY id""",
+            iface or "", pubkey,
+        )
+
+
+async def get_wg_router_usage(config_id: int, server_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM wg_router_usage WHERE config_id=$1 AND server_id=$2",
+            config_id, server_id,
+        )
+
+
+async def get_wg_router_usages(config_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM wg_router_usage WHERE config_id=$1", config_id
+        )
+
+
+async def upsert_wg_router_usage(config_id: int, server_id: int, public_key: str,
+                                 last_rx: int, last_tx: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO wg_router_usage
+                   (config_id, server_id, public_key, last_rx, last_tx, updated_at)
+               VALUES ($1, $2, $3, $4, $5, NOW())
+               ON CONFLICT (config_id, server_id)
+               DO UPDATE SET public_key=$3, last_rx=$4, last_tx=$5, updated_at=NOW()""",
+            config_id, server_id, public_key or "", last_rx, last_tx,
+        )
+
+
+async def set_config_used_bytes(config_id: int, used_bytes: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE configs SET used_bytes=$1 WHERE id=$2", int(used_bytes), config_id
+        )
+
+
+async def get_wg_used_host_numbers_multi(server_ids, subnet: str) -> set:
+    """Union of host offsets used by any config attached to *server_ids*."""
+    net = parse_wg_network(subnet)
+    ids = [int(i) for i in (server_ids or []) if i]
+    if net is None or not ids:
+        return set()
+    async with models.pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT wg_client_ip FROM configs
+               WHERE service_type='wireguard' AND is_active=TRUE
+                 AND wg_client_ip IS NOT NULL AND server_id = ANY($1::int[])""",
+            ids,
+        )
+    used = set()
+    for row in rows:
+        number = _host_number(row["wg_client_ip"], net)
+        if number is not None and number > 0:
+            used.add(number)
+    return used

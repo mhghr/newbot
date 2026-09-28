@@ -35,12 +35,13 @@ async def delete_remote(config) -> bool:
             if not server:
                 logger.warning("WG delete: server %s not found for config %s", server_id, config.get("id"))
                 return False
-            return bool(await wg.delete_peer(
-                server,
+            cluster = await db.get_wg_cluster(server) or [server]
+            done = await wg.delete_peer_multi(
+                cluster,
                 public_key=config.get("wg_public_key"),
-                peer_id=config.get("wg_peer_id"),
                 client_ip=config.get("wg_client_ip"),
-            ))
+            )
+            return done > 0
 
         if not server:
             server = await db.get_master_server("v2ray")
