@@ -57,11 +57,18 @@ SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
 # ArvanCloud CDN API — used for automatic DNS failover between WireGuard entry
 # routers. The endpoint domain is read from servers.wg_endpoint (a shared domain),
 # so it is not configured here unless DNS_FAILOVER_DOMAIN is set to override it.
-ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")
+#
+# TEMPORARY: values are committed here so `update.sh` (git reset) applies them on
+# the server without touching .env. Move them to .env and clear these later.
+ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "c9ed8672-8410-56c6-9502-71511ceb3226")
 ARVAN_API_BASE = os.getenv("ARVAN_API_BASE", "https://napi.arvancloud.ir/cdn/4.0")
 DNS_FAILOVER_DOMAIN = os.getenv("DNS_FAILOVER_DOMAIN", "")
 DNS_FAILOVER_TTL = int(os.getenv("DNS_FAILOVER_TTL", "120"))
-DNS_FAILOVER_INTERVAL = int(os.getenv("DNS_FAILOVER_INTERVAL", "120"))
+# Check every 30s; switch after 3 consecutive bad checks, at most once per 30s
+# (i.e. up to ~3 switches within 3 minutes for testing).
+DNS_FAILOVER_INTERVAL = int(os.getenv("DNS_FAILOVER_INTERVAL", "30"))
+DNS_FAILOVER_STREAK = int(os.getenv("DNS_FAILOVER_STREAK", "3"))
+DNS_FAILOVER_MIN_SWITCH_INTERVAL = int(os.getenv("DNS_FAILOVER_MIN_SWITCH_INTERVAL", "30"))
 # Health thresholds used to decide whether the active router is still good.
 # "degraded" triggers a switch when a clearly better router exists; "unhealthy"
 # triggers it as a plain outage.
