@@ -203,12 +203,7 @@ def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
 def account_detail_keyboard(config_id: int, service_type: str,
                             show_renew: bool = True) -> InlineKeyboardMarkup:
     """Action buttons for an account (protocol aware). Account info lives in the message text."""
-    service = service_type or "v2ray"
-    rows = []
-    if service == "wireguard":
-        rows.append([InlineKeyboardButton(text="📄 دریافت مجدد کانفیگ", callback_data=f"wg_resend:{config_id}")])
-    else:
-        rows.append([InlineKeyboardButton(text="📷 دریافت تصویر QR کد", callback_data=f"qr:{config_id}")])
+    rows = [[InlineKeyboardButton(text="📄 نمایش کانفیگ", callback_data=f"showconfig:{config_id}")]]
     if show_renew:
         rows.append([InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:my_configs")])
@@ -511,6 +506,7 @@ def admin_config_detail_keyboard(config) -> InlineKeyboardMarkup:
     """Action buttons for an admin viewing a config. Config info lives in the message text."""
     cid = config["id"]
     rows = [
+        [InlineKeyboardButton(text="📄 نمایش کانفیگ", callback_data=f"admin:show_config:{cid}")],
         [InlineKeyboardButton(text="🗑 حذف کانفیگ", callback_data=f"admin:delete_config:{cid}")],
         [InlineKeyboardButton(text="🔙 بازگشت به کاربر", callback_data=f"admin:user_detail:{config.get('user_id')}")],
     ]

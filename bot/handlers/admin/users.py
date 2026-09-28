@@ -1,4 +1,4 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -15,6 +15,7 @@ from bot.keyboards.inline import (
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
 from bot.services import config_ops
+from bot.services import account_view
 
 router = Router()
 
@@ -143,37 +144,25 @@ async def config_detail(callback: CallbackQuery):
         await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
         return
 
-    remaining = _remaining_days(config.get("expire_date"))
-    traffic_str = "نامحدود" if (config.get("traffic_gb") or 0) == 0 else f"{config['traffic_gb']} GB"
-    expire_str = to_jalali(config["expire_date"]) if config.get("expire_date") else "نامحدود"
-    service = config.get("service_type") or "v2ray"
-
-    if service == "wireguard":
-        text = (
-            f"🔑 اطلاعات کانفیگ WireGuard #{config['id']}\n\n"
-            f"📦 پلن: {_esc(config.get('plan_name') or '-')}\n"
-            f"📊 حجم: {traffic_str}\n"
-            f"📅 تاریخ انقضا: {expire_str}\n"
-            f"📅 روز باقی‌مانده: {remaining} روز\n"
-            f"🌐 IP: <code>{_esc(config.get('wg_client_ip') or '-')}</code>\n"
-            f"📈 مصرف: {format_gb(config.get('used_bytes'))}"
-        )
-    else:
-        sub_link = config.get("sub_url") or config.get("config_link") or "-"
-        text = (
-            f"🔑 اطلاعات کانفیگ #{config['id']}\n\n"
-            f"📦 پلن: {_esc(config.get('plan_name') or '-')}\n"
-            f"📊 حجم: {traffic_str}\n"
-            f"📅 تاریخ انقضا: {expire_str}\n"
-            f"📅 روز باقی‌مانده: {remaining} روز\n"
-            f"👤 کلاینت: {_esc(config.get('client_email') or '-')}\n"
-            f"🔗 لینک اشتراک:\n<code>{_esc(sub_link)}</code>"
-        )
+    text = await account_view.build_account_text(config)
     await callback.message.edit_text(
         text, parse_mode="HTML",
         reply_markup=admin_config_detail_keyboard(config)
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:show_config:"))
+async def show_config(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    config_id = int(callback.data.split(":")[2])
+    config = await db.get_config(config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+    await callback.answer("⏳ در حال ارسال کانفیگ...")
+    await account_view.send_account_config(bot, callback.from_user.id, config)
 
 
 @router.callback_query(F.data.startswith("admin:delete_config:"))

@@ -13,6 +13,7 @@ from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
 from bot.services import wg_usage
+from bot.services import account_view
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
 from html import escape as _esc
@@ -104,52 +105,23 @@ async def view_config(callback: CallbackQuery):
         return
 
     service = config.get("service_type") or "v2ray"
-    plan_name = _esc(config.get("plan_name") or "-")
-
-    if config["expire_date"]:
-        days_str = f"{max(0, (config['expire_date'] - datetime.now()).days)} روز"
-        expire_str = to_jalali(config["expire_date"])
-    else:
-        days_str = "نامحدود"
-        expire_str = "نامحدود"
-
-    traffic = await _config_traffic(config)
-    if traffic is None:
-        used_str, total_str = None, None
-    else:
-        used_str = format_gb(traffic["used"])
-        total_str = format_gb(traffic["total"]) if traffic.get("total", 0) > 0 else None
-
-    rtl = "\u200f"  # RTL mark: keeps every line right-aligned even when it starts with LTR text
-    sep = f"{rtl}━━━━━━━━━━━━━━━━━"
-    service_name = "WireGuard" if service == "wireguard" else "V2Ray"
-
-    lines = [
-        f"{rtl}🔑 <b>اکانت {service_name}</b> <code>#{config['id']}</code>",
-        sep,
-        f"{rtl}📦 <b>پلن:</b> {plan_name}",
-        f"{rtl}📅 <b>روز باقی‌مانده:</b> {days_str}",
-        f"{rtl}⏳ <b>انقضا:</b> <code>{expire_str}</code>",
-        sep,
-    ]
-    if used_str is None:
-        lines.append(f"{rtl}📊 <b>مصرف:</b> در دسترس نیست")
-    else:
-        lines.append(f"{rtl}📊 <b>مصرف شده:</b> <code>{used_str}</code>")
-        total_text = f"<code>{total_str}</code>" if total_str else "نامحدود"
-        lines.append(f"{rtl}📈 <b>حجم کل:</b> {total_text}")
-
-    if service == "wireguard":
-        lines.append(f"{rtl}🌐 <b>آی‌پی:</b> <code>{_esc(config.get('wg_client_ip') or '-')}</code>")
-    else:
-        sub_link = config.get("sub_url") or config.get("config_link") or "-"
-        lines += [sep, f"{rtl}🔗 <b>لینک اشتراک:</b>", f"{rtl}<code>{_esc(sub_link)}</code>"]
-
+    text = await account_view.build_account_text(config)
     await callback.message.edit_text(
-        "\n".join(lines), parse_mode="HTML",
+        text, parse_mode="HTML",
         reply_markup=account_detail_keyboard(config["id"], service),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("showconfig:"))
+async def show_config(callback: CallbackQuery, bot: Bot):
+    config_id = int(callback.data.split(":")[1])
+    config = await _get_owned_config(callback.from_user.id, config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+    await callback.answer("⏳ در حال ارسال کانفیگ...")
+    await account_view.send_account_config(bot, callback.from_user.id, config)
 
 
 @router.callback_query(F.data == "cfg_noop")
