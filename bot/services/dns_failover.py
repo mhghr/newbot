@@ -27,7 +27,11 @@ from bot.config import (
     ARVAN_API_KEY,
     DNS_FAILOVER_ENABLED,
     DNS_FAILOVER_DOMAIN,
+    DNS_FAILOVER_HANDSHAKE_MAX,
     DNS_FAILOVER_INTERVAL,
+    DNS_FAILOVER_LOSS_DEGRADED,
+    DNS_FAILOVER_LOSS_UNHEALTHY,
+    DNS_FAILOVER_RTT_DEGRADED,
     DNS_FAILOVER_TTL,
 )
 from bot.database import db
@@ -165,6 +169,28 @@ async def _notify(bot, text: str):
             logger.warning("DNS failover notify to %s failed: %s", admin_id, e)
 
 
+def _server_label(cluster, server_id, ip_of):
+    for s in cluster:
+        if s["id"] == server_id:
+            return s["name"] or str(server_id)
+    return str(server_id)
+
+
+def _health_line(metrics, ip):
+    if not metrics:
+        return f"{ip or '?'} (بدون داده)"
+    loss = metrics.get("loss")
+    rtt = metrics.get("rtt")
+    bits = []
+    if loss is not None:
+        bits.append(f"loss {loss}%")
+    if rtt is not None:
+        bits.append(f"rtt {rtt:.0f}ms")
+    detail = "، ".join(bits) if bits else "بدون داده"
+    reason = metrics.get("reason") or ""
+    return f"{ip or '?'} ({detail}{'، ' + reason if reason else ''})"
+
+
 async def _check_cluster(bot, arvan: ArvanDNS, cluster):
     domain = _endpoint_domain(cluster)
     if not domain:
@@ -173,7 +199,13 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
     ip_of = {s["id"]: _public_ip(s) for s in cluster}
     health = {}
     for server in cluster:
-        health[server["id"]] = await wg.check_health(server)
+        health[server["id"]] = await wg.check_health(
+            server,
+            handshake_max=DNS_FAILOVER_HANDSHAKE_MAX,
+            loss_degraded=DNS_FAILOVER_LOSS_DEGRADED,
+            rtt_degraded=DNS_FAILOVER_RTT_DEGRADED,
+            loss_unhealthy=DNS_FAILOVER_LOSS_UNHEALTHY,
+        )
 
     try:
         zone, record = await _find_record(arvan, domain)
@@ -193,32 +225,42 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
     state = _STATE.setdefault(domain, {"streak": 0, "last_switch": 0.0, "alerted": False})
     now = time.time()
 
-    active_healthy = any(health.get(sid, {}).get("healthy") for sid in active_ids)
-    if active_healthy:
+    def _is_good(sid):
+        m = health.get(sid, {})
+        return bool(m.get("healthy") and not m.get("degraded"))
+
+    def _is_unhealthy(sid):
+        return not health.get(sid, {}).get("healthy")
+
+    # Active router is fine: nothing to do.
+    if any(_is_good(sid) for sid in active_ids):
         state["streak"] = 0
         state["alerted"] = False
         return
 
+    # Active router is down or degraded (slow / lossy).
     state["streak"] += 1
+    active_reason = ", ".join(
+        sorted({(health.get(sid, {}).get("reason") or "unknown") for sid in active_ids})
+    )
     logger.info(
-        "DNS failover: %s active=%s unhealthy (streak %d/%d) reasons=%s",
-        domain, [health.get(sid, {}).get("reason") for sid in active_ids],
-        state["streak"], UNHEALTHY_STREAK,
-        {sid: health.get(sid, {}).get("reason") for sid in health},
+        "DNS failover: %s active=%s not-good (streak %d/%d) reason=%s",
+        domain, active_ids, state["streak"], UNHEALTHY_STREAK, active_reason,
     )
     if state["streak"] < UNHEALTHY_STREAK:
         return
 
-    healthy_ids = [sid for sid, m in health.items() if m.get("healthy")]
-    target = next(
-        (sid for sid in healthy_ids if ip_of.get(sid) and ip_of[sid] not in current_ips),
-        None,
-    )
-    if not target:
-        if not state["alerted"]:
+    candidates = [
+        sid for sid in health
+        if _is_good(sid) and ip_of.get(sid) and ip_of[sid] not in current_ips
+    ]
+    if not candidates:
+        if any(_is_unhealthy(sid) for sid in active_ids) and not state["alerted"]:
             await _notify(
                 bot,
-                f"⚠️ هیچ روتر سالمی برای دامنه {domain} پیدا نشد؛ DNS تغییر نکرد.",
+                "⚠️ هیچ روتر سالمی برای دامنه "
+                f"{domain} پیدا نشد؛ DNS تغییر نکرد.\n"
+                f"روتر فعال: {_health_line(health.get(active_ids[0]) if active_ids else None, ip_of.get(active_ids[0]) if active_ids else None)}",
             )
             state["alerted"] = True
         return
@@ -226,6 +268,14 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
     if now - state["last_switch"] < MIN_SWITCH_INTERVAL:
         return
 
+    # Prefer the candidate with the lowest loss, then lowest latency.
+    target = min(
+        candidates,
+        key=lambda sid: (
+            (health.get(sid, {}).get("loss") if health.get(sid, {}).get("loss") is not None else 999),
+            (health.get(sid, {}).get("rtt") if health.get(sid, {}).get("rtt") is not None else 1e9),
+        ),
+    )
     new_ip = ip_of[target]
     try:
         await arvan.update_record(zone, record["id"], _record_payload(record, new_ip))
@@ -233,9 +283,20 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
         logger.error("DNS update failed for %s -> %s: %s", domain, new_ip, e)
         return
 
+    old_lines = "; ".join(
+        _health_line(health.get(sid), ip_of.get(sid)) for sid in active_ids
+    ) or "نامشخص"
+    new_metrics = health.get(target, {})
     state.update({"last_switch": now, "streak": 0, "alerted": False})
-    logger.info("DNS failover applied: %s -> %s", domain, new_ip)
-    await _notify(bot, f"🔀 ترافیک دامنه {domain} به روتر سالم {new_ip} منتقل شد.")
+    logger.info("DNS failover applied: %s -> %s (%s)", domain, new_ip, active_reason)
+    await _notify(
+        bot,
+        "🔀 سوییچ روتر انجام شد\n"
+        f"🌐 دامنه: {domain}\n"
+        f"➡️ از: {old_lines}\n"
+        f"✅ به: {_server_label(cluster, target, ip_of)} — {_health_line(new_metrics, new_ip)}\n"
+        f"📉 دلیل: {active_reason}",
+    )
 
 
 async def _check_once(bot, arvan: ArvanDNS):

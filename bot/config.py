@@ -62,6 +62,13 @@ ARVAN_API_BASE = os.getenv("ARVAN_API_BASE", "https://napi.arvancloud.ir/cdn/4.0
 DNS_FAILOVER_DOMAIN = os.getenv("DNS_FAILOVER_DOMAIN", "")
 DNS_FAILOVER_TTL = int(os.getenv("DNS_FAILOVER_TTL", "120"))
 DNS_FAILOVER_INTERVAL = int(os.getenv("DNS_FAILOVER_INTERVAL", "120"))
+# Health thresholds used to decide whether the active router is still good.
+# "degraded" triggers a switch when a clearly better router exists; "unhealthy"
+# triggers it as a plain outage.
+DNS_FAILOVER_HANDSHAKE_MAX = int(os.getenv("DNS_FAILOVER_HANDSHAKE_MAX", "180"))
+DNS_FAILOVER_LOSS_DEGRADED = int(os.getenv("DNS_FAILOVER_LOSS_DEGRADED", "15"))
+DNS_FAILOVER_RTT_DEGRADED = int(os.getenv("DNS_FAILOVER_RTT_DEGRADED", "300"))
+DNS_FAILOVER_LOSS_UNHEALTHY = int(os.getenv("DNS_FAILOVER_LOSS_UNHEALTHY", "40"))
 DNS_FAILOVER_ENABLED = os.getenv(
     "DNS_FAILOVER_ENABLED", "1" if ARVAN_API_KEY else "0"
 ).strip().lower() in ("1", "true", "yes", "on")

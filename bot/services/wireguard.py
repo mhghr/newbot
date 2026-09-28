@@ -791,16 +791,42 @@ def _parse_router_duration(value) -> int:
     return total if total else 10 ** 9
 
 
-def _ping_loss(ssh, ip: str, count: int = 5):
+def _ping_stats(ssh, ip: str, count: int = 5):
+    """Return ``{"loss": int|None, "rtt": float|None}`` for a RouterOS ping."""
     try:
-        text = _run_cli(ssh, f"/ping {ip} count={count}", timeout=20.0)
+        text = _run_cli(ssh, f"/ping {ip} count={count}", timeout=25.0)
     except Exception:
         return None
+    loss = None
     m = re.search(r'packet-loss=(\d+)%', text)
     if m:
-        return int(m.group(1))
-    m = re.search(r'(\d+)%', text)
-    return int(m.group(1)) if m else None
+        loss = int(m.group(1))
+    else:
+        m = re.search(r'(\d+)%', text)
+        if m:
+            loss = int(m.group(1))
+    rtt = None
+    m = re.search(r'avg-rtt=([\d.]+)ms', text)
+    if m:
+        try:
+            rtt = float(m.group(1))
+        except ValueError:
+            rtt = None
+    if loss is None and rtt is None:
+        return None
+    return {"loss": loss, "rtt": rtt}
+
+
+def _better_path(tunnel, e2e):
+    """Pick the metric of the path users actually take (prefer end-to-end)."""
+    candidates = []
+    if e2e:
+        candidates += [v for v in e2e.values() if v and v.get("loss") is not None]
+    if not candidates and tunnel and tunnel.get("loss") is not None:
+        candidates = [tunnel]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda v: (v["loss"], v.get("rtt") or 1e9))
 
 
 def _other_host_in_subnet(cidr: str):
@@ -838,10 +864,13 @@ def _ensure_health_mark(ssh, test_ips, routing_table="wg-table"):
             pass
 
 
-def _health_sync(server, test_ips):
+def _health_sync(server, test_ips, handshake_max, loss_degraded, rtt_degraded, loss_unhealthy):
     iface = _s(server, "wg_interface")
     ssh = _open_ssh(server)
-    metrics = {"ssh": True, "healthy": False, "reason": ""}
+    metrics = {
+        "ssh": True, "healthy": False, "degraded": False,
+        "loss": None, "rtt": None, "reason": "",
+    }
     try:
         interfaces = _interfaces(ssh)
         names = [i.get("name") for i in interfaces]
@@ -865,7 +894,7 @@ def _health_sync(server, test_ips):
         metrics["upstream_interface"] = upstream_iface
         metrics["upstream_handshake_age"] = upstream_age if upstream_age < 10 ** 8 else None
 
-        tunnel_loss = None
+        tunnel = None
         if upstream_iface:
             remote_ip = None
             for item in _addresses(ssh):
@@ -873,38 +902,60 @@ def _health_sync(server, test_ips):
                     remote_ip = _other_host_in_subnet(item["address"])
                     break
             if remote_ip:
-                tunnel_loss = _ping_loss(ssh, remote_ip)
-        metrics["tunnel_loss"] = tunnel_loss
+                tunnel = _ping_stats(ssh, remote_ip)
+        metrics["tunnel"] = tunnel
 
         _ensure_health_mark(ssh, test_ips)
-        e2e_losses = {ip: _ping_loss(ssh, ip) for ip in test_ips}
-        metrics["e2e_loss"] = e2e_losses
-        e2e_ok = any(v is not None and v < 40 for v in e2e_losses.values())
+        e2e = {ip: _ping_stats(ssh, ip) for ip in test_ips}
+        metrics["e2e"] = e2e
 
-        handshake_ok = upstream_age <= 180
-        tunnel_ok = tunnel_loss is not None and tunnel_loss < 50
-        metrics["healthy"] = bool(handshake_ok and (tunnel_ok or e2e_ok))
+        primary = _better_path(tunnel, e2e)
+        if primary:
+            metrics["loss"] = primary.get("loss")
+            metrics["rtt"] = primary.get("rtt")
+
+        handshake_ok = upstream_age <= handshake_max
+        reachable = primary is not None and primary.get("loss") is not None
+        metrics["healthy"] = bool(
+            handshake_ok and reachable and primary["loss"] < loss_unhealthy
+        )
+        metrics["degraded"] = bool(
+            metrics["healthy"]
+            and (
+                primary["loss"] >= loss_degraded
+                or (primary.get("rtt") is not None and primary["rtt"] >= rtt_degraded)
+            )
+        )
         if not metrics["healthy"]:
             reasons = []
             if not handshake_ok:
                 reasons.append("tunnel-handshake-stale")
-            if not tunnel_ok:
-                reasons.append("tunnel-ping-loss")
-            if not e2e_ok:
-                reasons.append("internet-reachability")
+            if not reachable:
+                reasons.append("path-unreachable")
+            elif primary["loss"] >= loss_unhealthy:
+                reasons.append("high-loss")
             metrics["reason"] = ",".join(reasons)
+        elif metrics["degraded"]:
+            metrics["reason"] = "slow-or-lossy"
         return metrics
     finally:
         _close_ssh(ssh)
 
 
-async def check_health(server, test_ips=("9.9.9.9", "1.1.1.1")):
+async def check_health(server, test_ips=("9.9.9.9", "1.1.1.1"), *,
+                       handshake_max=180, loss_degraded=15,
+                       rtt_degraded=300, loss_unhealthy=40):
     try:
         return await _run_with_timeout(
-            _health_sync, dict(server), tuple(test_ips), timeout=60.0
+            _health_sync, dict(server), tuple(test_ips),
+            handshake_max, loss_degraded, rtt_degraded, loss_unhealthy,
+            timeout=60.0,
         )
     except Exception as e:
-        return {"ssh": False, "healthy": False, "reason": f"{type(e).__name__}: {e}"}
+        return {
+            "ssh": False, "healthy": False, "degraded": False,
+            "loss": None, "rtt": None, "reason": f"{type(e).__name__}: {e}",
+        }
 
 
 WIREGUARD_APPS = (
