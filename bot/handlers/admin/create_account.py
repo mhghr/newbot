@@ -238,17 +238,20 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
 
         sub_url = f"{panel_sub_base(master['url'], master['sub_port'], master['sub_domain'])}/sub/{sub_token}"
 
-        linked_note = ""
         if name.isdigit():
             target_user = await db.add_user(telegram_id=int(name))
-            expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
-            await db.create_config(
-                user_id=target_user["id"], order_id=None, plan_id=plan_id,
-                client_email=name, sub_id=sub_token, sub_url=sub_url,
-                traffic_gb=traffic_gb, expire_date=expire_date,
-                server_id=master["id"],
-            )
             linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
+        else:
+            target_user = await db.get_or_create_unlinked_user()
+            linked_note = "\n🗂 در دیتابیس ذخیره شد (اکانت مستقل، بدون کاربر تلگرام)."
+
+        expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
+        await db.create_config(
+            user_id=target_user["id"], order_id=None, plan_id=plan_id,
+            client_email=name, sub_id=sub_token, sub_url=sub_url,
+            traffic_gb=traffic_gb, expire_date=expire_date,
+            server_id=master["id"],
+        )
 
         caption = (
             f"✅ اکانت ساخته شد!\n\n"
@@ -317,18 +320,21 @@ async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
         )
         expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
 
-        linked_note = ""
         if name.isdigit():
             target_user = await db.add_user(telegram_id=int(name))
-            await db.create_wg_config(
-                user_id=target_user["id"], order_id=None, plan_id=plan_id,
-                client_email=name, config_text=config_text, traffic_gb=traffic_gb,
-                expire_date=expire_date, server_id=server["id"],
-                client_ip=result["client_ip"], public_key=result["public_key"],
-                private_key=result["private_key"], server_public_key=result["server_public_key"],
-                endpoint=endpoint, port=port, peer_id=result["peer_id"],
-            )
             linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
+        else:
+            target_user = await db.get_or_create_unlinked_user()
+            linked_note = "\n🗂 در دیتابیس ذخیره شد (اکانت مستقل، بدون کاربر تلگرام)."
+
+        await db.create_wg_config(
+            user_id=target_user["id"], order_id=None, plan_id=plan_id,
+            client_email=name, config_text=config_text, traffic_gb=traffic_gb,
+            expire_date=expire_date, server_id=server["id"],
+            client_ip=result["client_ip"], public_key=result["public_key"],
+            private_key=result["private_key"], server_public_key=result["server_public_key"],
+            endpoint=endpoint, port=port, peer_id=result["peer_id"],
+        )
 
         caption = (
             f"✅ اکانت WireGuard ساخته شد!\n\n"

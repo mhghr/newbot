@@ -17,6 +17,16 @@ async def add_user(telegram_id: int, username: str = None, first_name: str = Non
         return await conn.fetchrow("SELECT * FROM users WHERE telegram_id=$1", telegram_id)
 
 
+async def get_or_create_unlinked_user():
+    """Placeholder owner for accounts not tied to a Telegram user.
+
+    Admin-created accounts with a non-numeric name, and clients imported from
+    the panels, have no real Telegram owner. ``telegram_id=0`` is reserved for
+    this bucket so their configs can still be stored and managed.
+    """
+    return await add_user(telegram_id=0, username="imported")
+
+
 async def get_user_by_telegram_id(telegram_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetchrow("SELECT * FROM users WHERE telegram_id=$1", telegram_id)
