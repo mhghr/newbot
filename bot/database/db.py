@@ -75,14 +75,20 @@ async def search_user(query: str):
             """SELECT DISTINCT u.*
                FROM users u
                LEFT JOIN configs c ON c.user_id = u.id
+               LEFT JOIN plans pl ON pl.id = c.plan_id
+               LEFT JOIN servers s ON s.id = c.server_id
                WHERE u.telegram_id::text ILIKE $1
                   OR u.username ILIKE $1
                   OR u.first_name ILIKE $1
                   OR u.last_name ILIKE $1
+                  OR (COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) ILIKE $1
                   OR c.client_email ILIKE $1
                   OR c.sub_id ILIKE $1
                   OR c.wg_client_ip ILIKE $1
                   OR c.wg_public_key ILIKE $1
+                  OR pl.name ILIKE $1
+                  OR s.name ILIKE $1
+                  OR s.location ILIKE $1
                ORDER BY u.id""",
             pattern,
         )
