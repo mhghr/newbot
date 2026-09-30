@@ -5,13 +5,14 @@ import re
 import subprocess
 import tempfile
 import threading
+from urllib.parse import quote, unquote
 
 from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from bot.config import ADMIN_IDS, DATABASE_URL
+from bot.config import ADMIN_IDS, DATABASE_URL, PROXY_URL
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +32,48 @@ class TransferStates(StatesGroup):
     waiting_confirm = State()
 
 
-def _parse_db_url(url: str):
-    m = re.match(
-        r"postgresql://(?P<user>[^:]+):(?P<pass>[^@]+)@(?P<host>[^:]+):(?P<port>\d+)/(?P<db>\S+)",
-        url,
-    )
-    if not m:
+class TransferError(Exception):
+    """A transfer step failed. Aborts the transfer WITHOUT stopping the old bot."""
+
+
+def _fail(report, message: str):
+    report(message)
+    raise TransferError(message)
+
+
+def _parse_db_url(url: str) -> dict:
+    """Split a postgres URL into parts, decoding URL-encoded credentials.
+
+    The previous regex broke on passwords containing ``:``/``@``/``%``.
+    """
+    if "://" not in url:
         raise ValueError("Invalid DATABASE_URL format")
-    return m.groupdict()
+    scheme, rest = url.split("://", 1)
+    if scheme not in ("postgresql", "postgres") or "@" not in rest:
+        raise ValueError("Invalid DATABASE_URL format")
+    creds, hostpart = rest.rsplit("@", 1)
+    user, _, password = creds.partition(":")
+    hostport, _, dbname = hostpart.partition("/")
+    host, _, port = hostport.partition(":")
+    dbname = dbname.split("?", 1)[0]
+    if not host or not dbname:
+        raise ValueError("Invalid DATABASE_URL format")
+    return {
+        "user": unquote(user),
+        "pass": unquote(password),
+        "host": host,
+        "port": port or "5432",
+        "db": dbname,
+    }
+
+
+def _strip_proxy(env_content: str) -> str:
+    """Drop PROXY_URL from .env on the new server.
+
+    A ``127.0.0.1`` proxy from the old box does not exist on a fresh server and
+    would block the bot from reaching Telegram, so it must not be copied blindly.
+    """
+    return re.sub(r"^PROXY_URL\s*=.*\n?", "", env_content, flags=re.MULTILINE)
 
 
 @router.callback_query(F.data == "admin:transfer")
@@ -162,6 +197,10 @@ async def start_transfer(callback: CallbackQuery, state: FSMContext, bot: Bot):
     def _run_transfer():
         try:
             _do_transfer(host, username, password, report)
+        except TransferError as e:
+            # Already reported by _fail(); do NOT stop the old bot.
+            transfer_error.append(str(e))
+            logger.error(f"Transfer aborted: {e}")
         except Exception as e:
             report(f"❌ خطا: {e}")
             transfer_error.append(str(e))
@@ -223,20 +262,22 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
     try:
         ssh.connect(host, username=username, password=password, timeout=15)
     except paramiko.AuthenticationException:
-        report("❌ خطای احراز هویت. نام کاربری یا رمز عبور اشتباه است.")
-        return
+        ssh.close()
+        _fail(report, "❌ خطای احراز هویت. نام کاربری یا رمز عبور اشتباه است.")
     except Exception as e:
-        report(f"❌ اتصال ناموفق: {e}")
-        return
+        ssh.close()
+        _fail(report, f"❌ اتصال ناموفق: {e}")
 
     try:
         report("✅ اتصال برقرار شد.")
 
         uid = _run(ssh, "id -u").strip()
         if uid != "0":
-            report("❌ کاربر SSH باید root باشد (یا دسترسی root داشته باشد).")
-            report("لطفاً با یوزر root دوباره تلاش کنید.")
-            return
+            _fail(
+                report,
+                "❌ کاربر SSH باید root باشد (یا دسترسی root داشته باشد).\n"
+                "لطفاً با یوزر root دوباره تلاش کنید.",
+            )
 
         # --- Step 1: System dependencies ---
         report("📦 نصب پیش‌نیازهای سیستمی...")
@@ -253,8 +294,7 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
         dump_path = os.path.join(tempfile.gettempdir(), "migmig_db_dump.sql")
         code = os.system(f'sudo -u postgres pg_dump {db_info["db"]} > "{dump_path}"')
         if code != 0 or not os.path.exists(dump_path) or os.path.getsize(dump_path) == 0:
-            report("⚠️ خطا در تهیه نسخه پشتیبان دیتابیس (ممکن است خالی باشد).")
-            return
+            _fail(report, "❌ خطا در تهیه نسخه پشتیبان دیتابیس (ممکن است خالی باشد).")
 
         # --- Step 3: Upload project files ---
         report("📤 ارسال فایل‌های پروژه...")
@@ -272,21 +312,23 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
         # --- Step 4: Read .env, update DB URL for remote ---
         report("⚙️ تنظیم فایل .env روی سرور جدید...")
         env_content = _read_env_file(project_dir)
-        old_db_url = DATABASE_URL
 
-        # Generate new DB password for remote and replace in .env content
+        # Generate a new DB password for the remote and point DATABASE_URL at
+        # the fresh local Postgres (always port 5432 on a clean install).
         db_pass_remote = _run(ssh, "openssl rand -hex 16").strip()
         new_db_url = (
-            f"postgresql://{db_info['user']}:{db_pass_remote}"
-            f"@localhost:{db_info['port']}/{db_info['db']}"
+            f"postgresql://{quote(db_info['user'], safe='')}:{quote(db_pass_remote, safe='')}"
+            f"@localhost:5432/{db_info['db']}"
         )
-        # Replace any DB URL line containing the db name
         env_content = re.sub(
             r"^DATABASE_URL\s*=\s*.*$",
-            f"DATABASE_URL={new_db_url}",
+            lambda _m: f"DATABASE_URL={new_db_url}",
             env_content,
             flags=re.MULTILINE,
         )
+        # The old server's local proxy does not exist on a fresh box and would
+        # block Telegram access, so drop it.
+        env_content = _strip_proxy(env_content)
 
         # --- Step 5: Setup PostgreSQL on remote ---
         report("🗄 راه‌اندازی دیتابیس روی سرور جدید...")
@@ -355,6 +397,12 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
         sftp.close()
         _run(ssh, "systemctl daemon-reload")
         _run(ssh, f"systemctl enable {SERVICE_NAME}")
+        enabled = _run(ssh, f"systemctl is-enabled {SERVICE_NAME} 2>/dev/null").strip()
+        if enabled != "enabled":
+            _fail(
+                report,
+                f"❌ سرویس {SERVICE_NAME} روی سرور جدید enable نشد ({enabled or 'unknown'}).",
+            )
 
         # --- Step 9: Handover (stop old, then start new) ---
         report("🔁 آماده‌سازی تحویل (خاموشی سرور قدیم و روشن‌شدن سرور جدید)...")
