@@ -46,6 +46,7 @@ TTL_ENUM = {120, 180, 300, 600, 900, 1800, 3600, 7200, 18000, 43200, 86400, 1728
 UNHEALTHY_STREAK = DNS_FAILOVER_STREAK
 MIN_SWITCH_INTERVAL = DNS_FAILOVER_MIN_SWITCH_INTERVAL
 _STATE: dict = {}
+_HEALTH_STATE: dict = {}
 
 
 class ArvanError(Exception):
@@ -171,6 +172,36 @@ async def _notify(bot, text: str):
             logger.warning("DNS failover notify to %s failed: %s", admin_id, e)
 
 
+async def _notify_health_changes(bot, cluster, health, ip_of):
+    """Notify admins when a router becomes unreachable, or comes back."""
+    for server in cluster:
+        sid = server["id"]
+        metrics = health.get(sid) or {}
+        if "healthy" not in metrics:
+            continue
+        now_healthy = bool(metrics.get("healthy"))
+        was_healthy = _HEALTH_STATE.get(sid)
+        if was_healthy is None:
+            _HEALTH_STATE[sid] = now_healthy
+            continue
+        label = server.get("name") or str(sid)
+        ip = ip_of.get(sid) or "?"
+        if was_healthy and not now_healthy:
+            await _notify(
+                bot,
+                "🔴 قطع شدن ارتباط با روتر\n"
+                f"🖥 {label} ({ip})\n"
+                f"📉 دلیل: {metrics.get('reason') or 'نامشخص'}",
+            )
+        elif (not was_healthy) and now_healthy:
+            await _notify(
+                bot,
+                "🟢 برقراری ارتباط با روتر\n"
+                f"🖥 {label} ({ip})",
+            )
+        _HEALTH_STATE[sid] = now_healthy
+
+
 def _server_label(cluster, server_id, ip_of):
     for s in cluster:
         if s["id"] == server_id:
@@ -208,6 +239,8 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
             rtt_degraded=DNS_FAILOVER_RTT_DEGRADED,
             loss_unhealthy=DNS_FAILOVER_LOSS_UNHEALTHY,
         )
+
+    await _notify_health_changes(bot, cluster, health, ip_of)
 
     try:
         zone, record = await _find_record(arvan, domain)
