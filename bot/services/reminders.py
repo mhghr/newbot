@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -10,11 +10,16 @@ from bot.config import ADMIN_IDS
 from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
 from bot.services import wg_usage
+from bot.services import config_ops
 
 logger = logging.getLogger(__name__)
 
 ONE_GB = 1024 * 1024 * 1024
 CHECK_INTERVAL = 1800  # 30 minutes
+
+# An account whose subscription expired more than this many days ago and was
+# never renewed is removed from the panel/router (and soft-deleted in the DB).
+AUTO_DELETE_AFTER_DAYS = 3
 
 # Seconds to wait after a failed router connection before retrying. A single
 # timeout is retried once after 1 minute and again after 2 minutes; only if all
@@ -184,6 +189,29 @@ async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict,
             await _send_traffic_reminder(bot, config)
 
 
+async def _cleanup_expired(bot: Bot, configs, now: datetime):
+    """Remove accounts expired more than AUTO_DELETE_AFTER_DAYS ago without renewal.
+
+    Deletes the client/peer from the 3x-ui panel or WireGuard router(s) and
+    soft-deletes the config row. The Telegram user is never touched.
+    """
+    cutoff = now - timedelta(days=AUTO_DELETE_AFTER_DAYS)
+    for c in configs:
+        expire = c.get("expire_date")
+        if not expire or expire > cutoff:
+            continue
+        try:
+            remote_ok = await config_ops.delete_config(c)
+            logger.info(
+                "Auto-removed expired account: config %s (%s, expired %s), remote_ok=%s",
+                c["id"], c.get("client_email"), expire, remote_ok,
+            )
+        except Exception as e:
+            logger.warning(
+                "Auto-remove failed for config %s: %s: %s", c["id"], type(e).__name__, e
+            )
+
+
 async def _check_once(bot: Bot):
     configs = await db.get_all_active_configs()
     if not configs:
@@ -206,6 +234,8 @@ async def _check_once(bot: Bot):
                 await _check_v2ray_config(bot, c, now, xui)
         except Exception as e:
             logger.warning(f"reminder check failed for config {c['id']}: {type(e).__name__}: {e}")
+
+    await _cleanup_expired(bot, configs, now)
 
 
 async def _reminder_loop(bot: Bot):
