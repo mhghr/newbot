@@ -20,6 +20,7 @@ CHECK_INTERVAL = 1800  # 30 minutes
 # An account whose subscription expired more than this many days ago and was
 # never renewed is removed from the panel/router (and soft-deleted in the DB).
 AUTO_DELETE_AFTER_DAYS = 3
+CLEANUP_INTERVAL = 24 * 3600  # run the account cleanup once a day
 
 # Seconds to wait after a failed router connection before retrying. A single
 # timeout is retried once after 1 minute and again after 2 minutes; only if all
@@ -235,8 +236,6 @@ async def _check_once(bot: Bot):
         except Exception as e:
             logger.warning(f"reminder check failed for config {c['id']}: {type(e).__name__}: {e}")
 
-    await _cleanup_expired(bot, configs, now)
-
 
 async def _reminder_loop(bot: Bot):
     while True:
@@ -247,6 +246,17 @@ async def _reminder_loop(bot: Bot):
         await asyncio.sleep(CHECK_INTERVAL)
 
 
+async def _cleanup_loop(bot: Bot):
+    while True:
+        try:
+            configs = await db.get_all_active_configs()
+            await _cleanup_expired(bot, configs, datetime.now())
+        except Exception as e:
+            logger.error(f"cleanup loop error: {type(e).__name__}: {e}")
+        await asyncio.sleep(CLEANUP_INTERVAL)
+
+
 def start_reminders(bot: Bot):
     logger.info("Reminder scheduler started")
+    asyncio.create_task(_cleanup_loop(bot))
     return asyncio.create_task(_reminder_loop(bot))
