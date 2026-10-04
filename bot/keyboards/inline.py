@@ -389,13 +389,17 @@ def plans_list_keyboard(plans: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
+def servers_list_keyboard(servers: list, active_ids=None) -> InlineKeyboardMarkup:
+    active_ids = set(active_ids or ())
     rows = []
     for s in servers:
         status = "🟢" if s["is_active"] else "🔴"
         stype = SERVICE_SHORT.get(s.get("service_type"), "V2Ray")
+        role = ""
+        if (s.get("service_type") or "v2ray") == "wireguard":
+            role = "  ✅ فعال" if s["id"] in active_ids else "  🟡 بک‌آپ"
         rows.append([InlineKeyboardButton(
-            text=f"{status} [{stype}] {s['name']} - {s['location']}",
+            text=f"{status} [{stype}] {s['name']} - {s['location']}{role}",
             callback_data=f"admin:server_detail:{s['id']}"
         )])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")])

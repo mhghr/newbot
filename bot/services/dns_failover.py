@@ -172,34 +172,38 @@ async def _notify(bot, text: str):
             logger.warning("DNS failover notify to %s failed: %s", admin_id, e)
 
 
-async def _notify_health_changes(bot, cluster, health, ip_of):
-    """Notify admins when a router becomes unreachable, or comes back."""
+async def _notify_health_changes(bot, cluster, health, ip_of, active_ids):
+    """Notify admins when any router (active or backup) changes state."""
     for server in cluster:
         sid = server["id"]
         metrics = health.get(sid) or {}
         if "healthy" not in metrics:
             continue
-        now_healthy = bool(metrics.get("healthy"))
-        was_healthy = _HEALTH_STATE.get(sid)
-        if was_healthy is None:
-            _HEALTH_STATE[sid] = now_healthy
+        now_state = (bool(metrics.get("healthy")), bool(metrics.get("degraded")))
+        prev_state = _HEALTH_STATE.get(sid)
+        if prev_state is None:
+            _HEALTH_STATE[sid] = now_state
             continue
+        was_h, was_d = prev_state
+        now_h, now_d = now_state
+        role = _role_label(sid, active_ids)
         label = server.get("name") or str(sid)
         ip = ip_of.get(sid) or "?"
-        if was_healthy and not now_healthy:
-            await _notify(
-                bot,
-                "🔴 قطع شدن ارتباط با روتر\n"
-                f"🖥 {label} ({ip})\n"
-                f"📉 دلیل: {metrics.get('reason') or 'نامشخص'}",
-            )
-        elif (not was_healthy) and now_healthy:
-            await _notify(
-                bot,
-                "🟢 برقراری ارتباط با روتر\n"
-                f"🖥 {label} ({ip})",
-            )
-        _HEALTH_STATE[sid] = now_healthy
+        reason = metrics.get("reason") or "نامشخص"
+        if was_h and not now_h:
+            await _notify(bot, f"🔴 قطع شدن ارتباط با {role}\n🖥 {label} ({ip})\n📉 دلیل: {reason}")
+        elif (not was_h) and now_h:
+            extra = f"\n⚠️ کیفیت: {reason}" if now_d else ""
+            await _notify(bot, f"🟢 برقراری ارتباط با {role}\n🖥 {label} ({ip}){extra}")
+        elif now_h and not was_d and now_d:
+            await _notify(bot, f"🟠 اختلال در {role}\n🖥 {label} ({ip}) — {reason}")
+        elif now_h and was_d and not now_d:
+            await _notify(bot, f"🟢 رفع اختلال {role}\n🖥 {label} ({ip})")
+        _HEALTH_STATE[sid] = now_state
+
+
+def _role_label(server_id, active_ids):
+    return "روتر فعال" if server_id in active_ids else "روتر بک‌آپ"
 
 
 def _server_label(cluster, server_id, ip_of):
@@ -224,6 +228,51 @@ def _health_line(metrics, ip):
     return f"{ip or '?'} ({detail}{'، ' + reason if reason else ''})"
 
 
+def _router_line(server, metrics, ip, active_ids):
+    sid = server["id"]
+    role = _role_label(sid, active_ids)
+    name = server.get("name") or str(sid)
+    if not metrics or "healthy" not in metrics:
+        icon, detail = "⚪️", "بدون داده"
+    elif not metrics.get("healthy"):
+        icon, detail = "🔴", (metrics.get("reason") or "نامشخص")
+    elif metrics.get("degraded"):
+        icon, detail = "🟠", (metrics.get("reason") or "کاهش کیفیت")
+    else:
+        icon, detail = "🟢", "سالم"
+    return f"{icon} {role} | {name} ({ip or '?'}) — {detail}"
+
+
+def _routers_block(cluster, health, ip_of, active_ids):
+    return "\n".join(
+        _router_line(s, health.get(s["id"]), ip_of.get(s["id"]), active_ids) for s in cluster
+    )
+
+
+async def get_active_router_ids(servers=None):
+    """IDs of the entry routers the shared endpoint domain currently points to.
+
+    Used by the admin panel to label the router that is serving users right now
+    ("روتر فعال") versus the standby ones ("روتر بک‌آپ")."""
+    if servers is None:
+        servers = await db.get_active_wg_servers()
+    active = set()
+    for cluster in wg_usage.group_servers(servers).values():
+        if len(cluster) < 2:
+            continue
+        domain = _endpoint_domain(cluster)
+        if not domain:
+            continue
+        try:
+            ip = socket.gethostbyname(domain)
+        except OSError:
+            continue
+        for server in cluster:
+            if _public_ip(server) == ip:
+                active.add(server["id"])
+    return active
+
+
 async def _check_cluster(bot, arvan: ArvanDNS, cluster):
     domain = _endpoint_domain(cluster)
     if not domain:
@@ -240,22 +289,27 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
             loss_unhealthy=DNS_FAILOVER_LOSS_UNHEALTHY,
         )
 
-    await _notify_health_changes(bot, cluster, health, ip_of)
-
+    lookup_failed = False
     try:
         zone, record = await _find_record(arvan, domain)
     except Exception as e:
         logger.warning("Arvan lookup failed for %s: %s", domain, e)
-        return
-    if not record or not record.get("id"):
-        logger.warning("DNS failover: no A record found for %s", domain)
-        return
+        lookup_failed = True
+        zone, record = None, None
 
     current_ips = [
-        v.get("ip") for v in (record.get("value") or [])
+        v.get("ip") for v in ((record or {}).get("value") or [])
         if isinstance(v, dict) and v.get("ip")
     ]
     active_ids = [sid for sid, ip in ip_of.items() if ip and ip in current_ips]
+
+    # Report per-router health (active vs backup) before deciding on a switch.
+    await _notify_health_changes(bot, cluster, health, ip_of, active_ids)
+
+    if lookup_failed or not record or not record.get("id"):
+        if not lookup_failed:
+            logger.warning("DNS failover: no A record found for %s", domain)
+        return
 
     state = _STATE.setdefault(domain, {"streak": 0, "last_switch": 0.0, "alerted": False})
     now = time.time()
@@ -293,9 +347,9 @@ async def _check_cluster(bot, arvan: ArvanDNS, cluster):
         if any(_is_unhealthy(sid) for sid in active_ids) and not state["alerted"]:
             await _notify(
                 bot,
-                "⚠️ هیچ روتر سالمی برای دامنه "
-                f"{domain} پیدا نشد؛ DNS تغییر نکرد.\n"
-                f"روتر فعال: {_health_line(health.get(active_ids[0]) if active_ids else None, ip_of.get(active_ids[0]) if active_ids else None)}",
+                "⚠️ هیچ روتر سالمی برای دامنه پیدا نشد؛ سوییچ انجام نشد.\n"
+                f"🌐 دامنه: {domain}\n"
+                f"{_routers_block(cluster, health, ip_of, active_ids)}",
             )
             state["alerted"] = True
         return

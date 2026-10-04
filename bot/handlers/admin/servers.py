@@ -13,6 +13,7 @@ from bot.keyboards.inline import (
 )
 from bot.services.xui import XUIClient
 from bot.services import wireguard as wg
+from bot.services.dns_failover import get_active_router_ids
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -139,13 +140,16 @@ class ServerEditStates(StatesGroup):
     waiting_value = State()
 
 
-def _server_header(server) -> str:
+def _server_header(server, role: str = "") -> str:
     status = "فعال 🟢" if server["is_active"] else "غیرفعال 🔴"
-    return (
-        f"🖥 {server['name']} — {server['location']}  ({status})\n"
-        f"🧩 نوع سرویس: {service_label(server.get('service_type'))}\n"
-        "روی هر مورد بزنید تا ویرایش شود:"
-    )
+    lines = [
+        f"🖥 {server['name']} — {server['location']}  ({status})",
+        f"🧩 نوع سرویس: {service_label(server.get('service_type'))}",
+    ]
+    if role:
+        lines.append(f"📍 وضعیت: {role}")
+    lines.append("روی هر مورد بزنید تا ویرایش شود:")
+    return "\n".join(lines)
 
 
 # ---------------- Servers list (new: direct list, no sub-menu) ----------------
@@ -167,9 +171,12 @@ async def servers_menu(callback: CallbackQuery, state: FSMContext):
         )
         await callback.answer()
         return
+    active_ids = await get_active_router_ids(servers)
     await callback.message.edit_text(
-        "🖥 مدیریت سرورها\nروی هر سرور بزنید تا ویرایش/تنظیم کنید:",
-        reply_markup=servers_list_keyboard(servers)
+        "🖥 مدیریت سرورها\n"
+        "✅ فعال = روتری که کاربران WireGuard الان روی آن هستند | 🟡 بک‌آپ = روتر پشتیبان\n\n"
+        "روی هر سرور بزنید تا ویرایش/تنظیم کنید:",
+        reply_markup=servers_list_keyboard(servers, active_ids)
     )
     await callback.answer()
 
@@ -308,7 +315,7 @@ async def add_server_inbounds(message: Message, state: FSMContext):
 
     servers = await db.get_all_servers()
     await message.answer(
-        f"✅ سرور «{data['name']}» اضافه شد!", reply_markup=servers_list_keyboard(servers)
+        f"✅ سرور «{data['name']}» اضافه شد!", reply_markup=servers_list_keyboard(servers, await get_active_router_ids(servers))
     )
 
 
@@ -430,7 +437,7 @@ async def add_wg_location(message: Message, state: FSMContext):
         f"🔌 پورت WireGuard: {info.get('listen_port')}\n"
         f"🧭 DNS: {info.get('dns')}\n"
         f"🔑 Public Key سرور: {key_preview}",
-        reply_markup=servers_list_keyboard(servers)
+        reply_markup=servers_list_keyboard(servers, await get_active_router_ids(servers))
     )
 
 
@@ -443,8 +450,13 @@ async def server_detail(callback: CallbackQuery):
     server = await db.get_server(server_id)
     if not server:
         await callback.answer("❌ سرور یافت نشد!", show_alert=True); return
+    role = ""
+    if (server.get("service_type") or "v2ray") == "wireguard":
+        active_ids = await get_active_router_ids()
+        role = ("✅ روتر فعال (کاربران الان روی این روتر هستند)"
+                if server["id"] in active_ids else "🟡 روتر بک‌آپ")
     await callback.message.edit_text(
-        _server_header(server),
+        _server_header(server, role),
         reply_markup=server_actions_keyboard(server)
     )
     await callback.answer()
@@ -630,5 +642,5 @@ async def delete_server(callback: CallbackQuery):
     await callback.answer("✅ حذف شد!")
     servers = await db.get_all_servers()
     await callback.message.edit_text(
-        "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers)
+        "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers, await get_active_router_ids(servers))
     )
