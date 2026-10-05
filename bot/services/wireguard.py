@@ -818,12 +818,16 @@ def _ping_stats(ssh, ip: str, count: int = 5):
 
 
 def _better_path(tunnel, e2e):
-    """Pick the metric of the path users actually take (prefer end-to-end)."""
-    candidates = []
-    if e2e:
-        candidates += [v for v in e2e.values() if v and v.get("loss") is not None]
-    if not candidates and tunnel and tunnel.get("loss") is not None:
-        candidates = [tunnel]
+    """Pick the metric used to judge whether the router still serves users.
+
+    Prefer the tunnel metric (ping to the exit peer's inner IP): end-to-end
+    ICMP to public IPs is frequently blocked by the exit or the ISP, which
+    produced false "high-loss" readings and stopped failover from switching to
+    a healthy router. Fall back to e2e only when the tunnel has no reading.
+    """
+    if tunnel and tunnel.get("loss") is not None:
+        return tunnel
+    candidates = [v for v in (e2e or {}).values() if v and v.get("loss") is not None]
     if not candidates:
         return None
     return min(candidates, key=lambda v: (v["loss"], v.get("rtt") or 1e9))
