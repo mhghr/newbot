@@ -55,9 +55,12 @@ def _delta(config, server_id, base_row, rx, tx):
             prev_rx = int(config["wg_last_rx"] or 0)
             prev_tx = int(config["wg_last_tx"] or 0)
         else:
-            # New router for this config: adopt the current counter so no
-            # pre-existing history is counted as fresh usage.
-            prev_rx, prev_tx = rx, tx
+            # First time we track this router for the config: the peer was
+            # created at zero and only this router's own traffic is counted,
+            # so count its whole counter (not seed it to the current value,
+            # which used to drop the volume used before the router joined the
+            # cluster / the cluster key was fixed).
+            prev_rx, prev_tx = 0, 0
     else:
         prev_rx = int(base_row["last_rx"] or 0)
         prev_tx = int(base_row["last_tx"] or 0)
