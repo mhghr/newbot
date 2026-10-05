@@ -224,15 +224,20 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if not reality_ids:
             raise Exception("هیچ اینباندی تنظیم نشده. از «مدیریت سرور → اینباندها» اقدام کنید")
 
+        email = name
+        if await xui.client_exists(email):
+            email = f"{name}_{int(datetime.now().timestamp())}"
+            logger.info("Client email %r already exists in panel; using %r", name, email)
+
         await xui.add_client_full(
-            email=name,
+            email=email,
             traffic_gb=traffic_gb,
             expire_days=days,
             all_inbound_ids=reality_ids,
             limit_ip=users,
         )
 
-        sub_token = await xui.get_client_sub_id(name)
+        sub_token = await xui.get_client_sub_id(email)
         if not sub_token:
             raise Exception("subId از پنل دریافت نشد")
 
@@ -248,14 +253,16 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
         await db.create_config(
             user_id=target_user["id"], order_id=None, plan_id=plan_id,
-            client_email=name, sub_id=sub_token, sub_url=sub_url,
+            client_email=email, sub_id=sub_token, sub_url=sub_url,
             traffic_gb=traffic_gb, expire_date=expire_date,
             server_id=master["id"],
         )
 
+        email_note = f"ℹ️ ایمیل پنل: {email}\n" if email != name else ""
         caption = (
             f"✅ اکانت ساخته شد!\n\n"
             f"📝 نام: {name}\n"
+            f"{email_note}"
             f"📊 حجم: {'نامحدود' if traffic_gb == 0 else str(traffic_gb) + ' GB'}\n"
             f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
             f"👥 تعداد کاربر: {'نامحدود' if users == 0 else users}\n"

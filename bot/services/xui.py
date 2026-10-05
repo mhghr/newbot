@@ -181,6 +181,31 @@ class XUIClient:
                         return c["subId"]
         return ""
 
+    async def client_exists(self, email: str) -> bool:
+        """True if a client with this email already exists in the panel.
+
+        Scans the inbound list (works across panel versions) because x-ui
+        rejects a duplicate email across all inbounds."""
+        try:
+            data = await self._request("GET", "/panel/api/inbounds/list")
+        except Exception:
+            return False
+        for inbound in data.get("obj", []):
+            for cs in (inbound.get("clientStats") or []):
+                if cs.get("email") == email:
+                    return True
+            settings = inbound.get("settings")
+            if isinstance(settings, str):
+                try:
+                    settings = json.loads(settings)
+                except Exception:
+                    settings = {}
+            if isinstance(settings, dict):
+                for c in settings.get("clients", []):
+                    if c.get("email") == email:
+                        return True
+        return False
+
     async def delete_client(self, email: str) -> bool:
         data = await self._request("POST", f"/panel/api/clients/del/{email}")
         return data.get("success", False)
