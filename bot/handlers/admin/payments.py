@@ -119,8 +119,9 @@ async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, bas
 
         now = datetime.now()
         if duration_days > 0:
-            base = config["expire_date"] if config["expire_date"] and config["expire_date"] > now else now
-            new_expire = base + timedelta(days=duration_days)
+            # Renewal resets the period: count the plan duration from now,
+            # ignoring any remaining days on the old expiry.
+            new_expire = now + timedelta(days=duration_days)
         else:
             new_expire = None
 
@@ -306,8 +307,9 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
             if order["duration_days"] and order["duration_days"] > 0:
                 now = datetime.now()
-                base = config["expire_date"] if config["expire_date"] and config["expire_date"] > now else now
-                new_expire = base + timedelta(days=order["duration_days"])
+                # Renewal resets the period: count the plan duration from now,
+                # ignoring any remaining days on the old expiry.
+                new_expire = now + timedelta(days=order["duration_days"])
                 days_from_now = max(1, (new_expire - now).days)
             else:
                 new_expire = None
