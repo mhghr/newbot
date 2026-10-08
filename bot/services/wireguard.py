@@ -164,6 +164,92 @@ def format_endpoint_host(host: str) -> str:
 # SSH transport
 # --------------------------------------------------------------------------- #
 
+def _recv_exact(sock, count: int) -> bytes:
+    buf = b""
+    while len(buf) < count:
+        chunk = sock.recv(count - len(buf))
+        if not chunk:
+            raise WireGuardError("اتصال پروکسی SOCKS قطع شد")
+        buf += chunk
+    return buf
+
+
+def _socks5_connect(proxy_host, proxy_port, dst_host, dst_port,
+                    timeout, username="", password=""):
+    """Open a TCP connection to (dst_host, dst_port) through a SOCKS5 proxy.
+
+    Returns the connected socket so paramiko can run SSH over it. This is used
+    when the bot server cannot reach the routers directly but can reach a relay
+    that can (see ``config.WG_SSH_PROXY``).
+    """
+    import socket
+    import struct
+
+    sock = socket.create_connection((proxy_host, int(proxy_port)), timeout=timeout)
+    sock.settimeout(timeout)
+    try:
+        sock.sendall(b"\x05\x02\x00\x02" if username else b"\x05\x01\x00")
+        ver, method = _recv_exact(sock, 2)
+        if ver != 5:
+            raise WireGuardError("پاسخ نامعتبر از پروکسی SOCKS")
+        if method == 0x02:
+            user_b = username.encode("utf-8")
+            pass_b = password.encode("utf-8")
+            sock.sendall(b"\x01" + bytes([len(user_b)]) + user_b
+                         + bytes([len(pass_b)]) + pass_b)
+            if _recv_exact(sock, 2)[1] != 0:
+                raise WireGuardError("احراز هویت پروکسی SOCKS ناموفق بود")
+        elif method != 0x00:
+            raise WireGuardError("پروکسی SOCKS روش احراز هویت ناشناس را رد کرد")
+
+        try:
+            addr = socket.inet_aton(dst_host)
+            request = b"\x05\x01\x00\x01" + addr
+        except OSError:
+            host_b = dst_host.encode("idna")
+            request = b"\x05\x01\x00\x03" + bytes([len(host_b)]) + host_b
+        request += struct.pack(">H", int(dst_port))
+        sock.sendall(request)
+
+        _ver, reply, _rsv, atyp = _recv_exact(sock, 4)
+        if reply != 0:
+            raise WireGuardError(f"پروکسی SOCKS نتوانست به روتر وصل شود (کد {reply})")
+        if atyp == 0x01:
+            _recv_exact(sock, 4)
+        elif atyp == 0x03:
+            _recv_exact(sock, _recv_exact(sock, 1)[0])
+        elif atyp == 0x04:
+            _recv_exact(sock, 16)
+        _recv_exact(sock, 2)  # bound port
+        return sock
+    except Exception:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        raise
+
+
+def _proxy_socket(host, port):
+    """Return a SOCKS5-tunneled socket to (host, port), or None if no proxy.
+
+    The proxy is configured globally with ``WG_SSH_PROXY`` ("host:port"); it is
+    only needed when the routers are unreachable directly from the bot server.
+    """
+    from bot import config
+    raw = (getattr(config, "WG_SSH_PROXY", "") or "").strip()
+    if not raw:
+        return None
+    proxy_host, _, proxy_port = raw.rpartition(":")
+    if not proxy_host or not proxy_port.isdigit():
+        raise WireGuardError("تنظیم پروکسی SOCKS نامعتبر است (مثال: 1.2.3.4:1080)")
+    return _socks5_connect(
+        proxy_host, int(proxy_port), host, port, CONNECT_TIMEOUT,
+        getattr(config, "WG_SSH_PROXY_USER", ""),
+        getattr(config, "WG_SSH_PROXY_PASS", ""),
+    )
+
+
 def _open_ssh(server):
     paramiko = _load_paramiko()
     if paramiko is None:
@@ -174,19 +260,29 @@ def _open_ssh(server):
         raise WireGuardError("آدرس روتر تنظیم نشده است")
     port = _to_int(_s(server, "api_port", DEFAULT_SSH_PORT)) or DEFAULT_SSH_PORT
 
+    sock = _proxy_socket(host, port)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(
-        hostname=host,
-        port=port,
-        username=_s(server, "username"),
-        password=_s(server, "password"),
-        timeout=CONNECT_TIMEOUT,
-        banner_timeout=CONNECT_TIMEOUT,
-        auth_timeout=CONNECT_TIMEOUT,
-        look_for_keys=False,
-        allow_agent=False,
-    )
+    try:
+        client.connect(
+            hostname=host,
+            port=port,
+            username=_s(server, "username"),
+            password=_s(server, "password"),
+            timeout=CONNECT_TIMEOUT,
+            banner_timeout=CONNECT_TIMEOUT,
+            auth_timeout=CONNECT_TIMEOUT,
+            look_for_keys=False,
+            allow_agent=False,
+            sock=sock,
+        )
+    except Exception:
+        if sock is not None:
+            try:
+                sock.close()
+            except Exception:
+                pass
+        raise
     return client
 
 

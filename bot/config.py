@@ -50,6 +50,16 @@ CHANNEL_ID = _parse_channel(os.getenv("CHANNEL_ID", ""))
 CHANNEL_URL = _parse_channel_url(os.getenv("CHANNEL_URL", ""))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:123@localhost:5432/newbot")
 PROXY_URL = os.getenv("PROXY_URL", "")
+
+# Optional SOCKS5 proxy used for the SSH connections to the MikroTik WireGuard
+# routers. Some bot servers cannot reach the routers directly (the path drops
+# the SSH key exchange), but they can reach a relay that has access to both the
+# routers and the bot. Configuring the relay's SOCKS5 proxy here routes the
+# router SSH through it. Format: "host:port" (e.g. "46.28.70.157:1080").
+# Empty disables proxying entirely.
+WG_SSH_PROXY = os.getenv("WG_SSH_PROXY", "").strip()
+WG_SSH_PROXY_USER = os.getenv("WG_SSH_PROXY_USER", "").strip()
+WG_SSH_PROXY_PASS = os.getenv("WG_SSH_PROXY_PASS", "").strip()
 BASE_URL = os.getenv("BASE_URL", "")
 SUB_HOST = os.getenv("SUB_HOST", "0.0.0.0")
 SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
