@@ -101,6 +101,32 @@ class XUIClient:
         except Exception:
             return []
 
+    async def resolve_inbound_ids(self, configured: list = None) -> list:
+        """Return the inbound ids that actually exist on the panel.
+
+        Ids configured in the server settings but since deleted from the panel
+        are dropped (and logged) so a stale inbound can never break account
+        creation or renewal.  When nothing is configured, every enabled vless
+        inbound is used.  If the inbound list cannot be fetched at all, the
+        configured ids are returned unchanged (best effort).
+        """
+        configured = list(configured or [])
+        inbounds = await self.get_inbounds()
+
+        if inbounds:
+            existing = {ib.get("id") for ib in inbounds if ib.get("id") is not None}
+            if configured:
+                stale = [i for i in configured if i not in existing]
+                if stale:
+                    logger.warning("Ignoring inbound ids missing from panel: %s", stale)
+                return [i for i in configured if i in existing]
+            return [
+                ib["id"] for ib in inbounds
+                if ib.get("protocol") == "vless" and ib.get("enable", True)
+            ]
+
+        return configured
+
     @staticmethod
     def _coerce_tg_id(tg_id) -> int:
         try:

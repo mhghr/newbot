@@ -284,13 +284,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         xui = XUIClient(master["url"], api_token=master["api_token"])
         sub_base = panel_sub_base(master["url"], master["sub_port"], master["sub_domain"])
 
-        reality_ids = db.parse_inbound_ids(master["inbound_ids"])
-        if not reality_ids:
-            inbounds = await xui.get_inbounds()
-            for ib in inbounds:
-                if ib.get("protocol") == "vless" and ib.get("enable", True):
-                    reality_ids.append(ib["id"])
-
+        reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
         if not reality_ids:
             raise Exception("سرور V2Ray به‌درستی تنظیم نشده. از «مدیریت سرور» اقدام کنید")
 
@@ -333,10 +327,13 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
             # Some panel versions drop a client's inbound attachments on
             # update; make sure the client is still attached to every inbound.
+            # Only the missing (and panel-existing) ids are re-attached, and a
+            # failure here no longer aborts the renewal: the client already has
+            # a valid quota/expiry, so the user keeps a working config.
             current = set(await xui.get_client_inbounds(email))
-            if current != set(reality_ids):
-                if not await xui.attach_client(email, reality_ids):
-                    raise Exception("بازگرداندن اینباندها پس از تمدید ناموفق بود")
+            missing = [i for i in reality_ids if i not in current]
+            if missing and not await xui.attach_client(email, missing):
+                logger.warning(f"failed to re-attach inbounds {missing} for {email} after renewal")
 
             sub_url = f"{sub_base}/sub/{sub_token}"
             await db.renew_config(

@@ -215,12 +215,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     try:
         xui = XUIClient(master["url"], api_token=master["api_token"])
 
-        reality_ids = db.parse_inbound_ids(master["inbound_ids"])
-        if not reality_ids:
-            inbounds = await xui.get_inbounds()
-            for ib in inbounds:
-                if ib.get("protocol") == "vless" and ib.get("enable", True):
-                    reality_ids.append(ib["id"])
+        reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
         if not reality_ids:
             raise Exception("هیچ اینباندی تنظیم نشده. از «مدیریت سرور → اینباندها» اقدام کنید")
 

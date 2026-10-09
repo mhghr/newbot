@@ -20,10 +20,15 @@ logger = logging.getLogger(__name__)
 
 async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, status_message=None):
     try:
-        desired_ids = db.parse_inbound_ids(server["inbound_ids"])
+        xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
+
+        # Only sync against inbounds that actually exist on the panel. A stale
+        # id left in the server settings used to make every account fail its
+        # re-attach; now it is simply ignored (and logged by the client).
+        desired_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(server["inbound_ids"]))
 
         if not desired_ids:
-            msg = f"همگام‌سازی «{server['name']}» لغو شد — لیست اینباندها در تنظیمات خالی است."
+            msg = f"همگام‌سازی «{server['name']}» لغو شد — هیچ اینباند معتبری در تنظیمات نیست."
             if status_message:
                 await status_message.edit_text(msg)
             else:
@@ -41,8 +46,6 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
 
         if status_message:
             await status_message.edit_text(f"⏳ در حال بررسی {len(configs)} کانفیگ...")
-
-        xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
 
         fixed = 0
         already_ok = 0
