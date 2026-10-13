@@ -9,6 +9,7 @@ from bot.keyboards.inline import (
     admin_settings_keyboard, admin_tutorial_keyboard,
     admin_menu_keyboard, cancel_keyboard,
     proxy_menu_keyboard,
+    admin_bot_settings_keyboard,
     admin_tutorial_apps_keyboard, admin_tutorial_app_keyboard,
 )
 from bot.handlers.tutorial import DEFAULT_APP_TUTORIALS
@@ -30,6 +31,8 @@ class SettingsStates(StatesGroup):
     waiting_tutorial_video = State()
     waiting_card_full_number = State()
     waiting_card_full_holder = State()
+    waiting_sales_message = State()
+    waiting_renew_message = State()
 
 
 class ProxyStates(StatesGroup):
@@ -103,6 +106,147 @@ async def settings_menu(callback: CallbackQuery):
         reply_markup=admin_settings_keyboard()
     )
     await callback.answer()
+
+
+def _bot_msg_preview(message: str) -> str:
+    text = " ".join((message or "").split())
+    if not text:
+        return "(پیش‌فرض)"
+    return text if len(text) <= 70 else text[:69] + "…"
+
+
+def _bot_settings_text(sales_enabled: bool, renew_enabled: bool,
+                       sales_message: str, renew_message: str) -> str:
+    return (
+        "🤖 تنظیمات ربات\n\n"
+        f"🛒 فروش: {'✅ فعال' if sales_enabled else '⛔️ غیرفعال'}\n"
+        f"🔄 تمدید: {'✅ فعال' if renew_enabled else '⛔️ غیرفعال'}\n\n"
+        "✏️ متنی که هنگام غیرفعال بودن به کاربر نمایش داده می‌شود:\n"
+        f"• فروش: {_bot_msg_preview(sales_message)}\n"
+        f"• تمدید: {_bot_msg_preview(renew_message)}\n\n"
+        "با دکمه‌های زیر وضعیت یا متن هر بخش را تغییر دهید."
+    )
+
+
+async def _bot_settings_view():
+    sales_enabled = await db.is_sales_enabled()
+    renew_enabled = await db.is_renew_enabled()
+    sales_message = await db.get_setting("sales_disabled_message", "")
+    renew_message = await db.get_setting("renew_disabled_message", "")
+    text = _bot_settings_text(sales_enabled, renew_enabled, sales_message, renew_message)
+    keyboard = admin_bot_settings_keyboard(
+        sales_enabled, renew_enabled, sales_message, renew_message
+    )
+    return text, keyboard
+
+
+async def _render_bot_settings(callback: CallbackQuery):
+    text, keyboard = await _bot_settings_view()
+    await callback.message.edit_text(text, reply_markup=keyboard)
+
+
+@router.callback_query(F.data == "admin:bot_settings")
+async def bot_settings_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    await _render_bot_settings(callback)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:bot_toggle_sales")
+async def bot_toggle_sales(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    new_value = "0" if await db.is_sales_enabled() else "1"
+    await db.set_setting("sales_enabled", new_value)
+    await callback.answer(
+        "✅ فروش فعال شد." if new_value == "1" else "⛔️ فروش غیرفعال شد."
+    )
+    await _render_bot_settings(callback)
+
+
+@router.callback_query(F.data == "admin:bot_toggle_renew")
+async def bot_toggle_renew(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    new_value = "0" if await db.is_renew_enabled() else "1"
+    await db.set_setting("renew_enabled", new_value)
+    await callback.answer(
+        "✅ تمدید فعال شد." if new_value == "1" else "⛔️ تمدید غیرفعال شد."
+    )
+    await _render_bot_settings(callback)
+
+
+@router.callback_query(F.data == "admin:bot_msg_sales")
+async def bot_msg_sales_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    current = await db.get_setting("sales_disabled_message", "")
+    await callback.message.edit_text(
+        "✏️ متنی که هنگام غیرفعال بودن فروش به کاربر نمایش داده می‌شود را ارسال کنید:\n\n"
+        f"متن فعلی:\n{current.strip() or '(پیش‌فرض)'}",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(SettingsStates.waiting_sales_message)
+    await callback.answer()
+
+
+@router.message(SettingsStates.waiting_sales_message)
+async def bot_msg_sales_save(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    if not message.text:
+        await message.answer("⚠️ لطفاً متن را ارسال کنید.", reply_markup=cancel_keyboard())
+        return
+    await db.set_setting("sales_disabled_message", message.text.strip())
+    await state.clear()
+    text, keyboard = await _bot_settings_view()
+    await message.answer("✅ متن فروش ذخیره شد.\n\n" + text, reply_markup=keyboard)
+
+
+@router.callback_query(F.data == "admin:bot_msg_sales_clear")
+async def bot_msg_sales_clear(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    await db.set_setting("sales_disabled_message", "")
+    await callback.answer("🗑 متن فروش حذف شد.")
+    await _render_bot_settings(callback)
+
+
+@router.callback_query(F.data == "admin:bot_msg_renew")
+async def bot_msg_renew_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    current = await db.get_setting("renew_disabled_message", "")
+    await callback.message.edit_text(
+        "✏️ متنی که هنگام غیرفعال بودن تمدید به کاربر نمایش داده می‌شود را ارسال کنید:\n\n"
+        f"متن فعلی:\n{current.strip() or '(پیش‌فرض)'}",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(SettingsStates.waiting_renew_message)
+    await callback.answer()
+
+
+@router.message(SettingsStates.waiting_renew_message)
+async def bot_msg_renew_save(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    if not message.text:
+        await message.answer("⚠️ لطفاً متن را ارسال کنید.", reply_markup=cancel_keyboard())
+        return
+    await db.set_setting("renew_disabled_message", message.text.strip())
+    await state.clear()
+    text, keyboard = await _bot_settings_view()
+    await message.answer("✅ متن تمدید ذخیره شد.\n\n" + text, reply_markup=keyboard)
+
+
+@router.callback_query(F.data == "admin:bot_msg_renew_clear")
+async def bot_msg_renew_clear(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    await db.set_setting("renew_disabled_message", "")
+    await callback.answer("🗑 متن تمدید حذف شد.")
+    await _render_bot_settings(callback)
 
 
 @router.callback_query(F.data == "admin:set_card_number")

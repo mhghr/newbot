@@ -379,6 +379,16 @@ async def set_setting(key: str, value: str):
         )
 
 
+async def is_sales_enabled() -> bool:
+    """Whether users can buy new subscriptions (admin toggle)."""
+    return await get_setting("sales_enabled", "1") == "1"
+
+
+async def is_renew_enabled() -> bool:
+    """Whether users can renew existing subscriptions (admin toggle)."""
+    return await get_setting("renew_enabled", "1") == "1"
+
+
 async def get_proxy_target() -> str:
     from bot.config import CHANNEL_ID
     target = await get_setting("proxy_target_channel", "")

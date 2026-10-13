@@ -7,7 +7,8 @@ from urllib.parse import quote
 from bot.database import db
 from bot.keyboards.inline import (
     my_configs_keyboard, account_detail_keyboard,
-    renew_choice_keyboard, renew_plans_keyboard, back_to_menu_keyboard
+    renew_choice_keyboard, renew_plans_keyboard, back_to_menu_keyboard,
+    main_menu_keyboard,
 )
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient
@@ -21,6 +22,20 @@ from html import escape as _esc
 router = Router()
 
 ONE_GB = 1024 * 1024 * 1024
+
+DEFAULT_RENEW_DISABLED = "⛔️ تمدید موقتاً غیرفعال است. لطفاً بعداً تلاش کنید."
+
+
+async def show_renew_disabled(callback: CallbackQuery):
+    """Show the admin-configured (or default) notice when renew is disabled."""
+    message = await db.get_setting("renew_disabled_message", "")
+    text = (message or "").strip() or DEFAULT_RENEW_DISABLED
+    keyboard = main_menu_keyboard(callback.from_user.id)
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard)
+    except Exception:
+        await callback.message.answer(text, reply_markup=keyboard)
+    await callback.answer()
 
 
 async def _get_owned_config(telegram_id: int, config_id: int):
@@ -106,9 +121,10 @@ async def view_config(callback: CallbackQuery):
 
     service = config.get("service_type") or "v2ray"
     text = await account_view.build_account_text(config)
+    renew_enabled = await db.is_renew_enabled()
     await callback.message.edit_text(
         text, parse_mode="HTML",
-        reply_markup=account_detail_keyboard(config["id"], service),
+        reply_markup=account_detail_keyboard(config["id"], service, show_renew=renew_enabled),
     )
     await callback.answer()
 
@@ -189,6 +205,9 @@ async def wg_resend(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data.startswith("renew:"))
 async def renew_start(callback: CallbackQuery):
+    if not await db.is_renew_enabled():
+        await show_renew_disabled(callback)
+        return
     config_id = int(callback.data.split(":")[1])
     config = await _get_owned_config(callback.from_user.id, config_id)
     if not config:
@@ -204,6 +223,9 @@ async def renew_start(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("renew_same:"))
 async def renew_same(callback: CallbackQuery, state: FSMContext):
     from bot.handlers.buy import show_payment_and_wait
+    if not await db.is_renew_enabled():
+        await show_renew_disabled(callback)
+        return
     config_id = int(callback.data.split(":")[1])
     config = await _get_owned_config(callback.from_user.id, config_id)
     if not config:
@@ -219,6 +241,9 @@ async def renew_same(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("renew_change:"))
 async def renew_change(callback: CallbackQuery):
+    if not await db.is_renew_enabled():
+        await show_renew_disabled(callback)
+        return
     config_id = int(callback.data.split(":")[1])
     config = await _get_owned_config(callback.from_user.id, config_id)
     if not config:
@@ -238,6 +263,9 @@ async def renew_change(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("renew_plan:"))
 async def renew_plan(callback: CallbackQuery, state: FSMContext):
     from bot.handlers.buy import show_payment_and_wait
+    if not await db.is_renew_enabled():
+        await show_renew_disabled(callback)
+        return
     parts = callback.data.split(":")
     config_id = int(parts[1])
     plan_id = int(parts[2])

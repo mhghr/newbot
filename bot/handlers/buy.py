@@ -40,6 +40,21 @@ class BuyStates(StatesGroup):
     waiting_receipt = State()
 
 
+DEFAULT_SALES_DISABLED = "⛔️ فروش موقتاً غیرفعال است. لطفاً بعداً تلاش کنید."
+
+
+async def show_sales_disabled(callback: CallbackQuery):
+    """Show the admin-configured (or default) notice when sales are disabled."""
+    message = await db.get_setting("sales_disabled_message", "")
+    text = (message or "").strip() or DEFAULT_SALES_DISABLED
+    keyboard = main_menu_keyboard(callback.from_user.id)
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard)
+    except Exception:
+        await callback.message.answer(text, reply_markup=keyboard)
+    await callback.answer()
+
+
 async def show_payment_and_wait(callback: CallbackQuery, state: FSMContext, plan, renew_config_id=None):
     await state.update_data(plan_id=plan["id"], renew_config_id=renew_config_id)
 
@@ -79,6 +94,10 @@ async def buy_config(callback: CallbackQuery, bot: Bot):
         await callback.answer("⚠️ ابتدا در کانال ما عضو شوید. /start", show_alert=True)
         return
 
+    if not await db.is_sales_enabled():
+        await show_sales_disabled(callback)
+        return
+
     await _retry(lambda: callback.message.edit_text(
         "🛒 خرید\n\n"
         "نوع سرویس را انتخاب کنید:\n\n"
@@ -96,6 +115,10 @@ async def buy_config(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data.startswith("buy_type:"))
 async def buy_type(callback: CallbackQuery, state: FSMContext):
+    if not await db.is_sales_enabled():
+        await show_sales_disabled(callback)
+        return
+
     service_type = callback.data.split(":")[1]
     if service_type not in ("v2ray", "wireguard"):
         await callback.answer("❌ نوع نامعتبر", show_alert=True)
@@ -118,6 +141,10 @@ async def buy_type(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("buy_plan:"))
 async def select_plan(callback: CallbackQuery, state: FSMContext):
+    if not await db.is_sales_enabled():
+        await show_sales_disabled(callback)
+        return
+
     plan_id = int(callback.data.split(":")[1])
     plan = await db.get_plan(plan_id)
     if not plan:

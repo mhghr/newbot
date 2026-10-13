@@ -287,6 +287,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🔄 پروکسی تلگرام", callback_data="admin:proxy"),
         InlineKeyboardButton(text="🔍 جستجوی کاربر", callback_data="admin:search_user"),
         InlineKeyboardButton(text="📖 مدیریت آموزش", callback_data="admin:tutorials"),
+        InlineKeyboardButton(text="🤖 تنظیمات ربات", callback_data="admin:bot_settings"),
         InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),
         InlineKeyboardButton(text="📡 انتقال سرور", callback_data="admin:transfer"),
         InlineKeyboardButton(text="🔁 پر کردن دیتابیس", callback_data="admin:fill_db"),
@@ -478,6 +479,25 @@ def admin_settings_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:set_card_number"),
         InlineKeyboardButton(text="👤 نام صاحب کارت", callback_data="admin:set_card_holder"),
     ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_bot_settings_keyboard(sales_enabled: bool, renew_enabled: bool,
+                                sales_message: str = "",
+                                renew_message: str = "") -> InlineKeyboardMarkup:
+    sales_text = "⛔️ غیرفعال کردن فروش" if sales_enabled else "🟢 فعال کردن فروش"
+    renew_text = "⛔️ غیرفعال کردن تمدید" if renew_enabled else "🟢 فعال کردن تمدید"
+    rows = [
+        [InlineKeyboardButton(text=sales_text, callback_data="admin:bot_toggle_sales")],
+        [InlineKeyboardButton(text=renew_text, callback_data="admin:bot_toggle_renew")],
+        [InlineKeyboardButton(text="✏️ متن غیرفعال بودن فروش", callback_data="admin:bot_msg_sales")],
+        [InlineKeyboardButton(text="✏️ متن غیرفعال بودن تمدید", callback_data="admin:bot_msg_renew")],
+    ]
+    if sales_message:
+        rows.append([InlineKeyboardButton(text="🗑 حذف متن فروش", callback_data="admin:bot_msg_sales_clear")])
+    if renew_message:
+        rows.append([InlineKeyboardButton(text="🗑 حذف متن تمدید", callback_data="admin:bot_msg_renew_clear")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
