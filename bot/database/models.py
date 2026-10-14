@@ -120,6 +120,38 @@ async def init_db():
             )
         """)
 
+        # Physical servers (Iran entry nodes and foreign exit servers). A node
+        # with location 'iran' is an entry server; any other location is an exit.
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS nodes (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                ip TEXT NOT NULL,
+                ssh_port INTEGER DEFAULT 22,
+                ssh_user TEXT DEFAULT 'root',
+                ssh_pass TEXT DEFAULT '',
+                location TEXT DEFAULT '',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
+        # A tunnel links an Iran entry node to a foreign exit node and carries
+        # one location (a WireGuard inbound + xray outbound/routing on the panel).
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tunnels (
+                id SERIAL PRIMARY KEY,
+                iran_node_id INTEGER,
+                foreign_node_id INTEGER,
+                panel_id INTEGER,
+                inbound_id INTEGER,
+                location TEXT DEFAULT '',
+                status TEXT DEFAULT 'pending',
+                detail TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
         try:
             await conn.execute("ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_token TEXT DEFAULT ''")
         except Exception:
@@ -191,6 +223,7 @@ async def init_db():
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_port INTEGER DEFAULT 8728",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS sub_enabled BOOLEAN DEFAULT TRUE",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wireguard BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS active_server_id INTEGER",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS server_id INTEGER",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",

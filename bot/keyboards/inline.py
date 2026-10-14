@@ -271,7 +271,9 @@ def admin_tutorial_app_keyboard(platform: str, slug: str, has_video: bool) -> In
 
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=_rows([
-        InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:servers"),
+        InlineKeyboardButton(text="🗄 مدیریت پنل", callback_data="admin:servers"),
+        InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:nodes"),
+        InlineKeyboardButton(text="🚇 تانل‌ها", callback_data="admin:tunnels"),
         InlineKeyboardButton(text="📦 مدیریت پلن‌ها", callback_data="admin:plans"),
         InlineKeyboardButton(text="🛠 ساخت اکانت", callback_data="admin:create_account"),
         InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:card"),
@@ -382,6 +384,46 @@ def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def nodes_list_keyboard(nodes: list) -> InlineKeyboardMarkup:
+    rows = []
+    for n in nodes:
+        status = "🟢" if n["is_active"] else "🔴"
+        loc = n.get("location") or "-"
+        rows.append([InlineKeyboardButton(
+            text=f"{status} [{loc}] {n['name']} - {n['ip']}",
+            callback_data=f"admin:node_detail:{n['id']}",
+        )])
+    rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_node")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def node_actions_keyboard(node) -> InlineKeyboardMarkup:
+    nid = node["id"]
+    toggle = "🔴 غیرفعال کردن" if node["is_active"] else "🟢 فعال کردن"
+    rows = [
+        [InlineKeyboardButton(text=f"📛 نام : {node['name']}", callback_data=f"admin:edit_node:{nid}:name")],
+        [InlineKeyboardButton(text=f"🌐 IP : {node['ip']}", callback_data=f"admin:edit_node:{nid}:ip")],
+        [InlineKeyboardButton(text=f"🔢 پورت SSH : {node.get('ssh_port') or 22}", callback_data=f"admin:edit_node:{nid}:ssh_port")],
+        [InlineKeyboardButton(text=f"👤 یوزر SSH : {node.get('ssh_user') or 'root'}", callback_data=f"admin:edit_node:{nid}:ssh_user")],
+        [InlineKeyboardButton(text=f"🔑 پسورد SSH : {node.get('ssh_pass') or '-'}", callback_data=f"admin:edit_node:{nid}:ssh_pass")],
+        [InlineKeyboardButton(text=f"📍 لوکیشن : {node.get('location') or '-'}", callback_data=f"admin:edit_node:{nid}:location")],
+        [
+            InlineKeyboardButton(text=toggle, callback_data=f"admin:toggle_node:{nid}"),
+            InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_node:{nid}"),
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def node_delete_confirm_keyboard(node_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🗑 بله حذف کن", callback_data=f"admin:delete_node_confirm:{node_id}")],
+        [InlineKeyboardButton(text="❌ انصراف", callback_data=f"admin:node_detail:{node_id}")],
+    ])
 
 
 def server_delete_confirm_keyboard(server_id: int) -> InlineKeyboardMarkup:

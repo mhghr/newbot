@@ -428,6 +428,64 @@ async def get_server_for_plan(plan_id: int, service_type: str = "v2ray"):
     return await get_master_server(service_type)
 
 
+# --------------------------------------------------------------------------- #
+# Physical nodes (Iran entry servers + foreign exit servers)
+# --------------------------------------------------------------------------- #
+
+def is_iran_location(location) -> bool:
+    v = (location or "").strip().lower()
+    return v in ("iran", "ir", "ایران") or v.startswith("iran") or v.startswith("ایران")
+
+
+async def add_node(name: str, ip: str, ssh_port: int = 22, ssh_user: str = "root",
+                   ssh_pass: str = "", location: str = ""):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchval(
+            """INSERT INTO nodes (name, ip, ssh_port, ssh_user, ssh_pass, location)
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
+            name, ip, ssh_port, ssh_user, ssh_pass, location,
+        )
+
+
+async def get_all_nodes():
+    async with models.pool.acquire() as conn:
+        return await conn.fetch("SELECT * FROM nodes ORDER BY location, id")
+
+
+async def get_node(node_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow("SELECT * FROM nodes WHERE id=$1", node_id)
+
+
+async def get_iran_nodes():
+    nodes = await get_all_nodes()
+    return [n for n in nodes if is_iran_location(n["location"])]
+
+
+async def get_foreign_nodes():
+    nodes = await get_all_nodes()
+    return [n for n in nodes if not is_iran_location(n["location"])]
+
+
+async def update_node_field(node_id: int, field: str, value):
+    allowed = {"name", "ip", "ssh_port", "ssh_user", "ssh_pass", "location"}
+    if field not in allowed:
+        raise ValueError("invalid field")
+    value = int(value) if field == "ssh_port" else str(value)
+    async with models.pool.acquire() as conn:
+        await conn.execute(f"UPDATE nodes SET {field}=$1 WHERE id=$2", value, node_id)
+
+
+async def toggle_node(node_id: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute("UPDATE nodes SET is_active = NOT is_active WHERE id=$1", node_id)
+
+
+async def delete_node(node_id: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute("DELETE FROM nodes WHERE id=$1", node_id)
+
+
 async def ensure_user_sub_token(user_id: int) -> str:
     identity = await get_or_create_sub_identity(user_id)
     return identity["sub_token"]
