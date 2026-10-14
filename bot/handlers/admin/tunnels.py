@@ -123,11 +123,27 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
         await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور خارج (#{tid})...")
         await asyncio.to_thread(tunnel_svc.provision_foreign, foreign, tunnel, iran["ip"])
         out = await asyncio.to_thread(tunnel_svc.test_tunnel, foreign, tunnel)
-        await db.update_tunnel(tid, "up", (out or "")[-400:])
+
+        # Wire up the location on the Iran node's panel (routing + WG inbound +
+        # outbound/routing), addressed by the node IP with the panel api_token.
+        loc_note = ""
+        panel_rec = await db.get_master_server("v2ray")
+        if panel_rec:
+            try:
+                from bot.services.panel_sync import node_panel_url
+                node_url = node_panel_url(panel_rec["url"], iran["ip"])
+                loc = await tunnel_svc.setup_location(
+                    node_url, panel_rec.get("api_token") or "", iran, foreign, tunnel
+                )
+                loc_note = f"\nراه‌اندازی لوکیشن:\n{loc['note']}"
+                await db.update_tunnel(tid, "up", loc["note"][:400], location=loc.get("tag") or "")
+            except Exception as e:
+                loc_note = f"\nراه‌اندازی لوکیشن ناموفق: {str(e)[:200]}"
+                await db.update_tunnel(tid, "up", f"tunnel up; location error: {e}"[:400])
+
         await bot.send_message(
             chat_id,
-            f"✅ تانل SoftEther #{tid} برقرار شد.\n\n{out}\n\n"
-            "قدم بعدی: ساخت اینباند WireGuard و outbound/routing روی پنل.",
+            f"✅ تانل SoftEther #{tid} برقرار شد.\n\n{out}{loc_note}",
         )
     except Exception as e:
         logger.exception("tunnel provision failed")

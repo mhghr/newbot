@@ -13,6 +13,8 @@ try:
 except Exception:  # pragma: no cover
     paramiko = None
 
+from bot.services.xui import XUIClient
+
 SOFTETHER_URL = (
     "https://www.softether-download.com/files/softether/"
     "v4.43-9799-beta-2023.08.31-tree/Linux/SoftEther_VPN_Server/"
@@ -195,3 +197,158 @@ ping -I {foreign_tap_ip} -c 4 -W 3 {iran_tap_ip} | tail -3
         return _run(client, script, timeout=60)
     finally:
         client.close()
+
+
+async def create_location_inbound(panel_url: str, token: str, wg_port: int, remark: str) -> dict:
+    """Create a WireGuard inbound for a location, cloning the panel's WG schema.
+
+    The existing WireGuard inbound is used as a template for settings/
+    streamSettings/sniffing; its peers/clients are dropped so the new location
+    starts empty.
+    """
+    xui = XUIClient(panel_url, api_token=token)
+    template = await xui.find_wireguard_inbound()
+    if not template:
+        raise TunnelError("no WireGuard inbound on the panel to use as a template")
+
+    import json as _json
+
+    def _as_obj(v):
+        if isinstance(v, str):
+            try:
+                return _json.loads(v)
+            except Exception:
+                return {}
+        return v or {}
+
+    settings = _as_obj(template.get("settings"))
+    for k in ("peers", "clients"):
+        settings.pop(k, None)
+
+    payload = {
+        "remark": remark,
+        "enable": True,
+        "port": wg_port,
+        "protocol": "wireguard",
+        "listen": "",
+        "total": 0,
+        "up": 0,
+        "down": 0,
+        "expiryTime": 0,
+        "settings": settings,
+        "streamSettings": _as_obj(template.get("streamSettings")),
+        "sniffing": _as_obj(template.get("sniffing")),
+    }
+    return await xui.add_inbound(payload)
+
+
+def _ssh_run(node, script: str, timeout: int = 300) -> str:
+    client = _connect(node)
+    try:
+        return _run(client, script, timeout=timeout)
+    finally:
+        client.close()
+
+
+async def setup_location(node_panel_url: str, token: str, iran: dict, foreign: dict, tunnel: dict) -> dict:
+    """Full location wiring for one tunnel:
+    1. Iran node: Linux policy route (fwmark -> foreign tap) + guard.
+    2. Foreign node: NAT/forward for the tap subnet.
+    3. Iran node panel: create the WireGuard inbound.
+    4. Iran node panel: add a freedom outbound (marked) + routing rule for the inbound.
+
+    Returns {mark, port, tag, inbound_ok, note}.
+    """
+    import asyncio
+    import json as _json
+
+    tid = tunnel["id"]
+    mark = 200 + tid
+    port = 8600 + tid
+    subnet = tunnel["subnet"]
+    foreign_tap_ip = tunnel["foreign_tap_ip"]
+
+    note = []
+
+    # 1) Iran routing
+    iran_script = f"""
+set -e
+ip route replace {subnet} dev tap_soft table {mark}
+ip route replace default via {foreign_tap_ip} dev tap_soft table {mark}
+ip route replace blackhole default metric 1000 table {mark}
+ip rule del fwmark {mark} lookup {mark} 2>/dev/null || true
+ip rule add fwmark {mark} lookup {mark} pref {mark}
+echo ROUTING_OK
+"""
+    await asyncio.to_thread(_ssh_run, iran, iran_script)
+    note.append("ایران routing ok")
+
+    # 2) Foreign NAT/forward
+    foreign_script = f"""
+set -e
+IFACE=$(ip route show default | awk '{{print $5}}' | head -1)
+nft list table ip tunnel_exit >/dev/null 2>&1 || nft add table ip tunnel_exit
+nft list chain ip tunnel_exit postrouting >/dev/null 2>&1 || nft 'add chain ip tunnel_exit postrouting {{ type nat hook postrouting priority 110 ; policy accept ; }}'
+nft list chain ip tunnel_exit forward >/dev/null 2>&1 || nft 'add chain ip tunnel_exit forward {{ type filter hook forward priority -10 ; policy accept ; }}'
+nft add rule ip tunnel_exit postrouting ip saddr {subnet} oifname "$IFACE" masquerade
+echo NAT_OK
+"""
+    await asyncio.to_thread(_ssh_run, foreign, foreign_script)
+    note.append("خارج NAT ok")
+
+    # 3) Create the WireGuard inbound on the Iran node's panel
+    xui = XUIClient(node_panel_url, api_token=token)
+    tpl = await xui.find_wireguard_inbound()
+    if not tpl:
+        raise TunnelError("no WireGuard inbound template on the panel")
+
+    def _as_obj(v):
+        if isinstance(v, str):
+            try:
+                return _json.loads(v)
+            except Exception:
+                return {}
+        return v or {}
+
+    settings = _as_obj(tpl.get("settings"))
+    for k in ("peers", "clients"):
+        settings.pop(k, None)
+
+    res = await xui.add_inbound({
+        "remark": f"loc-{tid}",
+        "enable": True,
+        "port": port,
+        "protocol": "wireguard",
+        "listen": "",
+        "total": 0, "up": 0, "down": 0, "expiryTime": 0,
+        "settings": settings,
+        "streamSettings": _as_obj(tpl.get("streamSettings")),
+        "sniffing": _as_obj(tpl.get("sniffing")),
+    })
+    inbound_ok = bool(res.get("success")) if isinstance(res, dict) else False
+
+    tag = ""
+    for ib in await xui.get_inbounds():
+        if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == port:
+            tag = ib.get("tag") or ""
+    note.append(f"اینباند WG {'ok' if inbound_ok else 'fail'} (tag={tag or '-'})")
+
+    # 4) Add marked outbound + routing rule
+    if tag:
+        obj = await xui.get_xray_template()
+        xset = obj.get("xraySetting") or {}
+        outbounds = [o for o in (xset.get("outbounds") or []) if o.get("tag") != f"loc-{tid}"]
+        outbounds.append({
+            "tag": f"loc-{tid}", "protocol": "freedom", "settings": {},
+            "streamSettings": {"sockopt": {"mark": mark}},
+        })
+        xset["outbounds"] = outbounds
+        routing = xset.setdefault("routing", {})
+        rules = [r for r in (routing.get("rules") or [])
+                 if not (r.get("inboundTag") and tag in r.get("inboundTag"))]
+        rules.append({"type": "field", "enabled": True, "inboundTag": [tag], "outboundTag": f"loc-{tid}"})
+        routing["rules"] = rules
+        ok = await xui.update_xray_config(xset, obj.get("outboundTestUrl"))
+        note.append(f"outbound/routing {'ok' if ok else 'fail'} (mark={mark})")
+
+    return {"mark": mark, "port": port, "tag": tag, "inbound_ok": inbound_ok, "note": "; ".join(note)}

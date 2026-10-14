@@ -299,6 +299,47 @@ class XUIClient:
         return data.get("obj", [])
 
 
+    async def add_inbound(self, payload: dict) -> dict:
+        return await self._request("POST", "/panel/api/inbounds/add", json=payload)
+
+    async def get_inbound(self, inbound_id: int) -> dict:
+        data = await self._request("GET", f"/panel/api/inbounds/get/{inbound_id}")
+        return data.get("obj") or {}
+
+    async def find_wireguard_inbound(self) -> dict:
+        """Return the first WireGuard inbound (used as a schema template)."""
+        try:
+            for ib in await self.get_inbounds():
+                if (ib.get("protocol") or "").lower() == "wireguard":
+                    return ib
+        except Exception:
+            pass
+        return {}
+
+    async def delete_inbound(self, inbound_id: int) -> bool:
+        data = await self._request("POST", f"/panel/api/inbounds/del/{inbound_id}")
+        return data.get("success", False)
+
+    async def get_xray_template(self) -> dict:
+        """Return the panel's Xray settings payload (obj is a JSON string)."""
+        data = await self._request("POST", "/panel/api/xray/")
+        obj = data.get("obj")
+        if isinstance(obj, str):
+            try:
+                obj = json.loads(obj)
+            except Exception:
+                obj = {}
+        return obj or {}
+
+    async def update_xray_config(self, xray_setting: dict, outbound_test_url: str = None) -> bool:
+        """Save the Xray config template (form field ``xraySetting``)."""
+        form = {"xraySetting": json.dumps(xray_setting, ensure_ascii=False)}
+        if outbound_test_url:
+            form["outboundTestUrl"] = outbound_test_url
+        data = await self._request("POST", "/panel/api/xray/update", data=form)
+        return data.get("success", False)
+
+
     async def export_clients(self) -> dict:
         """Return the panel's full clients export payload."""
         data = await self._request("GET", "/panel/api/clients/export")
