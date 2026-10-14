@@ -115,8 +115,6 @@ class AddServerStates(StatesGroup):
     waiting_token = State()
     waiting_name = State()
     waiting_location = State()
-    waiting_sub_domain = State()
-    waiting_sub_port = State()
     waiting_inbounds = State()
 
 
@@ -224,33 +222,6 @@ async def add_server_name(message: Message, state: FSMContext):
 async def add_server_location(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS: return
     await state.update_data(location=message.text.strip())
-    await message.answer(
-        "🌐 آدرس دامنه یا IP سابسکریپشن را وارد کنید:\n"
-        "(برای نمایش لینک ساب به کاربران. خالی بگذارید = آدرس پنل استفاده شود)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_sub_domain)
-
-
-@router.message(AddServerStates.waiting_sub_domain)
-async def add_server_sub_domain(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(sub_domain=message.text.strip())
-    await message.answer(
-        "🔢 پورت سابسکریپشن را وارد کنید:\n(پورتی که لینک اشتراک روی آن سرو می‌شود، مثال: 2096)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_sub_port)
-
-
-@router.message(AddServerStates.waiting_sub_port)
-async def add_server_sub_port(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    text = message.text.strip()
-    if not text.isdigit():
-        await message.answer("⚠️ فقط عدد وارد کنید.", reply_markup=cancel_keyboard())
-        return
-    await state.update_data(sub_port=int(text))
     data = await state.get_data()
     await message.answer("⏳ در حال تست اتصال به پنل...")
     xui = XUIClient(data["url"], api_token=data["api_token"])
@@ -282,7 +253,6 @@ async def add_server_inbounds(message: Message, state: FSMContext):
     server_id = await db.add_server(
         name=data["name"], url=data["url"], location=data["location"],
         api_token=data["api_token"], inbound_id=data.get("inbound_id", 0),
-        sub_port=data.get("sub_port", 2096), sub_domain=data.get("sub_domain", ""),
     )
     await db.set_server_inbound_ids(server_id, cleaned)
     await state.clear()
@@ -466,6 +436,19 @@ async def toggle_server(callback: CallbackQuery):
         reply_markup=server_actions_keyboard(server)
     )
     await callback.answer("✅ وضعیت تغییر کرد!")
+
+
+@router.callback_query(F.data.startswith("admin:toggle_server_sub:"))
+async def toggle_server_sub(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    server_id = int(callback.data.split(":")[2])
+    await db.toggle_server_sub(server_id)
+    server = await db.get_server(server_id)
+    await callback.message.edit_text(
+        _server_header(server),
+        reply_markup=server_actions_keyboard(server)
+    )
+    await callback.answer("✅ وضعیت لینک ساب تغییر کرد!")
 
 
 @router.callback_query(F.data.startswith("admin:delete_server:"))

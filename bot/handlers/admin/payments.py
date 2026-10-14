@@ -9,6 +9,7 @@ import logging
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
+from bot.services import account_view
 from bot.utils.helpers import admin_order_caption
 from bot.keyboards.inline import order_approval_keyboard
 
@@ -90,6 +91,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         xui = XUIClient(master["url"], api_token=master["api_token"])
         sub_base = panel_sub_base(master["url"], master["sub_port"], master["sub_domain"])
+        sub_enabled = bool(account_view.rec_get(master, "sub_enabled", True))
 
         reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
         if not reality_ids:
@@ -142,7 +144,9 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             if missing and not await xui.attach_client(email, missing):
                 logger.warning(f"failed to re-attach inbounds {missing} for {email} after renewal")
 
-            sub_url = f"{sub_base}/sub/{sub_token}"
+            sub_link, is_sub = await account_view.fetch_delivery_link(
+                xui, email, sub_token, sub_enabled, sub_base
+            )
             await db.renew_config(
                 renew_config_id, order_id, order["plan_id"],
                 order["traffic_gb"], new_expire
@@ -168,35 +172,30 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             if not sub_token:
                 raise Exception("subId از پنل دریافت نشد")
 
-            sub_url = f"{sub_base}/sub/{sub_token}"
+            sub_link, is_sub = await account_view.fetch_delivery_link(
+                xui, email, sub_token, sub_enabled, sub_base
+            )
             if order["duration_days"] and order["duration_days"] > 0:
                 expire_date = datetime.now() + timedelta(days=order["duration_days"])
             else:
                 expire_date = None
             await db.create_config(
                 order["user_id"], order_id, order["plan_id"], email,
-                sub_token, sub_url, order["traffic_gb"], expire_date,
+                sub_token, (sub_link if is_sub else ""), order["traffic_gb"], expire_date,
                 server_id=master["id"]
             )
             action_word = "ساخت"
 
-        caption = (
-            "✅ اشتراک شما آماده شد!\n\n"
-            f"🔗 لینک اشتراک (Subscription):\n`{sub_url}`\n\n"
-            "این آدرس را در نرم‌افزار خود وارد کنید یا QR بالا را اسکن کنید."
-        )
-        qr_url = (
-            "https://api.qrserver.com/v1/create-qr-code/"
-            f"?size=500x500&qzone=2&margin=10&data={quote(sub_url, safe='')}"
+        await account_view.deliver_account(
+            bot, order["telegram_id"], sub_link, is_sub,
+            header="✅ اشتراک شما آماده شد!",
         )
 
-        await _send_config_to_user(bot, order["telegram_id"], qr_url, caption)
-
-        await db.update_order_status(order_id, "approved", sub_url)
+        await db.update_order_status(order_id, "approved", sub_link)
 
         try:
             await callback.message.edit_caption(
-                caption=base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد\n🔗 {sub_url}",
+                caption=base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد\n🔗 {sub_link}",
                 reply_markup=None,
             )
         except Exception:

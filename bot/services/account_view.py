@@ -130,3 +130,65 @@ async def send_account_config(bot, chat_id: int, config):
         await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کد اشتراک V2Ray")
     except Exception as e:
         logger.warning("V2Ray QR send failed: %s", e)
+
+
+def rec_get(rec, key, default=None):
+    """Safe getter for an asyncpg Record (which has no ``.get``)."""
+    try:
+        value = rec[key]
+        return default if value is None else value
+    except (KeyError, TypeError, IndexError):
+        return default
+
+
+async def fetch_delivery_link(xui, email: str, sub_id: str, sub_enabled: bool,
+                              fallback_base: str = ""):
+    """Return ``(link, is_sub)`` to deliver to the user for a fresh account.
+
+    * When the server has the subscription enabled the subscription link is
+      fetched straight from the panel (so the port / path are always correct);
+      ``is_sub`` is True.
+    * Otherwise the first direct config link (e.g. ``vless://...``) is returned
+      and ``is_sub`` is False.
+    """
+    if sub_enabled:
+        link = ""
+        try:
+            links = await xui.get_sub_links(sub_id or email)
+            link = links[0] if links else ""
+        except Exception as e:
+            logger.warning("subLinks fetch failed for %s: %s", email, e)
+        if not link:
+            try:
+                link = await xui.get_sub_link(email)
+            except Exception:
+                link = ""
+        if not link and fallback_base:
+            link = f"{fallback_base.rstrip('/')}/sub/{sub_id or email}"
+        return link, True
+
+    try:
+        links = await xui.get_client_links(email)
+        return (links[0] if links else ""), False
+    except Exception as e:
+        logger.warning("clientLinks fetch failed for %s: %s", email, e)
+        return "", False
+
+
+async def deliver_account(bot, chat_id: int, link: str, is_sub: bool, header: str):
+    """Send the subscription link (+QR) or the direct config link to the user."""
+    if not link:
+        await bot.send_message(chat_id=chat_id, text=f"{header}\n\n(کانفیگ به‌زودی ارسال می‌شود)")
+        return
+    label = "🔗 لینک اشتراک (Subscription):" if is_sub else "🔗 کانفیگ:"
+    caption = f"{header}\n\n{label}\n`{link}`"
+    qr_url = (
+        "https://api.qrserver.com/v1/create-qr-code/"
+        f"?size=500x500&qzone=2&margin=10&data={quote(link, safe='')}"
+    )
+    try:
+        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption=caption, parse_mode="Markdown")
+        return
+    except Exception as e:
+        logger.warning("delivery QR send failed: %s", e)
+    await bot.send_message(chat_id=chat_id, text=caption, parse_mode="Markdown")

@@ -8,6 +8,7 @@ from bot.database import db
 from bot.keyboards.inline import (
     admin_plans_keyboard, plan_actions_keyboard, plan_edit_keyboard,
     plans_list_keyboard, cancel_keyboard, plan_server_select_keyboard,
+    new_plan_server_keyboard,
 )
 
 router = Router()
@@ -19,6 +20,7 @@ class AddPlanStates(StatesGroup):
     waiting_duration = State()
     waiting_price = State()
     waiting_users = State()
+    waiting_server = State()
 
 
 class EditPlanStates(StatesGroup):
@@ -158,7 +160,7 @@ async def add_plan_price(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_users)
 
 
-async def _finalize_plan(message: Message, state: FSMContext, data: dict, max_users: int):
+async def _finalize_plan(message: Message, state: FSMContext, data: dict, max_users: int, server_id=None):
     await db.add_plan(
         name=data["name"],
         traffic_gb=data["traffic_gb"],
@@ -166,6 +168,7 @@ async def _finalize_plan(message: Message, state: FSMContext, data: dict, max_us
         price=data["price"],
         max_users=max_users,
         service_type="v2ray",
+        server_id=server_id,
     )
     plans = await db.get_all_plans()
     await message.answer(
@@ -187,8 +190,23 @@ async def add_plan_users(message: Message, state: FSMContext):
     if max_users < 0:
         max_users = 0
 
+    await state.update_data(users=max_users)
+    servers = await db.get_all_servers()
+    await message.answer(
+        "🖥 اکانت‌های این پلن روی کدام سرور ساخته شوند؟",
+        reply_markup=new_plan_server_keyboard(servers),
+    )
+    await state.set_state(AddPlanStates.waiting_server)
+
+
+@router.callback_query(F.data.startswith("new_plan_server:"))
+async def add_plan_server(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    sid = int(callback.data.split(":")[1])
     data = await state.get_data()
-    await _finalize_plan(message, state, data, max_users)
+    await _finalize_plan(callback.message, state, data, data.get("users", 0), server_id=(sid or None))
+    await callback.answer("✅ پلن ساخته شد!")
 
 
 @router.callback_query(F.data == "admin:list_plans")

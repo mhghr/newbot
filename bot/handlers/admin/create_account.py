@@ -11,6 +11,7 @@ import logging
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
+from bot.services import account_view
 from bot.keyboards.inline import (
     create_account_plans_keyboard, admin_menu_keyboard, cancel_keyboard,
 )
@@ -212,7 +213,11 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if not sub_token:
             raise Exception("subId از پنل دریافت نشد")
 
-        sub_url = f"{panel_sub_base(master['url'], master['sub_port'], master['sub_domain'])}/sub/{sub_token}"
+        sub_enabled = bool(account_view.rec_get(master, "sub_enabled", True))
+        sub_link, is_sub = await account_view.fetch_delivery_link(
+            xui, email, sub_token, sub_enabled,
+            panel_sub_base(master["url"], master["sub_port"], master["sub_domain"]),
+        )
 
         if name.isdigit():
             target_user = await db.add_user(telegram_id=int(name))
@@ -224,13 +229,13 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
         await db.create_config(
             user_id=target_user["id"], order_id=None, plan_id=plan_id,
-            client_email=email, sub_id=sub_token, sub_url=sub_url,
+            client_email=email, sub_id=sub_token, sub_url=(sub_link if is_sub else ""),
             traffic_gb=traffic_gb, expire_date=expire_date,
             server_id=master["id"],
         )
 
         email_note = f"ℹ️ ایمیل پنل: {email}\n" if email != name else ""
-        caption = (
+        header = (
             f"✅ اکانت ساخته شد!\n\n"
             f"📝 نام: {name}\n"
             f"{email_note}"
@@ -238,22 +243,11 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
             f"👥 تعداد کاربر: {'نامحدود' if users == 0 else users}\n"
             f"🌍 لوکیشن: {master['location']}\n"
-            f"{linked_note}\n"
-            f"🔗 لینک اشتراک:\n`{sub_url}`"
+            f"{linked_note}"
         )
-        qr_url = (
-            "https://api.qrserver.com/v1/create-qr-code/"
-            f"?size=500x500&qzone=2&margin=10&data={quote(sub_url, safe='')}"
-        )
-
-        try:
-            await _retry(lambda: bot.send_photo(
-                chat_id=message.from_user.id, photo=qr_url, caption=caption, parse_mode="Markdown"
-            ))
-        except Exception:
-            await _retry(lambda: bot.send_message(
-                chat_id=message.from_user.id, text=caption, parse_mode="Markdown"
-            ))
+        await _retry(lambda: account_view.deliver_account(
+            bot, message.from_user.id, sub_link, is_sub, header=header
+        ))
 
         try:
             await status_msg.delete()

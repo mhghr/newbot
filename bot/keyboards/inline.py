@@ -154,7 +154,7 @@ def plans_keyboard(plans: list) -> InlineKeyboardMarkup:
         for plan in plans
     ]
     rows = _rows(buttons)
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:buy")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -338,10 +338,11 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
     rows += [
         [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
         [InlineKeyboardButton(text=f"🔑 کلید اتصال : {_trunc(server['api_token'])}", callback_data=f"admin:edit_server:{sid}:api_token")],
-        [InlineKeyboardButton(text=f"🌐 آدرس ساب : {_trunc(server.get('sub_domain') or '-')}", callback_data=f"admin:edit_server:{sid}:sub_domain")],
-        [InlineKeyboardButton(text=f"🔢 پورت ساب : {server.get('sub_port') or 2096}", callback_data=f"admin:edit_server:{sid}:sub_port")],
         [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
         [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
+        [InlineKeyboardButton(
+            text=f"🔗 لینک ساب : {'فعال 🟢' if server.get('sub_enabled', True) else 'غیرفعال 🔴'}",
+            callback_data=f"admin:toggle_server_sub:{sid}")],
     ]
     rows += [
         [
@@ -454,6 +455,21 @@ def plan_server_select_keyboard(plan_id: int, servers: list) -> InlineKeyboardMa
             callback_data=f"admin:set_plan_server:{plan_id}:{s['id']}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:plan_detail:{plan_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def new_plan_server_keyboard(servers: list) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(
+        text="🌐 پیش‌فرض (اولین سرور فعال)",
+        callback_data="new_plan_server:0",
+    )]]
+    for s in servers:
+        status = "🟢" if s["is_active"] else "🔴"
+        rows.append([InlineKeyboardButton(
+            text=f"{status} {s['name']} - {s.get('location') or ''}".strip(),
+            callback_data=f"new_plan_server:{s['id']}",
+        )])
+    rows.append([InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_action")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
