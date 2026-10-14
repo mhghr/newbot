@@ -54,6 +54,14 @@ BASE_URL = os.getenv("BASE_URL", "")
 SUB_HOST = os.getenv("SUB_HOST", "0.0.0.0")
 SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
 
+# ArvanCloud CDN/DNS API — used to switch the entry domain's A record to the
+# currently active Iran node.
+ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")
+ARVAN_API_BASE = os.getenv("ARVAN_API_BASE", "https://napi.arvancloud.ir/cdn/4.0")
+# Domain (e.g. manointernet.ir) and record name (e.g. res, or "@" for root).
+ARVAN_DOMAIN = os.getenv("ARVAN_DOMAIN", "")
+ARVAN_RECORD = os.getenv("ARVAN_RECORD", "")
+
 # Telethon userbot used to read proxy source channels the bot itself is not a
 # member of. Leave empty to disable the proxy relay entirely.
 try:

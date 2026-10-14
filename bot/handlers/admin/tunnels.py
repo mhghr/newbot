@@ -1,0 +1,160 @@
+from aiogram import Router, F, Bot
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
+import asyncio
+import random
+import string
+import logging
+
+from bot.config import ADMIN_IDS
+from bot.database import db
+from bot.services import tunnel as tunnel_svc
+
+router = Router()
+logger = logging.getLogger(__name__)
+
+
+def _nodes_kb(nodes, prefix: str) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text=f"{n['name']} — {n['ip']}", callback_data=f"{prefix}:{n['id']}")]
+        for n in nodes
+    ]
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:tunnels")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data == "admin:tunnels")
+async def tunnels_menu(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    await state.clear()
+    tunnels = await db.get_all_tunnels()
+    rows = []
+    for t in tunnels:
+        iran = await db.get_node(t["iran_node_id"]) if t["iran_node_id"] else None
+        foreign = await db.get_node(t["foreign_node_id"]) if t["foreign_node_id"] else None
+        iname = iran["name"] if iran else "?"
+        fname = foreign["name"] if foreign else "?"
+        rows.append([InlineKeyboardButton(
+            text=f"#{t['id']} {iname} ↔ {fname} [{t['status']}]",
+            callback_data=f"admin:tunnel_detail:{t['id']}",
+        )])
+    rows.append([InlineKeyboardButton(text="➕ افزودن تانل", callback_data="admin:add_tunnel")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
+    await callback.message.edit_text("🚇 تانل‌ها:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:add_tunnel")
+async def add_tunnel_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    await state.clear()
+    iran = await db.get_iran_nodes()
+    if not iran:
+        await callback.answer(
+            "❌ هیچ سرور ایرانی ثبت نشده. اول در «مدیریت سرورها» سرور با لوکیشن iran اضافه کنید.",
+            show_alert=True,
+        )
+        return
+    await callback.message.edit_text(
+        "🚇 افزودن تانل\n\n1️⃣ سرور ایران را انتخاب کنید:", reply_markup=_nodes_kb(iran, "tunnel_iran")
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("tunnel_iran:"))
+async def pick_iran(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    iran_id = int(callback.data.split(":")[1])
+    await state.update_data(iran_id=iran_id)
+    foreign = await db.get_foreign_nodes()
+    if not foreign:
+        await callback.answer("❌ هیچ سرور خارجی ثبت نشده.", show_alert=True)
+        return
+    await callback.message.edit_text(
+        "2️⃣ سرور خارج را انتخاب کنید:", reply_markup=_nodes_kb(foreign, "tunnel_foreign")
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("tunnel_foreign:"))
+async def pick_foreign(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    foreign_id = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    iran_id = data.get("iran_id")
+    await state.clear()
+    iran = await db.get_node(iran_id)
+    foreign = await db.get_node(foreign_id)
+    if not iran or not foreign:
+        await callback.answer("❌ سرور یافت نشد!", show_alert=True)
+        return
+
+    tid = await db.add_tunnel(iran_id, foreign_id)
+    tunnel = {
+        "id": tid,
+        "userpass": "".join(random.choices(string.ascii_letters + string.digits, k=12)),
+        "subnet": f"10.240.{tid}.0/30",
+        "iran_tap_ip": f"10.240.{tid}.1",
+        "foreign_tap_ip": f"10.240.{tid}.2",
+    }
+    await callback.message.edit_text(
+        f"⏳ در حال تست SSH و برقراری تانل SoftEther (#{tid})...\nممکن است چند دقیقه طول بکشد."
+    )
+    await callback.answer()
+    asyncio.create_task(_do_provision(bot, callback.from_user.id, tunnel, dict(iran), dict(foreign)))
+
+
+async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreign: dict):
+    tid = tunnel["id"]
+    try:
+        await asyncio.to_thread(tunnel_svc.test_ssh, iran)
+        await asyncio.to_thread(tunnel_svc.test_ssh, foreign)
+    except Exception as e:
+        await db.update_tunnel(tid, "error", f"SSH: {e}"[:400])
+        await bot.send_message(chat_id, f"❌ اتصال SSH برقرار نشد (#{tid}):\n{e}")
+        return
+    try:
+        await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور ایران (#{tid})...")
+        await asyncio.to_thread(tunnel_svc.provision_iran, iran, tunnel)
+        await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور خارج (#{tid})...")
+        await asyncio.to_thread(tunnel_svc.provision_foreign, foreign, tunnel, iran["ip"])
+        out = await asyncio.to_thread(tunnel_svc.test_tunnel, foreign, tunnel)
+        await db.update_tunnel(tid, "up", (out or "")[-400:])
+        await bot.send_message(
+            chat_id,
+            f"✅ تانل SoftEther #{tid} برقرار شد.\n\n{out}\n\n"
+            "قدم بعدی: ساخت اینباند WireGuard و outbound/routing روی پنل.",
+        )
+    except Exception as e:
+        logger.exception("tunnel provision failed")
+        await db.update_tunnel(tid, "error", str(e)[:400])
+        await bot.send_message(chat_id, f"❌ خطا در برقراری تانل #{tid}:\n{str(e)[:400]}")
+
+
+@router.callback_query(F.data.startswith("admin:tunnel_detail:"))
+async def tunnel_detail(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    tid = int(callback.data.split(":")[2])
+    t = await db.get_tunnel(tid)
+    if not t:
+        await callback.answer("❌", show_alert=True)
+        return
+    iran = await db.get_node(t["iran_node_id"]) if t["iran_node_id"] else None
+    foreign = await db.get_node(t["foreign_node_id"]) if t["foreign_node_id"] else None
+    text = (
+        f"🚇 تانل #{tid}\n"
+        f"🇮🇷 ایران: {iran['name'] if iran else '-'}\n"
+        f"🌍 خارج: {foreign['name'] if foreign else '-'}\n"
+        f"وضعیت: {t['status']}\n"
+        f"جزئیات: {(t.get('detail') or '-')[:600]}"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:tunnels")]
+    ])
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()

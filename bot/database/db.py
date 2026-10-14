@@ -486,6 +486,49 @@ async def delete_node(node_id: int):
         await conn.execute("DELETE FROM nodes WHERE id=$1", node_id)
 
 
+# --------------------------------------------------------------------------- #
+# Tunnels (Iran node <-> foreign node)
+# --------------------------------------------------------------------------- #
+
+async def add_tunnel(iran_node_id: int, foreign_node_id: int, panel_id: int = None, location: str = ""):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchval(
+            """INSERT INTO tunnels (iran_node_id, foreign_node_id, panel_id, location)
+               VALUES ($1, $2, $3, $4) RETURNING id""",
+            iran_node_id, foreign_node_id, panel_id, location,
+        )
+
+
+async def update_tunnel(tunnel_id: int, status: str = None, detail: str = None,
+                        panel_id: int = None, inbound_id: int = None, location: str = None):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE tunnels SET
+                   status = COALESCE($2, status),
+                   detail = COALESCE($3, detail),
+                   panel_id = COALESCE($4, panel_id),
+                   inbound_id = COALESCE($5, inbound_id),
+                   location = COALESCE($6, location)
+               WHERE id=$1""",
+            tunnel_id, status, detail, panel_id, inbound_id, location,
+        )
+
+
+async def get_tunnel(tunnel_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow("SELECT * FROM tunnels WHERE id=$1", tunnel_id)
+
+
+async def get_all_tunnels():
+    async with models.pool.acquire() as conn:
+        return await conn.fetch("SELECT * FROM tunnels ORDER BY id")
+
+
+async def delete_tunnel(tunnel_id: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute("DELETE FROM tunnels WHERE id=$1", tunnel_id)
+
+
 async def ensure_user_sub_token(user_id: int) -> str:
     identity = await get_or_create_sub_identity(user_id)
     return identity["sub_token"]

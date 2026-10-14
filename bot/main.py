@@ -29,6 +29,7 @@ from bot.handlers.admin.create_account import router as admin_create_account_rou
 from bot.handlers.admin.transfer import router as admin_transfer_router
 from bot.handlers.admin.restore import router as admin_restore_router
 from bot.handlers.admin.nodes import router as admin_nodes_router
+from bot.handlers.admin.tunnels import router as admin_tunnels_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +86,7 @@ async def main():
         admin_transfer_router,
         admin_restore_router,
         admin_nodes_router,
+        admin_tunnels_router,
     )
 
     start_reminders(bot)
