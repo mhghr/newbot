@@ -91,7 +91,6 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         xui = XUIClient(master["url"], api_token=master["api_token"])
         sub_base = panel_sub_base(master["url"], master["sub_port"], master["sub_domain"])
-        sub_enabled = bool(account_view.rec_get(master, "sub_enabled", True))
 
         reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
         if not reality_ids:
@@ -144,9 +143,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             if missing and not await xui.attach_client(email, missing):
                 logger.warning(f"failed to re-attach inbounds {missing} for {email} after renewal")
 
-            sub_link, is_sub = await account_view.fetch_delivery_link(
-                xui, email, sub_token, sub_enabled, sub_base
-            )
+            link, kind = await account_view.resolve_delivery(xui, email, sub_token, master, sub_base)
             await db.renew_config(
                 renew_config_id, order_id, order["plan_id"],
                 order["traffic_gb"], new_expire
@@ -172,30 +169,33 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             if not sub_token:
                 raise Exception("subId از پنل دریافت نشد")
 
-            sub_link, is_sub = await account_view.fetch_delivery_link(
-                xui, email, sub_token, sub_enabled, sub_base
-            )
+            link, kind = await account_view.resolve_delivery(xui, email, sub_token, master, sub_base)
             if order["duration_days"] and order["duration_days"] > 0:
                 expire_date = datetime.now() + timedelta(days=order["duration_days"])
             else:
                 expire_date = None
             await db.create_config(
                 order["user_id"], order_id, order["plan_id"], email,
-                sub_token, (sub_link if is_sub else ""), order["traffic_gb"], expire_date,
+                sub_token, (link if kind == "sub" else ""), order["traffic_gb"], expire_date,
                 server_id=master["id"]
             )
             action_word = "ساخت"
 
-        await account_view.deliver_account(
-            bot, order["telegram_id"], sub_link, is_sub,
-            header="✅ اشتراک شما آماده شد!",
-        )
+        if kind == "wg":
+            await account_view.deliver_wireguard(
+                bot, order["telegram_id"], link, header="✅ اشتراک شما آماده شد!"
+            )
+        else:
+            await account_view.deliver_account(
+                bot, order["telegram_id"], link, (kind == "sub"),
+                header="✅ اشتراک شما آماده شد!",
+            )
 
-        await db.update_order_status(order_id, "approved", sub_link)
+        await db.update_order_status(order_id, "approved", link)
 
         try:
             await callback.message.edit_caption(
-                caption=base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد\n🔗 {sub_link}",
+                caption=base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد\n🔗 {link}",
                 reply_markup=None,
             )
         except Exception:

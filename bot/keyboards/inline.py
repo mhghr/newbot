@@ -343,6 +343,9 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(
             text=f"🔗 لینک ساب : {'فعال 🟢' if server.get('sub_enabled', True) else 'غیرفعال 🔴'}",
             callback_data=f"admin:toggle_server_sub:{sid}")],
+        [InlineKeyboardButton(
+            text=f"🧩 وایرگارد : {'فعال 🟢' if server.get('wireguard', False) else 'غیرفعال 🔴'}",
+            callback_data=f"admin:toggle_server_wireguard:{sid}")],
     ]
     rows += [
         [

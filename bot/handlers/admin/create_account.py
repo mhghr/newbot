@@ -213,9 +213,8 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if not sub_token:
             raise Exception("subId از پنل دریافت نشد")
 
-        sub_enabled = bool(account_view.rec_get(master, "sub_enabled", True))
-        sub_link, is_sub = await account_view.fetch_delivery_link(
-            xui, email, sub_token, sub_enabled,
+        link, kind = await account_view.resolve_delivery(
+            xui, email, sub_token, master,
             panel_sub_base(master["url"], master["sub_port"], master["sub_domain"]),
         )
 
@@ -229,7 +228,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
         await db.create_config(
             user_id=target_user["id"], order_id=None, plan_id=plan_id,
-            client_email=email, sub_id=sub_token, sub_url=(sub_link if is_sub else ""),
+            client_email=email, sub_id=sub_token, sub_url=(link if kind == "sub" else ""),
             traffic_gb=traffic_gb, expire_date=expire_date,
             server_id=master["id"],
         )
@@ -245,9 +244,14 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             f"🌍 لوکیشن: {master['location']}\n"
             f"{linked_note}"
         )
-        await _retry(lambda: account_view.deliver_account(
-            bot, message.from_user.id, sub_link, is_sub, header=header
-        ))
+        if kind == "wg":
+            await _retry(lambda: account_view.deliver_wireguard(
+                bot, message.from_user.id, link, header=header
+            ))
+        else:
+            await _retry(lambda: account_view.deliver_account(
+                bot, message.from_user.id, link, (kind == "sub"), header=header
+            ))
 
         try:
             await status_msg.delete()

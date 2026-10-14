@@ -145,6 +145,14 @@ async def toggle_server_sub(server_id: int):
         )
 
 
+async def toggle_server_wireguard(server_id: int):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE servers SET wireguard = NOT COALESCE(wireguard, FALSE) WHERE id=$1",
+            server_id,
+        )
+
+
 async def set_server_inbound_ids(server_id: int, inbound_ids: str):
     async with models.pool.acquire() as conn:
         await conn.execute("UPDATE servers SET inbound_ids=$1 WHERE id=$2", inbound_ids, server_id)

@@ -451,6 +451,19 @@ async def toggle_server_sub(callback: CallbackQuery):
     await callback.answer("✅ وضعیت لینک ساب تغییر کرد!")
 
 
+@router.callback_query(F.data.startswith("admin:toggle_server_wireguard:"))
+async def toggle_server_wireguard(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    server_id = int(callback.data.split(":")[2])
+    await db.toggle_server_wireguard(server_id)
+    server = await db.get_server(server_id)
+    await callback.message.edit_text(
+        _server_header(server),
+        reply_markup=server_actions_keyboard(server)
+    )
+    await callback.answer("✅ وضعیت وایرگارد تغییر کرد!")
+
+
 @router.callback_query(F.data.startswith("admin:delete_server:"))
 async def delete_server_confirm(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS: return

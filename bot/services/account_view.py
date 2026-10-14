@@ -7,7 +7,9 @@ information and deliver the config the same way.
 import logging
 from datetime import datetime
 from html import escape as _esc
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, parse_qs, unquote
+
+from aiogram.types import BufferedInputFile
 
 from bot.database import db
 from bot.services.xui import XUIClient
@@ -192,3 +194,77 @@ async def deliver_account(bot, chat_id: int, link: str, is_sub: bool, header: st
     except Exception as e:
         logger.warning("delivery QR send failed: %s", e)
     await bot.send_message(chat_id=chat_id, text=caption, parse_mode="Markdown")
+
+
+def wg_conf_from_link(link: str) -> str:
+    """Convert a 3x-ui ``wireguard://`` client link into a WireGuard .conf body."""
+    u = urlparse(link)
+    private_key = unquote(u.username or "")
+    host = u.hostname or ""
+    port = u.port or 51820
+    q = {k: v[0] for k, v in parse_qs(u.query).items()}
+    address = q.get("address", "")
+    public_key = unquote(q.get("publickey", ""))
+    keepalive = q.get("keepalive", "25")
+    mtu = q.get("mtu", "1420")
+    lines = ["[Interface]", f"PrivateKey = {private_key}", f"Address = {address}"]
+    if mtu:
+        lines.append(f"MTU = {mtu}")
+    lines += [
+        "",
+        "[Peer]",
+        f"PublicKey = {public_key}",
+        f"Endpoint = {host}:{port}",
+        "AllowedIPs = 0.0.0.0/0",
+    ]
+    if keepalive:
+        lines.append(f"PersistentKeepalive = {keepalive}")
+    return "\n".join(lines) + "\n"
+
+
+async def deliver_wireguard(bot, chat_id: int, link: str, header: str):
+    """Send the WireGuard .conf file + a QR code image of it."""
+    if not link:
+        await bot.send_message(chat_id=chat_id, text=f"{header}\n\n(کانفیگ وایرگارد یافت نشد)")
+        return
+    conf = wg_conf_from_link(link)
+    qr_url = (
+        "https://api.qrserver.com/v1/create-qr-code/"
+        f"?size=500x500&qzone=2&margin=10&data={quote(conf, safe='')}"
+    )
+    try:
+        await bot.send_document(
+            chat_id=chat_id,
+            document=BufferedInputFile(conf.encode("utf-8"), filename="wireguard.conf"),
+            caption=header,
+        )
+    except Exception as e:
+        logger.warning("WireGuard .conf send failed: %s", e)
+        await bot.send_message(chat_id=chat_id, text=f"{header}\n\n{conf}")
+    try:
+        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کانفیگ وایرگارد")
+    except Exception as e:
+        logger.warning("WireGuard QR send failed: %s", e)
+
+
+async def resolve_delivery(xui, email: str, sub_id: str, server, sub_base: str = ""):
+    """Return ``(link, kind)`` for a fresh account.
+
+    kind is ``"wg"`` when the server is a WireGuard server, otherwise ``"sub"``
+    or ``"direct"`` (subscription vs. plain config link) depending on the
+    server's subscription toggle.
+    """
+    if rec_get(server, "wireguard", False):
+        try:
+            links = await xui.get_client_links(email)
+            link = next((l for l in links if str(l).startswith("wireguard://")), "")
+            if not link and links:
+                link = links[0]
+        except Exception as e:
+            logger.warning("WireGuard link fetch failed for %s: %s", email, e)
+            link = ""
+        return link, "wg"
+
+    sub_enabled = bool(rec_get(server, "sub_enabled", True))
+    link, is_sub = await fetch_delivery_link(xui, email, sub_id, sub_enabled, sub_base)
+    return link, ("sub" if is_sub else "direct")
