@@ -81,7 +81,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         except Exception:
             pass
 
-        master = await db.get_master_server("v2ray")
+        master = await db.get_server_for_plan(order["plan_id"], "v2ray")
         if not master:
             raise Exception("سرور V2Ray فعالی یافت نشد")
 

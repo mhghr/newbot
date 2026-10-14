@@ -7,7 +7,7 @@ from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.keyboards.inline import (
     admin_plans_keyboard, plan_actions_keyboard, plan_edit_keyboard,
-    plans_list_keyboard, cancel_keyboard,
+    plans_list_keyboard, cancel_keyboard, plan_server_select_keyboard,
 )
 
 router = Router()
@@ -31,7 +31,24 @@ FIELD_LABELS = {
     "duration_days": "مدت (روز)",
     "max_users": "تعداد کاربر",
     "price": "قیمت (تومان)",
+    "server_id": "سرور",
 }
+
+
+async def _server_label(plan) -> str:
+    """Name of the server a plan is matched to, or «پیش‌فرض»."""
+    try:
+        sid = plan["server_id"]
+    except (KeyError, TypeError):
+        sid = None
+    if not sid:
+        return "پیش‌فرض"
+    server = await db.get_server(sid)
+    return server["name"] if server else "پیش‌فرض"
+
+
+async def _plan_actions(plan):
+    return plan_actions_keyboard(plan, server_label=await _server_label(plan))
 
 
 @router.callback_query(F.data == "admin:plans")
@@ -218,7 +235,7 @@ async def plan_detail(callback: CallbackQuery):
     await callback.message.edit_text(
         f"📦 {plan['name']}  ({status})\n"
         "روی هر مورد بزنید تا ویرایش شود:",
-        reply_markup=plan_actions_keyboard(plan)
+        reply_markup=await _plan_actions(plan)
     )
     await callback.answer()
 
@@ -255,6 +272,16 @@ async def edit_plan_field(callback: CallbackQuery, state: FSMContext):
     field = parts[3]
     label = FIELD_LABELS.get(field, field)
 
+    if field == "server_id":
+        servers = await db.get_all_servers()
+        await callback.message.edit_text(
+            "🖥 سرور این پلن را انتخاب کنید:\n"
+            "(اکانت‌های این پلن روی سرور انتخابی ساخته می‌شوند)",
+            reply_markup=plan_server_select_keyboard(plan_id, servers),
+        )
+        await callback.answer()
+        return
+
     await state.update_data(edit_plan_id=plan_id, edit_field=field)
     hint = ""
     if field in ("traffic_gb", "duration_days", "max_users"):
@@ -290,8 +317,25 @@ async def edit_plan_save(message: Message, state: FSMContext):
     plan = await db.get_plan(plan_id)
     await message.answer(
         "✅ پلن به‌روزرسانی شد!\nروی هر مورد بزنید تا ویرایش شود:",
-        reply_markup=plan_actions_keyboard(plan)
+        reply_markup=await _plan_actions(plan)
     )
+
+
+@router.callback_query(F.data.startswith("admin:set_plan_server:"))
+async def set_plan_server(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    plan_id = int(parts[2])
+    server_id = int(parts[3])
+    await db.update_plan_field(plan_id, "server_id", server_id or None)
+    plan = await db.get_plan(plan_id)
+    await callback.message.edit_text(
+        "✅ سرور پلن به‌روزرسانی شد.\n\n"
+        f"📦 {plan['name']}\nروی هر مورد بزنید تا ویرایش شود:",
+        reply_markup=await _plan_actions(plan),
+    )
+    await callback.answer("✅ ذخیره شد!")
 
 
 @router.callback_query(F.data.startswith("admin:toggle_plan:"))
@@ -306,7 +350,7 @@ async def toggle_plan(callback: CallbackQuery):
     status = "فعال 🟢" if plan["is_active"] else "غیرفعال 🔴"
     await callback.message.edit_text(
         f"📦 {plan['name']}  ({status})\nروی هر مورد بزنید تا ویرایش شود:",
-        reply_markup=plan_actions_keyboard(plan)
+        reply_markup=await _plan_actions(plan)
     )
 
 

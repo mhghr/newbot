@@ -191,12 +191,12 @@ async def update_server_field(server_id: int, field: str, value):
         await conn.execute(f"UPDATE servers SET {field}=$1 WHERE id=$2", value, server_id)
 
 
-async def add_plan(name: str, traffic_gb: int, duration_days: int, price: int, max_users: int = 0, service_type: str = "v2ray"):
+async def add_plan(name: str, traffic_gb: int, duration_days: int, price: int, max_users: int = 0, service_type: str = "v2ray", server_id: int = None):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO plans (name, traffic_gb, duration_days, price, max_users, service_type)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
-            name, traffic_gb, duration_days, price, max_users, service_type
+            """INSERT INTO plans (name, traffic_gb, duration_days, price, max_users, service_type, server_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            name, traffic_gb, duration_days, price, max_users, service_type, server_id
         )
 
 
@@ -226,7 +226,7 @@ async def toggle_plan(plan_id: int):
 
 
 async def update_plan_field(plan_id: int, field: str, value):
-    allowed = {"name", "traffic_gb", "duration_days", "max_users", "price", "service_type"}
+    allowed = {"name", "traffic_gb", "duration_days", "max_users", "price", "service_type", "server_id"}
     if field not in allowed:
         raise ValueError("invalid field")
     async with models.pool.acquire() as conn:
@@ -396,6 +396,20 @@ async def get_master_server(service_type: str = None):
         return await conn.fetchrow(
             "SELECT * FROM servers WHERE is_active=TRUE ORDER BY id LIMIT 1"
         )
+
+
+async def get_server_for_plan(plan_id: int, service_type: str = "v2ray"):
+    """Server a new account for this plan should be created on.
+
+    Returns the plan's explicitly matched server when set and active, otherwise
+    the master (first active) server.
+    """
+    plan = await get_plan(plan_id) if plan_id else None
+    if plan and plan.get("server_id"):
+        server = await get_server(plan["server_id"])
+        if server and server["is_active"]:
+            return server
+    return await get_master_server(service_type)
 
 
 async def ensure_user_sub_token(user_id: int) -> str:

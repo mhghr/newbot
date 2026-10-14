@@ -403,7 +403,7 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def plan_actions_keyboard(plan) -> InlineKeyboardMarkup:
+def plan_actions_keyboard(plan, server_label: str = None) -> InlineKeyboardMarkup:
     pid = plan["id"]
     toggle_text = "🔴 غیرفعال کردن" if plan["is_active"] else "🟢 فعال کردن"
     traffic = "نامحدود" if (plan["traffic_gb"] or 0) == 0 else f"{plan['traffic_gb']} GB"
@@ -411,6 +411,7 @@ def plan_actions_keyboard(plan) -> InlineKeyboardMarkup:
     users = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     rows = [
         [InlineKeyboardButton(text=f"📛 نام : {_trunc(plan['name'])}", callback_data=f"admin:edit_plan_field:{pid}:name")],
+        [InlineKeyboardButton(text=f"🖥 سرور : {server_label or 'پیش‌فرض'}", callback_data=f"admin:edit_plan_field:{pid}:server_id")],
         [InlineKeyboardButton(text=f"📊 حجم : {traffic}", callback_data=f"admin:edit_plan_field:{pid}:traffic_gb")],
         [InlineKeyboardButton(text=f"📅 مدت : {duration}", callback_data=f"admin:edit_plan_field:{pid}:duration_days")],
         [InlineKeyboardButton(text=f"👥 تعداد کاربر : {users}", callback_data=f"admin:edit_plan_field:{pid}:max_users")],
@@ -439,6 +440,21 @@ def plan_edit_keyboard(plan_id: int) -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:plan_detail:{plan_id}")],
     ])
+
+
+def plan_server_select_keyboard(plan_id: int, servers: list) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(
+        text="🌐 پیش‌فرض (اولین سرور فعال)",
+        callback_data=f"admin:set_plan_server:{plan_id}:0",
+    )]]
+    for s in servers:
+        status = "🟢" if s["is_active"] else "🔴"
+        rows.append([InlineKeyboardButton(
+            text=f"{status} {s['name']} - {s.get('location') or ''}".strip(),
+            callback_data=f"admin:set_plan_server:{plan_id}:{s['id']}",
+        )])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:plan_detail:{plan_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def admin_settings_keyboard() -> InlineKeyboardMarkup:

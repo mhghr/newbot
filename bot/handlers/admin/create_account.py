@@ -181,7 +181,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     plan_id = data.get("plan_id")
     await state.clear()
 
-    master = await db.get_master_server("v2ray")
+    master = await db.get_server_for_plan(plan_id, "v2ray")
     if not master:
         await message.answer("❌ سرور V2Ray فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
         return
