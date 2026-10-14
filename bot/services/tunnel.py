@@ -328,10 +328,12 @@ echo NAT_OK
     inbound_ok = bool(res.get("success")) if isinstance(res, dict) else False
 
     tag = ""
+    inbound_id = None
     for ib in await xui.get_inbounds():
         if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == port:
             tag = ib.get("tag") or ""
-    note.append(f"اینباند WG {'ok' if inbound_ok else 'fail'} (tag={tag or '-'})")
+            inbound_id = ib.get("id")
+    note.append(f"اینباند WG {'ok' if inbound_ok else 'fail'} (id={inbound_id} tag={tag or '-'})")
 
     # 4) Add marked outbound + routing rule
     if tag:
@@ -351,4 +353,5 @@ echo NAT_OK
         ok = await xui.update_xray_config(xset, obj.get("outboundTestUrl"))
         note.append(f"outbound/routing {'ok' if ok else 'fail'} (mark={mark})")
 
-    return {"mark": mark, "port": port, "tag": tag, "inbound_ok": inbound_ok, "note": "; ".join(note)}
+    return {"mark": mark, "port": port, "tag": tag, "inbound_id": inbound_id,
+            "inbound_ok": inbound_ok, "note": "; ".join(note)}

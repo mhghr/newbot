@@ -136,7 +136,10 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
                     node_url, panel_rec.get("api_token") or "", iran, foreign, tunnel
                 )
                 loc_note = f"\nراه‌اندازی لوکیشن:\n{loc['note']}"
-                await db.update_tunnel(tid, "up", loc["note"][:400], location=loc.get("tag") or "")
+                await db.update_tunnel(
+                    tid, "up", loc["note"][:400],
+                    inbound_id=loc.get("inbound_id"), location=loc.get("tag") or "",
+                )
             except Exception as e:
                 loc_note = f"\nراه‌اندازی لوکیشن ناموفق: {str(e)[:200]}"
                 await db.update_tunnel(tid, "up", f"tunnel up; location error: {e}"[:400])
