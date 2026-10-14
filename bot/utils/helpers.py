@@ -23,8 +23,8 @@ def admin_order_caption(order, service_type: str = None, kind: str = "new") -> s
     """Caption shown to admins for a new order or a renewal.
 
     Includes the customer's name, username and numeric id, the selected service
-    type (V2Ray / WireGuard) and the chosen plan. The caption intentionally
-    avoids mentioning inbounds or "all active servers".
+    type and the chosen plan. The caption intentionally avoids mentioning
+    inbounds or "all active servers".
     """
     from bot.keyboards.inline import service_label
 

@@ -198,7 +198,7 @@ async def delete_config_confirm(callback: CallbackQuery):
         return
 
     remote_ok = await config_ops.delete_config(config)
-    where = "روتر" if (config.get("service_type") or "v2ray") == "wireguard" else "پنل"
+    where = "پنل"
     if remote_ok:
         result_note = f"✅ کانفیگ #{config_id} از {where} و ربات حذف شد."
     else:

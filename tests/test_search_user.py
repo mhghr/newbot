@@ -63,11 +63,6 @@ class SearchUserDbTest(unittest.TestCase):
                 id_by_tg[9123456789], "sara.account@vpn.example.com",
                 id_by_tg[5000111222], "7538342633-renews@example.com",
             )
-            await c.execute(
-                "INSERT INTO configs (user_id, client_email, service_type, wg_client_ip) "
-                "VALUES ($1,$2,'wireguard',$3)",
-                id_by_tg[9123456789], "9123456789-order99", "10.66.66.7",
-            )
 
         await models.pool.close()
 
@@ -117,13 +112,6 @@ class SearchUserDbTest(unittest.TestCase):
     def test_client_email_case_insensitive(self):
         self.assertIn(9123456789, asyncio.run(self._search("ACCOUNT@VPN.EXAMPLE")))
         self.assertIn(5000111222, asyncio.run(self._search("Renews@Example")))
-
-    def test_wireguard_client_ip_matches_user(self):
-        self.assertIn(9123456789, asyncio.run(self._search("10.66.66.7")))
-        self.assertIn(9123456789, asyncio.run(self._search("10.66.66")))
-
-    def test_wireguard_client_email_matches_user(self):
-        self.assertIn(9123456789, asyncio.run(self._search("order99")))
 
     def test_unmatched_query_returns_nothing(self):
         self.assertEqual(asyncio.run(self._search("zzzznomatch")), [])

@@ -9,11 +9,9 @@ from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.keyboards.inline import (
     servers_list_keyboard, server_actions_keyboard, server_inbounds_keyboard,
-    server_delete_confirm_keyboard, cancel_keyboard, service_type_keyboard, service_label,
+    server_delete_confirm_keyboard, cancel_keyboard,
 )
 from bot.services.xui import XUIClient
-from bot.services import wireguard as wg
-from bot.services.dns_failover import get_active_router_ids
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -108,14 +106,10 @@ FIELD_LABELS = {
     "name": "نام", "url": "آدرس", "api_token": "توکن",
     "location": "لوکیشن", "sub_domain": "آدرس ساب", "sub_port": "پورت ساب",
     "username": "یوزر SSH/API", "password": "پسورد SSH/API", "api_port": "پورت SSH/API",
-    "wg_interface": "اینترفیس WireGuard", "wg_endpoint": "آدرس endpoint",
-    "wg_port": "پورت WireGuard", "wg_client_subnet": "شبکه کلاینت",
-    "wg_dns": "DNS", "wg_ip_range_start": "شروع بازه IP", "wg_ip_range_end": "پایان بازه IP",
 }
 
 
 class AddServerStates(StatesGroup):
-    waiting_service_type = State()
     # V2Ray (3x-ui)
     waiting_url = State()
     waiting_token = State()
@@ -124,14 +118,6 @@ class AddServerStates(StatesGroup):
     waiting_sub_domain = State()
     waiting_sub_port = State()
     waiting_inbounds = State()
-    # WireGuard (MikroTik)
-    waiting_wg_host = State()
-    waiting_wg_api_port = State()
-    waiting_wg_api_user = State()
-    waiting_wg_api_pass = State()
-    waiting_wg_interface = State()
-    waiting_wg_name = State()
-    waiting_wg_location = State()
 
 
 class InboundStates(StatesGroup):
@@ -147,7 +133,6 @@ def _server_header(server, role: str = "") -> str:
     status = "فعال 🟢" if server["is_active"] else "غیرفعال 🔴"
     lines = [
         f"🖥 {server['name']} — {server['location']}  ({status})",
-        f"🧩 نوع سرویس: {service_label(server.get('service_type'))}",
     ]
     if role:
         lines.append(f"📍 وضعیت: {role}")
@@ -174,12 +159,10 @@ async def servers_menu(callback: CallbackQuery, state: FSMContext):
         )
         await callback.answer()
         return
-    active_ids = await get_active_router_ids(servers)
     await callback.message.edit_text(
-        "🖥 مدیریت سرورها\n"
-        "✅ فعال = روتری که کاربران WireGuard الان روی آن هستند | 🟡 بک‌آپ = روتر پشتیبان\n\n"
+        "🖥 مدیریت سرورها\n\n"
         "روی هر سرور بزنید تا ویرایش/تنظیم کنید:",
-        reply_markup=servers_list_keyboard(servers, active_ids)
+        reply_markup=servers_list_keyboard(servers)
     )
     await callback.answer()
 
@@ -192,36 +175,24 @@ async def add_server_start(callback: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     await callback.message.edit_text(
-        "🖥 افزودن سرور جدید\n\nابتدا نوع سرور را انتخاب کنید:",
-        reply_markup=service_type_keyboard("new_server_type")
+        "🖥 افزودن سرور V2Ray\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
+        reply_markup=cancel_keyboard()
     )
-    await state.set_state(AddServerStates.waiting_service_type)
+    await state.set_state(AddServerStates.waiting_url)
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("new_server_type:"))
-async def add_server_service_type(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "new_server_type:v2ray")
+async def add_server_v2ray_compat(callback: CallbackQuery, state: FSMContext):
+    """Compatibility for keyboards sent before WireGuard was removed."""
     if callback.from_user.id not in ADMIN_IDS:
         return
-    service_type = callback.data.split(":")[1]
-    if service_type == "v2ray":
-        await state.update_data(service_type="v2ray")
-        await callback.message.edit_text(
-            "🖥 افزودن سرور V2Ray\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
-            reply_markup=cancel_keyboard()
-        )
-        await state.set_state(AddServerStates.waiting_url)
-    elif service_type == "wireguard":
-        await state.update_data(service_type="wireguard")
-        await callback.message.edit_text(
-            "🟢 افزودن روتر MikroTik (WireGuard)\n\n"
-            "آدرس IP یا دامنه روتر را وارد کنید:\n(مثال: 1.2.3.4 یا vpn.example.com)",
-            reply_markup=cancel_keyboard()
-        )
-        await state.set_state(AddServerStates.waiting_wg_host)
-    else:
-        await callback.answer("❌ نوع نامعتبر", show_alert=True)
-        return
+    await state.clear()
+    await callback.message.edit_text(
+        "🖥 افزودن سرور V2Ray\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(AddServerStates.waiting_url)
     await callback.answer()
 
 
@@ -318,129 +289,7 @@ async def add_server_inbounds(message: Message, state: FSMContext):
 
     servers = await db.get_all_servers()
     await message.answer(
-        f"✅ سرور «{data['name']}» اضافه شد!", reply_markup=servers_list_keyboard(servers, await get_active_router_ids(servers))
-    )
-
-
-# ---------------- Add WireGuard (MikroTik) server flow ----------------
-
-@router.message(AddServerStates.waiting_wg_host)
-async def add_wg_host(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    host = message.text.strip()
-    host = host.replace("http://", "").replace("https://", "").rstrip("/")
-    await state.update_data(url=host)
-    await message.answer(
-        "🔢 پورت SSH روتر را وارد کنید:\n(پیش‌فرض 22 — مثلاً روی برخی سرورها 32)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_api_port)
-
-
-@router.message(AddServerStates.waiting_wg_api_port)
-async def add_wg_api_port(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    text = message.text.strip()
-    if not text.isdigit():
-        await message.answer("⚠️ فقط عدد وارد کنید. مثال: 8728", reply_markup=cancel_keyboard())
-        return
-    await state.update_data(api_port=int(text))
-    await message.answer("👤 نام کاربری API روتر را وارد کنید:", reply_markup=cancel_keyboard())
-    await state.set_state(AddServerStates.waiting_wg_api_user)
-
-
-@router.message(AddServerStates.waiting_wg_api_user)
-async def add_wg_api_user(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(username=message.text.strip())
-    await message.answer("🔑 رمز عبور API روتر را وارد کنید:", reply_markup=cancel_keyboard())
-    await state.set_state(AddServerStates.waiting_wg_api_pass)
-
-
-@router.message(AddServerStates.waiting_wg_api_pass)
-async def add_wg_api_pass(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(password=message.text.strip())
-    await message.answer(
-        "📡 نام اینترفیس WireGuard روی روتر را وارد کنید:\n(مثال: wg1)",
-        reply_markup=cancel_keyboard()
-    )
-    await state.set_state(AddServerStates.waiting_wg_interface)
-
-
-@router.message(AddServerStates.waiting_wg_interface)
-async def add_wg_interface(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(wg_interface=message.text.strip())
-    await message.answer("📛 نام سرور را وارد کنید:", reply_markup=cancel_keyboard())
-    await state.set_state(AddServerStates.waiting_wg_name)
-
-
-@router.message(AddServerStates.waiting_wg_name)
-async def add_wg_name(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(name=message.text.strip())
-    await message.answer("📍 لوکیشن سرور را وارد کنید:", reply_markup=cancel_keyboard())
-    await state.set_state(AddServerStates.waiting_wg_location)
-
-
-@router.message(AddServerStates.waiting_wg_location)
-async def add_wg_location(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(location=message.text.strip())
-    data = await state.get_data()
-
-    status = await message.answer("⏳ در حال بررسی دسترسی به روتر و خواندن تنظیمات...")
-    server_probe = {
-        "url": data["url"],
-        "api_port": data["api_port"],
-        "username": data["username"],
-        "password": data["password"],
-        "wg_interface": data["wg_interface"],
-    }
-    try:
-        info = await wg.inspect_interface(server_probe)
-    except Exception as e:
-        await state.clear()
-        error_text = (
-            "❌ دسترسی تایید نشد!\n\n"
-            f"{str(e)}\n\n"
-            "آدرس، پورت SSH، یوزر/پسورد و نام اینترفیس را بررسی کنید."
-        )
-        try:
-            await status.edit_text(error_text)
-        except Exception:
-            await message.answer(error_text)
-        return
-
-    public_key = info.get("public_key") or ""
-    server_id = await db.add_server(
-        name=data["name"], url=data["url"], location=data["location"],
-        username=data["username"], password=data["password"],
-        service_type="wireguard", api_port=data["api_port"],
-        wg_interface=data["wg_interface"],
-        wg_server_public_key=public_key,
-        wg_endpoint=data["url"],
-        wg_port=info.get("listen_port", 51820),
-        wg_client_subnet=info.get("cidr") or info.get("subnet"),
-        wg_dns=info.get("dns") or "1.1.1.1,8.8.8.8",
-        wg_ip_range_start=info.get("range_start", 2),
-        wg_ip_range_end=info.get("range_end", 253),
-    )
-    await state.clear()
-
-    servers = await db.get_all_servers()
-    key_preview = f"{public_key[:18]}…" if public_key else "خوانده نشد ⚠️"
-    await status.edit_text(
-        "✅ دسترسی تایید شد و روتر اضافه شد!\n\n"
-        f"📛 {data['name']} — {data['location']}\n"
-        f"📡 اینترفیس: {data['wg_interface']}\n"
-        f"🌍 شبکه کلاینت: {info.get('cidr')}\n"
-        f"📊 بازه IP: {info.get('range_start')}-{info.get('range_end')}\n"
-        f"🔌 پورت WireGuard: {info.get('listen_port')}\n"
-        f"🧭 DNS: {info.get('dns')}\n"
-        f"🔑 Public Key سرور: {key_preview}",
-        reply_markup=servers_list_keyboard(servers, await get_active_router_ids(servers))
+        f"✅ سرور «{data['name']}» اضافه شد!", reply_markup=servers_list_keyboard(servers)
     )
 
 
@@ -453,13 +302,8 @@ async def server_detail(callback: CallbackQuery):
     server = await db.get_server(server_id)
     if not server:
         await callback.answer("❌ سرور یافت نشد!", show_alert=True); return
-    role = ""
-    if (server.get("service_type") or "v2ray") == "wireguard":
-        active_ids = await get_active_router_ids()
-        role = ("✅ روتر فعال (کاربران الان روی این روتر هستند)"
-                if server["id"] in active_ids else "🟡 روتر بک‌آپ")
     await callback.message.edit_text(
-        _server_header(server, role),
+        _server_header(server),
         reply_markup=server_actions_keyboard(server)
     )
     await callback.answer()
@@ -474,7 +318,7 @@ async def edit_server_field_start(callback: CallbackQuery, state: FSMContext):
     await state.update_data(server_id=server_id, server_field=field)
     label = FIELD_LABELS.get(field, field)
     hint = ""
-    if field in ("sub_port", "api_port", "wg_port", "wg_ip_range_start", "wg_ip_range_end"):
+    if field in ("sub_port", "api_port"):
         hint = "\n(عدد)"
     await callback.message.edit_text(
         f"✏️ {label}:\n\nمقدار جدید را وارد کنید:{hint}",
@@ -491,7 +335,7 @@ async def edit_server_field_save(message: Message, state: FSMContext):
     server_id = data["server_id"]
     field = data["server_field"]
     value = message.text.strip()
-    if field in ("sub_port", "api_port", "wg_port", "wg_ip_range_start", "wg_ip_range_end"):
+    if field in ("sub_port", "api_port"):
         if not value.isdigit():
             await message.answer("⚠️ فقط عدد وارد کنید.", reply_markup=cancel_keyboard()); return
     try:
@@ -645,5 +489,5 @@ async def delete_server(callback: CallbackQuery):
     await callback.answer("✅ حذف شد!")
     servers = await db.get_all_servers()
     await callback.message.edit_text(
-        "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers, await get_active_router_ids(servers))
+        "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers)
     )

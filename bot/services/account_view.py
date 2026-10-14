@@ -1,5 +1,5 @@
-"""Shared rendering and delivery of an account (V2Ray / WireGuard) for the
-user-facing "my configs" view and the admin user-search view.
+"""Shared rendering and delivery of a V2Ray account for the user-facing
+"my configs" view and the admin user-search view.
 
 Keeping this in one place guarantees both surfaces show the same, ordered
 information and deliver the config the same way.
@@ -9,12 +9,8 @@ from datetime import datetime
 from html import escape as _esc
 from urllib.parse import quote
 
-from aiogram.types import BufferedInputFile
-
 from bot.database import db
 from bot.services.xui import XUIClient
-from bot.services import wireguard as wg
-from bot.services import wg_usage
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
 
@@ -23,11 +19,10 @@ logger = logging.getLogger(__name__)
 ONE_GB = 1024 * 1024 * 1024
 RTM = "\u200f"  # RTL mark: keeps each line right-aligned
 SEP = f"{RTM}━━━━━━━━━━━━━━━━━"
-TYPE_LABELS = {"wireguard": "WireGuard", "v2ray": "V2Ray"}
 
 
 def type_label(config) -> str:
-    return TYPE_LABELS.get(config.get("service_type") or "v2ray", "V2Ray")
+    return "V2Ray"
 
 
 def remaining_days(expire_date):
@@ -52,17 +47,6 @@ def _fmt_dt(value) -> str:
 
 async def traffic_summary(config) -> dict:
     """Return ``{used, total, remaining}`` in bytes (``None`` = unknown, total 0 = unlimited)."""
-    service = config.get("service_type") or "v2ray"
-
-    if service == "wireguard":
-        total = (config.get("traffic_gb") or 0) * ONE_GB
-        try:
-            used = await wg_usage.live_used(config)
-        except Exception:
-            used = config.get("used_bytes") or 0
-        remaining = max(0, total - used) if total > 0 else None
-        return {"used": used, "total": total or None, "remaining": remaining}
-
     master = await db.get_master_server("v2ray")
     if master:
         try:
@@ -94,8 +78,7 @@ async def last_order_time(config):
 
 
 async def build_account_text(config) -> str:
-    service = config.get("service_type") or "v2ray"
-    label = _esc(type_label(config))
+    label = "V2Ray"
 
     lines = [
         f"{RTM}🔑 <b>اکانت {label}</b> <code>#{config['id']}</code>",
@@ -124,86 +107,11 @@ async def build_account_text(config) -> str:
     else:
         lines.append(f"{RTM}📉 <b>حجم باقی‌مانده:</b> {'نامحدود' if not total else 'در دسترس نیست'}")
 
-    if service == "wireguard":
-        lines += [
-            SEP,
-            f"{RTM}🌐 <b>آی‌پی کلاینت:</b> <code>{_esc(config.get('wg_client_ip') or '-')}</code>",
-        ]
     return "\n".join(lines)
 
 
-def _wg_config_text(config, server) -> str:
-    endpoint = (server["wg_endpoint"] if server else None) or config.get("wg_endpoint") or ""
-    port = (server["wg_port"] if server else None) or config.get("wg_port") or 51820
-    server_public_key = (
-        config.get("wg_server_public_key")
-        or (server["wg_server_public_key"] if server else "")
-        or ""
-    )
-    dns = (server["wg_dns"] if server else None) or "1.1.1.1,8.8.8.8"
-    return wg.build_config_text(
-        private_key=config["wg_private_key"],
-        client_ip=config["wg_client_ip"],
-        dns=dns,
-        server_public_key=server_public_key,
-        endpoint=endpoint,
-        port=port,
-    )
-
-
 async def send_account_config(bot, chat_id: int, config):
-    """Deliver the account config: WireGuard .conf + QR, or V2Ray link + QR."""
-    service = config.get("service_type") or "v2ray"
-
-    if service == "wireguard":
-        server = await db.get_server(config["server_id"]) if config.get("server_id") else None
-        try:
-            config_text = _wg_config_text(config, server)
-        except Exception as e:
-            logger.warning("WG config build failed for %s: %s", config.get("id"), e)
-            await bot.send_message(chat_id=chat_id, text="❌ ساخت فایل کانفیگ ناموفق بود.")
-            return
-
-        filename = f"wireguard-{config.get('wg_client_ip') or config['id']}.conf"
-        caption = (
-            "📄 فایل کانفیگ WireGuard\n"
-            f"🌐 آی‌پی: {config.get('wg_client_ip') or '-'}\n"
-            "🔌 نوع اتصال: WireGuard"
-        )
-        sent = False
-        try:
-            await bot.send_document(
-                chat_id=chat_id,
-                document=BufferedInputFile(config_text.encode("utf-8"), filename=filename),
-                caption=caption,
-            )
-            sent = True
-        except Exception as e:
-            logger.warning("WG document send failed: %s", e)
-
-        qr_png = None
-        try:
-            qr_png = wg.make_qr_png(config_text)
-        except Exception as e:
-            logger.warning("WG QR generation failed: %s", e)
-        if qr_png:
-            try:
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=BufferedInputFile(qr_png, filename=f"{config.get('wg_client_ip') or 'wg'}.png"),
-                    caption="📷 QR کانفیگ WireGuard — با اپ WireGuard اسکن کنید.",
-                )
-            except Exception as e:
-                logger.warning("WG QR send failed: %s", e)
-
-        if not sent and not qr_png:
-            await bot.send_message(
-                chat_id=chat_id,
-                text=f"📄 کانفیگ WireGuard:\n\n<code>{_esc(config_text)}</code>",
-                parse_mode="HTML",
-            )
-        return
-
+    """Deliver the V2Ray subscription link + QR."""
     sub_link = config.get("sub_url") or config.get("config_link")
     if not sub_link:
         await bot.send_message(chat_id=chat_id, text="❌ لینک اشتراک یافت نشد.")

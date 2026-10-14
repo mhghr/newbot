@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, BufferedInputFile
+from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramNetworkError
 from urllib.parse import quote
 from datetime import datetime, timedelta
@@ -9,8 +9,6 @@ import logging
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
-from bot.services import wireguard as wg
-from bot.utils.jalali import to_jalali
 from bot.utils.helpers import admin_order_caption
 from bot.keyboards.inline import order_approval_keyboard
 
@@ -46,182 +44,6 @@ async def _send_config_to_user(bot: Bot, chat_id: int, qr_url: str, caption: str
         ))
 
 
-def _wg_document(config_text: str, filename: str) -> BufferedInputFile:
-    return BufferedInputFile(config_text.encode("utf-8"), filename=filename)
-
-
-async def _send_wg_config(bot: Bot, chat_id: int, config_text: str, caption: str, client_ip: str):
-    """Send the WireGuard .conf file (and QR if available) to the user."""
-    filename = f"wireguard-{client_ip or 'config'}.conf"
-
-    qr_png = None
-    try:
-        qr_png = wg.make_qr_png(config_text)
-    except Exception as e:
-        logger.warning(f"WG QR generation failed: {e}")
-
-    sent = False
-    try:
-        await _retry(lambda: bot.send_document(
-            chat_id=chat_id, document=_wg_document(config_text, filename),
-            caption=caption,
-        ))
-        sent = True
-    except Exception as e:
-        logger.warning(f"WG document send failed, falling back to text: {e}")
-
-    if qr_png:
-        try:
-            await _retry(lambda: bot.send_photo(
-                chat_id=chat_id,
-                photo=BufferedInputFile(qr_png, filename=f"{client_ip or 'config'}.png"),
-                caption="📷 QR کانفیگ WireGuard — با اپ WireGuard اسکن کنید.",
-            ))
-        except Exception as e:
-            logger.warning(f"WG QR send failed: {e}")
-
-    if not sent:
-        await _retry(lambda: bot.send_message(
-            chat_id=chat_id,
-            text=caption + f"\n\n{config_text}",
-        ))
-
-
-async def _resolve_wg_server(order):
-    server_id = order["server_id"]
-    if server_id:
-        server = await db.get_server(server_id)
-        if server and (server["service_type"] or "v2ray") == "wireguard":
-            return server
-    return await db.get_active_server_by_type("wireguard")
-
-
-async def _approve_wireguard_order(callback: CallbackQuery, bot: Bot, order, base_caption: str):
-    """Create or renew a WireGuard peer and deliver the config to the user."""
-    order_id = order["id"]
-    renew_config_id = order["renew_config_id"]
-    tg_id = order["telegram_id"]
-    traffic_gb = order["traffic_gb"] or 0
-    duration_days = order["duration_days"] or 0
-
-    if renew_config_id:
-        config = await db.get_config(renew_config_id)
-        if not config:
-            raise Exception("کانفیگ برای تمدید یافت نشد")
-
-        server = None
-        if config["server_id"]:
-            server = await db.get_server(config["server_id"])
-        if not server:
-            server = await db.get_active_server_by_type("wireguard")
-        if not server:
-            raise Exception("سرور WireGuard فعالی یافت نشد")
-
-        now = datetime.now()
-        if duration_days > 0:
-            # Renewal resets the period: count the plan duration from now,
-            # ignoring any remaining days on the old expiry.
-            new_expire = now + timedelta(days=duration_days)
-        else:
-            new_expire = None
-
-        endpoint = server["wg_endpoint"] or server["url"]
-        port = server["wg_port"] or 51820
-        server_public_key = config["wg_server_public_key"] or server["wg_server_public_key"] or ""
-        config_text = wg.build_config_text(
-            private_key=config["wg_private_key"],
-            client_ip=config["wg_client_ip"],
-            dns=server["wg_dns"] or "1.1.1.1,8.8.8.8",
-            server_public_key=server_public_key,
-            endpoint=endpoint,
-            port=port,
-        )
-
-        try:
-            cluster = await db.get_wg_cluster(server) or [server]
-            await wg.set_peer_enabled_multi(
-                cluster, True, public_key=config["wg_public_key"],
-                client_ip=config["wg_client_ip"],
-            )
-            await wg.reset_peer_multi(
-                cluster, public_key=config["wg_public_key"],
-                client_ip=config["wg_client_ip"],
-            )
-        except Exception as e:
-            logger.warning(f"WG renew peer update failed for config {renew_config_id}: {e}")
-
-        await db.renew_wg_config(
-            renew_config_id, order_id, order["plan_id"], traffic_gb, new_expire
-        )
-
-        caption = wg.build_delivery_caption(
-            "تمدید",
-            plan_name=order["plan_name"] or "",
-            duration_days=duration_days,
-            traffic_gb=traffic_gb,
-            expiry_text=to_jalali(new_expire) if new_expire else "",
-        )
-        await _send_wg_config(bot, tg_id, config_text, caption, config["wg_client_ip"])
-        await db.update_order_status(order_id, "approved", config["wg_client_ip"])
-
-        try:
-            await callback.message.edit_caption(
-                caption=base_caption + "\n\n✅ تمدید WireGuard انجام و برای کاربر ارسال شد.",
-                reply_markup=None,
-            )
-        except Exception:
-            pass
-        return
-
-    server = await _resolve_wg_server(order)
-    if not server:
-        raise Exception("سرور WireGuard فعالی یافت نشد")
-
-    cluster = await db.get_wg_cluster(server) or [server]
-    result = await wg.create_account_multi(cluster, tg_id)
-    endpoint = server["wg_endpoint"] or server["url"]
-    port = server["wg_port"] or 51820
-    dns = server["wg_dns"] or "1.1.1.1,8.8.8.8"
-
-    config_text = wg.build_config_text(
-        private_key=result["private_key"],
-        client_ip=result["client_ip"],
-        dns=dns,
-        server_public_key=result["server_public_key"],
-        endpoint=endpoint,
-        port=port,
-    )
-
-    expire_date = datetime.now() + timedelta(days=duration_days) if duration_days > 0 else None
-    email = f"{tg_id}-order{order_id}"
-    await db.create_wg_config(
-        user_id=order["user_id"], order_id=order_id, plan_id=order["plan_id"],
-        client_email=email, config_text=config_text, traffic_gb=traffic_gb,
-        expire_date=expire_date, server_id=server["id"],
-        client_ip=result["client_ip"], public_key=result["public_key"],
-        private_key=result["private_key"], server_public_key=result["server_public_key"],
-        endpoint=endpoint, port=port, peer_id=result["peer_id"],
-    )
-
-    caption = wg.build_delivery_caption(
-        "آماده",
-        plan_name=order["plan_name"] or "",
-        duration_days=duration_days,
-        traffic_gb=traffic_gb,
-        expiry_text=to_jalali(expire_date) if expire_date else "",
-    )
-    await _send_wg_config(bot, tg_id, config_text, caption, result["client_ip"])
-    await db.update_order_status(order_id, "approved", result["client_ip"])
-
-    try:
-        await callback.message.edit_caption(
-            caption=base_caption + f"\n\n✅ اکانت WireGuard ساخته و ارسال شد\n🌐 {result['client_ip']}",
-            reply_markup=None,
-        )
-    except Exception:
-        pass
-
-
 @router.callback_query(F.data.startswith("approve_order:"))
 async def approve_order(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
@@ -239,40 +61,25 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         await callback.answer(f"⚠️ این سفارش قبلا {order['status']} شده!", show_alert=True)
         return
 
-    service_type = order["service_type"] or order["plan_service_type"] or "v2ray"
-
-    # On renewal the existing config's protocol wins; if the user switched to a
-    # plan of the other protocol, fall back to creating a brand new account.
+    # A legacy renewal pointing at a non-V2Ray config is treated as a brand new
+    # account (the old protocol is no longer offered).
     if order["renew_config_id"]:
         existing = await db.get_config(order["renew_config_id"])
-        if existing:
-            existing_type = existing.get("service_type") or "v2ray"
-            if existing_type != service_type:
-                order = dict(order)
-                order["renew_config_id"] = None
-            else:
-                service_type = existing_type
+        if existing and (existing.get("service_type") or "v2ray") != "v2ray":
+            order = dict(order)
+            order["renew_config_id"] = None
 
     await db.update_order_status(order_id, "processing")
-    base_caption = admin_order_caption(order, service_type=service_type)
+    base_caption = admin_order_caption(order, service_type="v2ray")
 
     try:
         try:
             await callback.message.edit_caption(
-                caption=base_caption + (
-                    "\n\n⏳ در حال ساخت اکانت WireGuard روی روتر..."
-                    if service_type == "wireguard"
-                    else "\n\n⏳ در حال ساخت کانفیگ..."
-                ),
+                caption=base_caption + "\n\n⏳ در حال ساخت کانفیگ...",
                 reply_markup=order_approval_keyboard(order_id)
             )
         except Exception:
             pass
-
-        if service_type == "wireguard":
-            await _approve_wireguard_order(callback, bot, order, base_caption)
-            await callback.answer("✅ اکانت WireGuard ساخته و ارسال شد!")
-            return
 
         master = await db.get_master_server("v2ray")
         if not master:

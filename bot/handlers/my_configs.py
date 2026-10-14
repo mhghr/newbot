@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, BufferedInputFile
+from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
 from urllib.parse import quote
@@ -12,8 +12,6 @@ from bot.keyboards.inline import (
 )
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient
-from bot.services import wireguard as wg
-from bot.services import wg_usage
 from bot.services import account_view
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
@@ -44,48 +42,6 @@ async def _get_owned_config(telegram_id: int, config_id: int):
         if c["id"] == config_id:
             return c
     return None
-
-
-async def _config_traffic(config):
-    """Return {used, total, remaining} for either service type.
-
-    For WireGuard the value stored in the DB is only refreshed by the background
-    reminder loop, so we merge in the live router counters (delta since the last
-    stored baseline) to show an up-to-date number without double counting.
-    """
-    service = config.get("service_type") or "v2ray"
-    if service == "wireguard":
-        total = (config.get("traffic_gb") or 0) * ONE_GB
-        try:
-            used = await wg_usage.live_used(config)
-        except Exception:
-            used = config.get("used_bytes") or 0
-        remaining = max(0, total - used) if total > 0 else 0
-        return {"used": used, "total": total, "remaining": remaining}
-
-    master = await db.get_master_server("v2ray")
-    if not master:
-        return None
-    try:
-        xui = XUIClient(master["url"], api_token=master["api_token"])
-        return await xui.get_client_traffic(config["client_email"])
-    except Exception:
-        return None
-
-
-def _wg_config_text(config, server) -> str:
-    endpoint = (server["wg_endpoint"] if server else None) or config.get("wg_endpoint") or ""
-    port = (server["wg_port"] if server else None) or config.get("wg_port") or 51820
-    server_public_key = config.get("wg_server_public_key") or (server["wg_server_public_key"] if server else "") or ""
-    dns = (server["wg_dns"] if server else None) or "1.1.1.1,8.8.8.8"
-    return wg.build_config_text(
-        private_key=config["wg_private_key"],
-        client_ip=config["wg_client_ip"],
-        dns=dns,
-        server_public_key=server_public_key,
-        endpoint=endpoint,
-        port=port,
-    )
 
 
 @router.callback_query(F.data == "main:my_configs")
@@ -149,8 +105,8 @@ async def cfg_noop(callback: CallbackQuery):
 async def show_qr(callback: CallbackQuery, bot: Bot):
     config_id = int(callback.data.split(":")[1])
     config = await _get_owned_config(callback.from_user.id, config_id)
-    if not config or (config.get("service_type") or "v2ray") != "v2ray":
-        await callback.answer("❌ اکانت V2Ray یافت نشد!", show_alert=True)
+    if not config:
+        await callback.answer("❌ اکانت یافت نشد!", show_alert=True)
         return
     sub_url = config.get("sub_url") or config.get("config_link")
     if not sub_url:
@@ -169,37 +125,6 @@ async def show_qr(callback: CallbackQuery, bot: Bot):
     except Exception:
         await callback.answer("❌ ارسال تصویر ناموفق بود.", show_alert=True)
         return
-    await callback.answer("✅ ارسال شد!")
-
-
-@router.callback_query(F.data.startswith("wg_resend:"))
-async def wg_resend(callback: CallbackQuery, bot: Bot):
-    config_id = int(callback.data.split(":")[1])
-    config = await _get_owned_config(callback.from_user.id, config_id)
-    if not config or (config.get("service_type") or "v2ray") != "wireguard":
-        await callback.answer("❌ کانفیگ WireGuard یافت نشد!", show_alert=True)
-        return
-
-    server = await db.get_server(config["server_id"]) if config["server_id"] else None
-    config_text = _wg_config_text(config, server)
-    filename = f"wireguard-{config.get('wg_client_ip') or config_id}.conf"
-
-    try:
-        await bot.send_document(
-            chat_id=callback.from_user.id,
-            document=BufferedInputFile(config_text.encode("utf-8"), filename=filename),
-            caption=(
-                "📄 فایل کانفیگ WireGuard شما\n"
-                f"🌐 IP: `{config.get('wg_client_ip') or '-'}`"
-            ),
-            parse_mode="Markdown",
-        )
-    except Exception:
-        await bot.send_message(
-            chat_id=callback.from_user.id,
-            text=f"📄 کانفیگ WireGuard:\n\n```\n{config_text}\n```",
-            parse_mode="Markdown",
-        )
     await callback.answer("✅ ارسال شد!")
 
 

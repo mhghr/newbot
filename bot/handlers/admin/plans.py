@@ -7,14 +7,13 @@ from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.keyboards.inline import (
     admin_plans_keyboard, plan_actions_keyboard, plan_edit_keyboard,
-    plans_list_keyboard, cancel_keyboard, service_type_keyboard, service_label,
+    plans_list_keyboard, cancel_keyboard,
 )
 
 router = Router()
 
 
 class AddPlanStates(StatesGroup):
-    waiting_service_type = State()
     waiting_name = State()
     waiting_traffic = State()
     waiting_duration = State()
@@ -32,7 +31,6 @@ FIELD_LABELS = {
     "duration_days": "مدت (روز)",
     "max_users": "تعداد کاربر",
     "price": "قیمت (تومان)",
-    "service_type": "نوع سرویس",
 }
 
 
@@ -64,25 +62,23 @@ async def add_plan_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
         return
     await state.clear()
+    await state.update_data(service_type="v2ray")
     await callback.message.edit_text(
-        "📦 افزودن پلن جدید\n\nابتدا نوع سرویس این پلن را انتخاب کنید:",
-        reply_markup=service_type_keyboard("new_plan_type")
+        "📦 افزودن پلن جدید\n\nنام پلن را وارد کنید:",
+        reply_markup=cancel_keyboard()
     )
-    await state.set_state(AddPlanStates.waiting_service_type)
+    await state.set_state(AddPlanStates.waiting_name)
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("new_plan_type:"))
-async def add_plan_service_type(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "new_plan_type:v2ray")
+async def add_plan_v2ray_compat(callback: CallbackQuery, state: FSMContext):
+    """Compatibility for keyboards sent before WireGuard was removed."""
     if callback.from_user.id not in ADMIN_IDS:
         return
-    service_type = callback.data.split(":")[1]
-    if service_type not in ("v2ray", "wireguard"):
-        await callback.answer("❌ نوع نامعتبر", show_alert=True)
-        return
-    await state.update_data(service_type=service_type)
+    await state.update_data(service_type="v2ray")
     await callback.message.edit_text(
-        f"📦 افزودن پلن جدید ({service_label(service_type)})\n\nنام پلن را وارد کنید:",
+        "📦 افزودن پلن جدید\n\nنام پلن را وارد کنید:",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(AddPlanStates.waiting_name)
@@ -137,10 +133,6 @@ async def add_plan_price(message: Message, state: FSMContext):
         return
 
     await state.update_data(price=price)
-    data = await state.get_data()
-    if data.get("service_type") == "wireguard":
-        await _finalize_plan(message, state, data, max_users=0)
-        return
     await message.answer(
         "👥 تعداد کاربر مجاز را وارد کنید:\n"
         "(عدد؛ برای مثال 1 = تک‌کاربره، و 0 = نامحدود)",
@@ -156,11 +148,11 @@ async def _finalize_plan(message: Message, state: FSMContext, data: dict, max_us
         duration_days=data["duration_days"],
         price=data["price"],
         max_users=max_users,
-        service_type=data.get("service_type", "v2ray"),
+        service_type="v2ray",
     )
     plans = await db.get_all_plans()
     await message.answer(
-        f"✅ پلن «{data['name']}» ({service_label(data.get('service_type'))}) اضافه شد!",
+        f"✅ پلن «{data['name']}» اضافه شد!",
         reply_markup=plans_list_keyboard(plans)
     )
     await state.clear()
@@ -199,9 +191,8 @@ async def list_plans(callback: CallbackQuery):
     buttons = []
     for p in plans:
         status = "🟢" if p["is_active"] else "🔴"
-        stype = "WireGuard" if p.get("service_type") == "wireguard" else "V2Ray"
         buttons.append([InlineKeyboardButton(
-            text=f"{status} [{stype}] {p['name']} | {p['traffic_gb']}GB | {p['duration_days']}d | {p['price']:,}T",
+            text=f"{status} {p['name']} | {p['traffic_gb']}GB | {p['duration_days']}d | {p['price']:,}T",
             callback_data=f"admin:plan_detail:{p['id']}"
         )])
     buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:plans")])
@@ -226,7 +217,6 @@ async def plan_detail(callback: CallbackQuery):
     status = "فعال 🟢" if plan["is_active"] else "غیرفعال 🔴"
     await callback.message.edit_text(
         f"📦 {plan['name']}  ({status})\n"
-        f"🧩 نوع سرویس: {service_label(plan.get('service_type'))}\n"
         "روی هر مورد بزنید تا ویرایش شود:",
         reply_markup=plan_actions_keyboard(plan)
     )
@@ -246,7 +236,6 @@ async def edit_plan_menu(callback: CallbackQuery):
     users_txt = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']}"
     await callback.message.edit_text(
         f"✏️ ویرایش پلن «{plan['name']}»\n\n"
-        f"🧩 نوع سرویس: {service_label(plan.get('service_type'))}\n"
         f"📊 حجم: {plan['traffic_gb']} GB\n"
         f"📅 مدت: {plan['duration_days']} روز\n"
         f"👥 تعداد کاربر: {users_txt}\n"
@@ -266,15 +255,6 @@ async def edit_plan_field(callback: CallbackQuery, state: FSMContext):
     field = parts[3]
     label = FIELD_LABELS.get(field, field)
 
-    if field == "service_type":
-        await state.update_data(edit_plan_id=plan_id)
-        await callback.message.edit_text(
-            "🧩 نوع سرویس جدید را انتخاب کنید:",
-            reply_markup=service_type_keyboard(f"edit_plan_type:{plan_id}")
-        )
-        await callback.answer()
-        return
-
     await state.update_data(edit_plan_id=plan_id, edit_field=field)
     hint = ""
     if field in ("traffic_gb", "duration_days", "max_users"):
@@ -287,27 +267,6 @@ async def edit_plan_field(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(EditPlanStates.waiting_value)
     await callback.answer()
-
-
-@router.callback_query(F.data.startswith("edit_plan_type:"))
-async def edit_plan_type_save(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    parts = callback.data.split(":")
-    plan_id = int(parts[1])
-    service_type = parts[2]
-    if service_type not in ("v2ray", "wireguard"):
-        await callback.answer("❌ نوع نامعتبر", show_alert=True)
-        return
-    await db.update_plan_field(plan_id, "service_type", service_type)
-    await state.clear()
-    plan = await db.get_plan(plan_id)
-    await callback.message.edit_text(
-        f"✅ نوع سرویس به {service_label(service_type)} تغییر کرد.\n\n"
-        f"📦 {plan['name']}\nروی هر مورد بزنید تا ویرایش شود:",
-        reply_markup=plan_actions_keyboard(plan)
-    )
-    await callback.answer("✅ ذخیره شد!")
 
 
 @router.message(EditPlanStates.waiting_value)

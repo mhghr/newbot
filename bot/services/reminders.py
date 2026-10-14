@@ -6,10 +6,7 @@ from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.database import db
-from bot.config import ADMIN_IDS
 from bot.services.xui import XUIClient
-from bot.services import wireguard as wg
-from bot.services import wg_usage
 from bot.services import config_ops
 
 logger = logging.getLogger(__name__)
@@ -18,84 +15,9 @@ ONE_GB = 1024 * 1024 * 1024
 CHECK_INTERVAL = 1800  # 30 minutes
 
 # An account whose subscription expired more than this many days ago and was
-# never renewed is removed from the panel/router (and soft-deleted in the DB).
+# never renewed is removed from the panel (and soft-deleted in the DB).
 AUTO_DELETE_AFTER_DAYS = 3
 CLEANUP_INTERVAL = 24 * 3600  # run the account cleanup once a day
-
-# Seconds to wait after a failed router connection before retrying. A single
-# timeout is retried once after 1 minute and again after 2 minutes; only if all
-# three attempts fail is the admin alerted (avoids false alarms).
-WG_RETRY_DELAYS = (60, 120)
-
-# server_id -> True once the admin has been alerted for the current outage,
-# so the same outage is not reported on every check.
-_wg_server_alerted: dict = {}
-
-
-async def _notify_admins(bot: Bot, text: str):
-    for admin_id in ADMIN_IDS:
-        try:
-            await bot.send_message(chat_id=admin_id, text=text)
-        except Exception as e:
-            logger.warning(f"Failed to notify admin {admin_id}: {type(e).__name__}: {e}")
-
-
-def _wg_failure_message(server, error: Exception) -> str:
-    """Admin alert for a router the bot could not reach."""
-    return (
-        "⚠️ ارتباط ربات با روتر میکروتیک برقرار نیست.\n\n"
-        f"🌐 آی‌پی: {server.get('url')}\n"
-        f"🖥 سرور: {server.get('name') or server['id']}\n\n"
-        "به همین دلیل ترافیک کاربران این روتر بررسی نمی‌شود.\n"
-        f"خطا: {type(error).__name__}: {error}"
-    )
-
-
-def _mark_alerted(server) -> bool:
-    """Return True only the first time we alert for the current outage."""
-    sid = server["id"]
-    if _wg_server_alerted.get(sid):
-        return False
-    _wg_server_alerted[sid] = True
-    return True
-
-
-def _clear_alert(server):
-    _wg_server_alerted[server["id"]] = False
-
-
-async def _fetch_usage_checked(server):
-    """Fetch WireGuard usage, retrying a timeout before giving up.
-
-    Returns ``(usage_map, error)``. On failure it retries after 60s and then
-    after 120s; the error is returned only when every attempt failed.
-    """
-    last_error = None
-    for attempt in range(len(WG_RETRY_DELAYS) + 1):
-        try:
-            return await wg.fetch_usage(server), None
-        except Exception as e:
-            last_error = e
-            logger.warning(
-                f"WG usage fetch failed for server {server['id']} "
-                f"(attempt {attempt + 1}/{len(WG_RETRY_DELAYS) + 1}): {e}"
-            )
-            if attempt < len(WG_RETRY_DELAYS):
-                await asyncio.sleep(WG_RETRY_DELAYS[attempt])
-    return None, last_error
-
-
-async def _load_usage_cache(bot: Bot, servers):
-    """Fetch usage from every active entry router once per poll."""
-    cache = {}
-    for server in servers:
-        usage, error = await _fetch_usage_checked(server)
-        cache[server["id"]] = usage
-        if error is None:
-            _clear_alert(server)
-        elif _mark_alerted(server):
-            await _notify_admins(bot, _wg_failure_message(server, error))
-    return cache
 
 
 def _renew_keyboard(config_id: int) -> InlineKeyboardMarkup:
@@ -142,59 +64,11 @@ async def _check_v2ray_config(bot: Bot, config, now: datetime, xui):
             await _send_traffic_reminder(bot, config)
 
 
-async def _get_wg_server(cache: dict, config):
-    server_id = config["server_id"]
-    if not server_id:
-        return None
-    if server_id not in cache:
-        cache[server_id] = await db.get_server(server_id)
-    return cache[server_id]
-
-
-async def _check_wg_config(bot: Bot, config, now: datetime, server_cache: dict,
-                           usage_cache: dict, groups: dict):
-    server = await _get_wg_server(server_cache, config)
-    if not server or (server["service_type"] or "v2ray") != "wireguard":
-        return
-
-    cluster = wg_usage.cluster_for(server, groups)
-    used = await wg_usage.accumulate(config, cluster, usage_cache)
-    try:
-        await db.set_config_used_bytes(config["id"], used)
-    except Exception as e:
-        logger.warning(f"WG usage save failed for config {config['id']}: {e}")
-
-    limit_bytes = (config["traffic_gb"] or 0) * ONE_GB
-    expired = bool(config["expire_date"]) and config["expire_date"] <= now
-    exhausted = limit_bytes > 0 and used >= limit_bytes
-
-    if expired or exhausted:
-        try:
-            await wg.set_peer_enabled_multi(
-                cluster, False,
-                public_key=config["wg_public_key"],
-                client_ip=config["wg_client_ip"],
-            )
-            logger.info(f"Disabled WG peer on cluster for config {config['id']} (expired={expired}, exhausted={exhausted})")
-        except Exception as e:
-            logger.warning(f"Failed to disable WG peer for config {config['id']}: {e}")
-
-    if not config["reminder_time_sent"] and config["expire_date"]:
-        seconds_left = (config["expire_date"] - now).total_seconds()
-        if 0 < seconds_left <= 24 * 3600:
-            await _send_time_reminder(bot, config)
-
-    if not config["reminder_traffic_sent"] and limit_bytes > 0:
-        remaining = max(0, limit_bytes - used)
-        if 0 <= remaining <= ONE_GB:
-            await _send_traffic_reminder(bot, config)
-
-
 async def _cleanup_expired(bot: Bot, configs, now: datetime):
     """Remove accounts expired more than AUTO_DELETE_AFTER_DAYS ago without renewal.
 
-    Deletes the client/peer from the 3x-ui panel or WireGuard router(s) and
-    soft-deletes the config row. The Telegram user is never touched.
+    Deletes the client from the 3x-ui panel and soft-deletes the config row.
+    The Telegram user is never touched.
     """
     cutoff = now - timedelta(days=AUTO_DELETE_AFTER_DAYS)
     for c in configs:
@@ -222,17 +96,9 @@ async def _check_once(bot: Bot):
     xui = XUIClient(master["url"], api_token=master["api_token"]) if master else None
     now = datetime.now()
 
-    server_cache = {}
-    wg_servers = await db.get_active_wg_servers()
-    usage_cache = await _load_usage_cache(bot, wg_servers)
-    groups = wg_usage.group_servers(wg_servers)
-
     for c in configs:
         try:
-            if (c.get("service_type") or "v2ray") == "wireguard":
-                await _check_wg_config(bot, c, now, server_cache, usage_cache, groups)
-            else:
-                await _check_v2ray_config(bot, c, now, xui)
+            await _check_v2ray_config(bot, c, now, xui)
         except Exception as e:
             logger.warning(f"reminder check failed for config {c['id']}: {type(e).__name__}: {e}")
 

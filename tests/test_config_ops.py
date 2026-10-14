@@ -22,22 +22,6 @@ SERVER = {
 
 
 class DeleteConfigTest(unittest.IsolatedAsyncioTestCase):
-    async def test_wireguard_deletes_peer_and_row(self):
-        config = {
-            "id": 5, "service_type": "wireguard", "server_id": 1,
-            "wg_public_key": "pub", "wg_peer_id": None, "wg_client_ip": "10.0.0.2",
-        }
-        with mock.patch.object(config_ops.db, "get_server", new=mock.AsyncMock(return_value=SERVER)), \
-             mock.patch.object(config_ops.wg, "delete_peer", new=mock.AsyncMock(return_value=True)) as dp, \
-             mock.patch.object(config_ops.db, "delete_config", new=mock.AsyncMock()) as dc:
-            ok = await config_ops.delete_config(config)
-
-        self.assertTrue(ok)
-        kwargs = dp.await_args.kwargs
-        self.assertEqual(kwargs.get("public_key"), "pub")
-        self.assertEqual(kwargs.get("client_ip"), "10.0.0.2")
-        dc.assert_awaited_once_with(5)
-
     async def test_v2ray_deletes_client_and_row(self):
         config = {"id": 7, "service_type": "v2ray", "server_id": 1, "client_email": "1-order2"}
         with mock.patch.object(config_ops.db, "get_server", new=mock.AsyncMock(return_value=SERVER)), \

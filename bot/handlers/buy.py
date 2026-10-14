@@ -10,7 +10,6 @@ from bot.database import db
 from bot.keyboards.inline import (
     plans_keyboard, cancel_keyboard,
     order_approval_keyboard, main_menu_keyboard,
-    service_type_keyboard, service_label,
 )
 from bot.config import ADMIN_IDS
 from bot.middlewares.membership import check_membership
@@ -98,42 +97,33 @@ async def buy_config(callback: CallbackQuery, bot: Bot):
         await show_sales_disabled(callback)
         return
 
+    plans = await db.get_active_plans("v2ray")
+    if not plans:
+        await callback.answer("❌ پلن فعالی تعریف نشده است.", show_alert=True)
+        return
+
     await _retry(lambda: callback.message.edit_text(
         "🛒 خرید\n\n"
-        "نوع سرویس را انتخاب کنید:\n\n"
-        "🔵 V2Ray\n"
-        "• چندکاربره است؛ یک اشتراک را می‌توانید روی چند دستگاه یا چند نفر استفاده کنید.\n"
-        "• چند لوکیشن/سرور دارد و برای شرایط مختلف شبکه مناسب‌تر است.\n\n"
-        "🟢 WireGuard\n"
-        "• فقط تک‌کاربره است (یک دستگاه).\n"
-        "• سبک، سریع و پایدار؛ مناسب استفاده روزمره روی یک دستگاه.\n\n"
-        "👇 یکی از گزینه‌های زیر را انتخاب کنید:",
-        reply_markup=service_type_keyboard("buy_type")
+        "پلن مورد نظر خود را انتخاب کنید:",
+        reply_markup=plans_keyboard(plans)
     ))
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("buy_type:"))
 async def buy_type(callback: CallbackQuery, state: FSMContext):
+    # Kept for keyboards sent before the service-type step was removed.
     if not await db.is_sales_enabled():
         await show_sales_disabled(callback)
         return
 
-    service_type = callback.data.split(":")[1]
-    if service_type not in ("v2ray", "wireguard"):
-        await callback.answer("❌ نوع نامعتبر", show_alert=True)
-        return
-
-    plans = await db.get_active_plans(service_type)
+    plans = await db.get_active_plans("v2ray")
     if not plans:
-        await callback.answer(
-            f"❌ برای {service_label(service_type)} پلن فعالی تعریف نشده است.",
-            show_alert=True
-        )
+        await callback.answer("❌ پلن فعالی تعریف نشده است.", show_alert=True)
         return
 
     await _retry(lambda: callback.message.edit_text(
-        f"📦 پلن‌های {service_label(service_type)}:\nپلن مورد نظر خود را انتخاب کنید:",
+        "📦 پلن‌ها:\nپلن مورد نظر خود را انتخاب کنید:",
         reply_markup=plans_keyboard(plans)
     ))
     await callback.answer()
@@ -151,9 +141,9 @@ async def select_plan(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ پلن یافت نشد!", show_alert=True)
         return
 
-    servers = await db.get_active_servers(plan.get("service_type") or "v2ray")
+    servers = await db.get_active_servers("v2ray")
     if not servers:
-        await callback.answer("❌ سروری فعال برای این نوع سرویس نیست!", show_alert=True)
+        await callback.answer("❌ سروری فعال نیست!", show_alert=True)
         return
 
     await show_payment_and_wait(callback, state, plan)
@@ -180,7 +170,7 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
         plan_id=plan_id,
         receipt_photo_id=photo_id,
         renew_config_id=renew_config_id,
-        service_type=(plan["service_type"] if plan else "v2ray") or "v2ray",
+        service_type="v2ray",
     )
     await state.clear()
 

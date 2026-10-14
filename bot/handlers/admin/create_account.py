@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, Message, BufferedInputFile
+from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramNetworkError
@@ -11,10 +11,8 @@ import logging
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
-from bot.services import wireguard as wg
 from bot.keyboards.inline import (
     create_account_plans_keyboard, admin_menu_keyboard, cancel_keyboard,
-    service_type_keyboard, service_label,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,7 +36,6 @@ async def _retry(coro_factory, attempts: int = 6, delay: float = 3.0):
 
 
 class CreateAccountStates(StatesGroup):
-    waiting_service_type = State()
     waiting_traffic = State()
     waiting_days = State()
     waiting_users = State()
@@ -63,26 +60,24 @@ async def create_account_menu(callback: CallbackQuery, state: FSMContext):
 async def acc_custom(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
         return
-    await state.update_data(custom=True)
+    await state.update_data(custom=True, service_type="v2ray")
     await callback.message.edit_text(
-        "🎛 پلن دلخواه\n\nنوع سرویس را انتخاب کنید:",
-        reply_markup=service_type_keyboard("acc_custom_type")
+        "🎛 پلن دلخواه\n\n"
+        "📊 مقدار ترافیک را به گیگابایت وارد کنید:\n(عدد، مثال: 50 — برای نامحدود 0)",
+        reply_markup=cancel_keyboard()
     )
-    await state.set_state(CreateAccountStates.waiting_service_type)
+    await state.set_state(CreateAccountStates.waiting_traffic)
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("acc_custom_type:"))
 async def acc_custom_type(callback: CallbackQuery, state: FSMContext):
+    # Kept for keyboards sent before the service-type step was removed.
     if callback.from_user.id not in ADMIN_IDS:
         return
-    service_type = callback.data.split(":")[1]
-    if service_type not in ("v2ray", "wireguard"):
-        await callback.answer("❌ نوع نامعتبر", show_alert=True)
-        return
-    await state.update_data(service_type=service_type)
+    await state.update_data(custom=True, service_type="v2ray")
     await callback.message.edit_text(
-        f"🎛 پلن دلخواه ({service_label(service_type)})\n\n"
+        "🎛 پلن دلخواه\n\n"
         "📊 مقدار ترافیک را به گیگابایت وارد کنید:\n(عدد، مثال: 50 — برای نامحدود 0)",
         reply_markup=cancel_keyboard()
     )
@@ -106,11 +101,10 @@ async def acc_preset(callback: CallbackQuery, state: FSMContext):
         traffic_gb=plan["traffic_gb"],
         days=plan["duration_days"],
         users=plan["max_users"] or 0,
-        service_type=plan.get("service_type") or "v2ray",
+        service_type="v2ray",
     )
     await callback.message.edit_text(
-        f"📦 پلن: {plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز\n"
-        f"🧩 نوع: {service_label(plan.get('service_type'))}\n\n"
+        f"📦 پلن: {plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز\n\n"
         "📝 نام اکانت را وارد کنید (انگلیسی، بدون فاصله):",
         reply_markup=cancel_keyboard()
     )
@@ -144,19 +138,6 @@ async def acc_days(message: Message, state: FSMContext):
             await message.answer("⚠️ فقط عدد وارد کنید. مثال: 30", reply_markup=cancel_keyboard())
             return
         await state.update_data(days=int(text))
-        data = await state.get_data()
-        logger.info(
-            "acc_days: user=%s days=%s service_type=%r",
-            message.from_user.id, text, data.get("service_type"),
-        )
-        if data.get("service_type") == "wireguard":
-            await state.update_data(users=0)
-            await message.answer(
-                "📝 نام اکانت را وارد کنید (انگلیسی، بدون فاصله):",
-                reply_markup=cancel_keyboard()
-            )
-            await state.set_state(CreateAccountStates.waiting_name)
-            return
         await message.answer(
             "👥 تعداد کاربر (محدودیت IP) را وارد کنید:\n(عدد، برای نامحدود 0)",
             reply_markup=cancel_keyboard()
@@ -198,12 +179,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     days = data.get("days", 0)
     users = data.get("users", 0)
     plan_id = data.get("plan_id")
-    service_type = data.get("service_type") or "v2ray"
     await state.clear()
-
-    if service_type == "wireguard":
-        await _create_wg_account_admin(message, bot, name, traffic_gb, days, plan_id)
-        return
 
     master = await db.get_master_server("v2ray")
     if not master:
@@ -291,98 +267,4 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             await status_msg.edit_text(f"❌ خطا در ساخت اکانت:\n{str(e)[:250]}")
         except Exception:
             await message.answer(f"❌ خطا در ساخت اکانت:\n{str(e)[:250]}")
-        await message.answer("منوی مدیریت:", reply_markup=admin_menu_keyboard())
-
-
-async def _create_wg_account_admin(message: Message, bot: Bot, name: str,
-                                   traffic_gb: int, days: int, plan_id):
-    server = await db.get_active_server_by_type("wireguard")
-    if not server:
-        await message.answer("❌ سرور WireGuard فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
-        return
-
-    logger.info(
-        "WG admin create: server=%s iface=%s subnet=%s user=%s",
-        server["name"], server.get("wg_interface"),
-        server.get("wg_client_subnet"), name,
-    )
-    status_msg = await message.answer("⏳ در حال ساخت اکانت WireGuard...")
-    try:
-        cluster = await db.get_wg_cluster(server) or [server]
-        result = await wg.create_account_multi(cluster, name)
-        endpoint = server["wg_endpoint"] or server["url"]
-        port = server["wg_port"] or 51820
-        dns = server["wg_dns"] or "1.1.1.1,8.8.8.8"
-        config_text = wg.build_config_text(
-            private_key=result["private_key"],
-            client_ip=result["client_ip"],
-            dns=dns,
-            server_public_key=result["server_public_key"],
-            endpoint=endpoint,
-            port=port,
-        )
-        expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
-
-        if name.isdigit():
-            target_user = await db.add_user(telegram_id=int(name))
-            linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
-        else:
-            target_user = await db.get_or_create_unlinked_user()
-            linked_note = "\n🗂 در دیتابیس ذخیره شد (اکانت مستقل، بدون کاربر تلگرام)."
-
-        await db.create_wg_config(
-            user_id=target_user["id"], order_id=None, plan_id=plan_id,
-            client_email=name, config_text=config_text, traffic_gb=traffic_gb,
-            expire_date=expire_date, server_id=server["id"],
-            client_ip=result["client_ip"], public_key=result["public_key"],
-            private_key=result["private_key"], server_public_key=result["server_public_key"],
-            endpoint=endpoint, port=port, peer_id=result["peer_id"],
-        )
-
-        caption = (
-            f"✅ اکانت WireGuard ساخته شد!\n\n"
-            f"📝 نام: {name}\n"
-            f"📊 حجم: {'نامحدود' if traffic_gb == 0 else str(traffic_gb) + ' GB'}\n"
-            f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
-            f"🌐 IP: {result['client_ip']}\n"
-            f"📡 Endpoint: {endpoint}:{port}\n"
-            f"🌍 لوکیشن: {server['location']}\n"
-            f"{linked_note}"
-        )
-        filename = f"wireguard-{result['client_ip']}.conf"
-        try:
-            await _retry(lambda: bot.send_document(
-                chat_id=message.from_user.id,
-                document=BufferedInputFile(config_text.encode("utf-8"), filename=filename),
-                caption=caption,
-            ))
-        except Exception:
-            await _retry(lambda: bot.send_message(chat_id=message.from_user.id, text=caption))
-
-        try:
-            qr_png = wg.make_qr_png(config_text)
-        except Exception:
-            qr_png = None
-        if qr_png:
-            try:
-                await _retry(lambda: bot.send_photo(
-                    chat_id=message.from_user.id,
-                    photo=BufferedInputFile(qr_png, filename=f"{result['client_ip']}.png"),
-                    caption="📷 QR کانفیگ WireGuard",
-                ))
-            except Exception:
-                pass
-
-        try:
-            await status_msg.delete()
-        except Exception:
-            pass
-        await message.answer("منوی مدیریت:", reply_markup=admin_menu_keyboard())
-
-    except Exception as e:
-        logger.exception(f"Admin WG account creation failed: {e}")
-        try:
-            await status_msg.edit_text(f"❌ خطا در ساخت اکانت WireGuard:\n{str(e)[:250]}")
-        except Exception:
-            await message.answer(f"❌ خطا در ساخت اکانت WireGuard:\n{str(e)[:250]}")
         await message.answer("منوی مدیریت:", reply_markup=admin_menu_keyboard())

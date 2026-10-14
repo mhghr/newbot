@@ -77,22 +77,7 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-        # Per-router WireGuard counters. A user's peer can exist on several
-        # entry routers at once (failover), so the "last seen" counter is kept
-        # per (config, router). Total usage lives in configs.used_bytes.
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS wg_router_usage (
-                id SERIAL PRIMARY KEY,
-                config_id INTEGER NOT NULL REFERENCES configs(id) ON DELETE CASCADE,
-                server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
-                public_key TEXT NOT NULL DEFAULT '',
-                last_rx BIGINT DEFAULT 0,
-                last_tx BIGINT DEFAULT 0,
-                updated_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE (config_id, server_id)
-            )
-        """)
-        await conn.execute("CREATE INDEX IF NOT EXISTS wg_router_usage_config_idx ON wg_router_usage (config_id)")
+        # Per-router counters are no longer used (WireGuard was removed).
 
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
@@ -200,32 +185,13 @@ async def init_db():
             except Exception:
                 pass
 
-        # Service-type aware schema (v2ray | wireguard).
-        # V2Ray servers use url/api_token/sub_port/inbound_ids; WireGuard
-        # servers are MikroTik routers reached through the RouterOS API.
+        # Service-type aware schema. Only V2Ray is offered.
         for stmt in (
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_port INTEGER DEFAULT 8728",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_interface TEXT DEFAULT ''",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_server_public_key TEXT DEFAULT ''",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_endpoint TEXT DEFAULT ''",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_port INTEGER DEFAULT 51820",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_client_subnet TEXT DEFAULT ''",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_dns TEXT DEFAULT '1.1.1.1,8.8.8.8'",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_ip_range_start INTEGER DEFAULT 10",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wg_ip_range_end INTEGER DEFAULT 250",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_client_ip TEXT",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_public_key TEXT",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_private_key TEXT",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_server_public_key TEXT",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_endpoint TEXT",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_port INTEGER",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_peer_id TEXT",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_last_rx BIGINT DEFAULT 0",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS wg_last_tx BIGINT DEFAULT 0",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS used_bytes BIGINT DEFAULT 0",
             "UPDATE servers SET service_type='v2ray' WHERE service_type IS NULL",
             "UPDATE plans SET service_type='v2ray' WHERE service_type IS NULL",

@@ -17,22 +17,14 @@ def _trunc(value, n: int = 30) -> str:
     return s if len(s) <= n else s[:n - 1] + "…"
 
 
-SERVICE_LABELS = {"v2ray": "V2Ray", "wireguard": "WireGuard"}
-SERVICE_SHORT = {"v2ray": "V2Ray", "wireguard": "WireGuard"}
+SERVICE_LABELS = {"v2ray": "V2Ray"}
+SERVICE_SHORT = {"v2ray": "V2Ray"}
 # Compact badge used in account/config lists so the protocol is obvious.
-SERVICE_BADGE = {"v2ray": "V2Ray", "wireguard": "WG"}
+SERVICE_BADGE = {"v2ray": "V2Ray"}
 
 
 def service_label(service_type) -> str:
-    return SERVICE_LABELS.get(service_type, SERVICE_SHORT.get(service_type, service_type or "-"))
-
-
-def service_type_keyboard(prefix: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔵 V2Ray (3x-ui)", callback_data=f"{prefix}:v2ray")],
-        [InlineKeyboardButton(text="🟢 WireGuard (MikroTik)", callback_data=f"{prefix}:wireguard")],
-        [InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_action")],
-    ])
+    return "V2Ray"
 
 
 def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
@@ -343,29 +335,14 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=f"📛 نام سرور : {_trunc(server['name'])}", callback_data=f"admin:edit_server:{sid}:name")],
         [InlineKeyboardButton(text=f"📍 لوکیشن : {_trunc(server['location'])}", callback_data=f"admin:edit_server:{sid}:location")],
     ]
-    if (server.get("service_type") or "v2ray") == "wireguard":
-        rows += [
-            [InlineKeyboardButton(text=f"🔗 آدرس روتر : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
-            [InlineKeyboardButton(text=f"🔢 پورت SSH : {server.get('api_port') or 22}", callback_data=f"admin:edit_server:{sid}:api_port")],
-            [InlineKeyboardButton(text=f"👤 یوزر SSH : {_trunc(server.get('username'))}", callback_data=f"admin:edit_server:{sid}:username")],
-            [InlineKeyboardButton(text=f"🔑 پسورد SSH : {_trunc(server.get('password'))}", callback_data=f"admin:edit_server:{sid}:password")],
-            [InlineKeyboardButton(text=f"📡 اینترفیس : {_trunc(server.get('wg_interface'))}", callback_data=f"admin:edit_server:{sid}:wg_interface")],
-            [InlineKeyboardButton(text=f"🌐 endpoint : {_trunc(server.get('wg_endpoint'))}", callback_data=f"admin:edit_server:{sid}:wg_endpoint")],
-            [InlineKeyboardButton(text=f"🔌 پورت WG : {server.get('wg_port') or 51820}", callback_data=f"admin:edit_server:{sid}:wg_port")],
-            [InlineKeyboardButton(text=f"🌍 subnet : {_trunc(server.get('wg_client_subnet'))}", callback_data=f"admin:edit_server:{sid}:wg_client_subnet")],
-            [InlineKeyboardButton(text=f"🧭 DNS : {_trunc(server.get('wg_dns'))}", callback_data=f"admin:edit_server:{sid}:wg_dns")],
-            [InlineKeyboardButton(text=f"📊 بازه IP : {server.get('wg_ip_range_start') or 10}-{server.get('wg_ip_range_end') or 250}", callback_data=f"admin:edit_server:{sid}:wg_ip_range_start")],
-            [InlineKeyboardButton(text=f"📊 پایان بازه : {server.get('wg_ip_range_end') or 250}", callback_data=f"admin:edit_server:{sid}:wg_ip_range_end")],
-        ]
-    else:
-        rows += [
-            [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
-            [InlineKeyboardButton(text=f"🔑 کلید اتصال : {_trunc(server['api_token'])}", callback_data=f"admin:edit_server:{sid}:api_token")],
-            [InlineKeyboardButton(text=f"🌐 آدرس ساب : {_trunc(server.get('sub_domain') or '-')}", callback_data=f"admin:edit_server:{sid}:sub_domain")],
-            [InlineKeyboardButton(text=f"🔢 پورت ساب : {server.get('sub_port') or 2096}", callback_data=f"admin:edit_server:{sid}:sub_port")],
-            [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
-            [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
-        ]
+    rows += [
+        [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
+        [InlineKeyboardButton(text=f"🔑 کلید اتصال : {_trunc(server['api_token'])}", callback_data=f"admin:edit_server:{sid}:api_token")],
+        [InlineKeyboardButton(text=f"🌐 آدرس ساب : {_trunc(server.get('sub_domain') or '-')}", callback_data=f"admin:edit_server:{sid}:sub_domain")],
+        [InlineKeyboardButton(text=f"🔢 پورت ساب : {server.get('sub_port') or 2096}", callback_data=f"admin:edit_server:{sid}:sub_port")],
+        [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
+        [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
+    ]
     rows += [
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
@@ -390,17 +367,12 @@ def plans_list_keyboard(plans: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def servers_list_keyboard(servers: list, active_ids=None) -> InlineKeyboardMarkup:
-    active_ids = set(active_ids or ())
+def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
     rows = []
     for s in servers:
         status = "🟢" if s["is_active"] else "🔴"
-        stype = SERVICE_SHORT.get(s.get("service_type"), "V2Ray")
-        role = ""
-        if (s.get("service_type") or "v2ray") == "wireguard":
-            role = "  ✅ فعال" if s["id"] in active_ids else "  🟡 بک‌آپ"
         rows.append([InlineKeyboardButton(
-            text=f"{status} [{stype}] {s['name']} - {s['location']}{role}",
+            text=f"{status} {s['name']} - {s['location']}",
             callback_data=f"admin:server_detail:{s['id']}"
         )])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")])
@@ -433,20 +405,15 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
 
 def plan_actions_keyboard(plan) -> InlineKeyboardMarkup:
     pid = plan["id"]
-    is_wg = (plan.get("service_type") or "v2ray") == "wireguard"
     toggle_text = "🔴 غیرفعال کردن" if plan["is_active"] else "🟢 فعال کردن"
     traffic = "نامحدود" if (plan["traffic_gb"] or 0) == 0 else f"{plan['traffic_gb']} GB"
     duration = "نامحدود" if (plan["duration_days"] or 0) == 0 else f"{plan['duration_days']} روز"
     users = "نامحدود" if (plan["max_users"] or 0) == 0 else f"{plan['max_users']} کاربر"
     rows = [
-        [InlineKeyboardButton(text=f"🧩 نوع سرویس : {service_label(plan.get('service_type'))}", callback_data=f"admin:edit_plan_field:{pid}:service_type")],
         [InlineKeyboardButton(text=f"📛 نام : {_trunc(plan['name'])}", callback_data=f"admin:edit_plan_field:{pid}:name")],
         [InlineKeyboardButton(text=f"📊 حجم : {traffic}", callback_data=f"admin:edit_plan_field:{pid}:traffic_gb")],
         [InlineKeyboardButton(text=f"📅 مدت : {duration}", callback_data=f"admin:edit_plan_field:{pid}:duration_days")],
-    ]
-    if not is_wg:
-        rows.append([InlineKeyboardButton(text=f"👥 تعداد کاربر : {users}", callback_data=f"admin:edit_plan_field:{pid}:max_users")])
-    rows += [
+        [InlineKeyboardButton(text=f"👥 تعداد کاربر : {users}", callback_data=f"admin:edit_plan_field:{pid}:max_users")],
         [InlineKeyboardButton(text=f"💰 قیمت : {plan['price']:,} تومان", callback_data=f"admin:edit_plan_field:{pid}:price")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_plan:{pid}"),

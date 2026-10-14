@@ -1,4 +1,4 @@
-import bot.database.models as models
+﻿import bot.database.models as models
 from datetime import datetime
 import ipaddress
 import secrets
@@ -83,10 +83,8 @@ async def search_user(query: str):
                   OR u.last_name ILIKE $1
                   OR (COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) ILIKE $1
                   OR c.client_email ILIKE $1
-                  OR c.sub_id ILIKE $1
-                  OR c.wg_client_ip ILIKE $1
-                  OR c.wg_public_key ILIKE $1
-                  OR pl.name ILIKE $1
+                   OR c.sub_id ILIKE $1
+                   OR pl.name ILIKE $1
                   OR s.name ILIKE $1
                   OR s.location ILIKE $1
                ORDER BY u.id""",
@@ -94,20 +92,15 @@ async def search_user(query: str):
         )
 
 
-async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096, sub_domain: str = "", service_type: str = "v2ray", api_port: int = 8728, wg_interface: str = "", wg_server_public_key: str = "", wg_endpoint: str = "", wg_port: int = 51820, wg_client_subnet: str = "", wg_dns: str = "1.1.1.1,8.8.8.8", wg_ip_range_start: int = 10, wg_ip_range_end: int = 250):
+async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096, sub_domain: str = "", service_type: str = "v2ray"):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
             """INSERT INTO servers
                    (name, url, username, password, api_token, location, inbound_id,
-                    sub_port, sub_domain, service_type, api_port, wg_interface,
-                    wg_server_public_key, wg_endpoint, wg_port, wg_client_subnet,
-                    wg_dns, wg_ip_range_start, wg_ip_range_end)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                       $13, $14, $15, $16, $17, $18, $19) RETURNING id""",
+                    sub_port, sub_domain, service_type)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
             name, url, username, password, api_token, location, inbound_id,
-            sub_port, sub_domain, service_type, api_port, wg_interface,
-            wg_server_public_key, wg_endpoint, wg_port, wg_client_subnet,
-            wg_dns, wg_ip_range_start, wg_ip_range_end
+            sub_port, sub_domain, service_type
         )
 
 
@@ -186,12 +179,11 @@ async def delete_server(server_id: int):
 async def update_server_field(server_id: int, field: str, value):
     allowed = {
         "name", "url", "api_token", "location", "inbound_id", "sub_port", "sub_domain",
-        "service_type", "api_port", "wg_interface", "wg_server_public_key", "wg_endpoint",
-        "wg_port", "wg_client_subnet", "wg_dns", "wg_ip_range_start", "wg_ip_range_end",
+        "service_type", "api_port",
     }
     if field not in allowed:
         raise ValueError("invalid field")
-    if field in ("inbound_id", "sub_port", "api_port", "wg_port", "wg_ip_range_start", "wg_ip_range_end"):
+    if field in ("inbound_id", "sub_port", "api_port"):
         value = int(value)
     else:
         value = str(value)
@@ -265,10 +257,7 @@ async def get_order(order_id: int):
                       s.name as server_name, s.location, s.url as server_url,
                       s.username as server_username, s.password as server_password,
                       s.api_token as server_api_token, s.inbound_id,
-                      s.service_type as server_service_type, s.api_port,
-                      s.wg_interface, s.wg_server_public_key, s.wg_endpoint,
-                      s.wg_port, s.wg_client_subnet, s.wg_dns,
-                      s.wg_ip_range_start, s.wg_ip_range_end
+                      s.service_type as server_service_type, s.api_port
                FROM orders o
                JOIN users u ON o.user_id = u.id
                JOIN plans p ON o.plan_id = p.id
@@ -439,32 +428,6 @@ async def create_config(user_id: int, order_id: int, plan_id: int, client_email:
         )
 
 
-async def create_wg_config(user_id: int, order_id: int, plan_id: int, client_email: str,
-                           config_text: str, traffic_gb: int, expire_date,
-                           server_id: int, client_ip: str, public_key: str,
-                           private_key: str, server_public_key: str,
-                           endpoint: str, port: int, peer_id: str = None):
-    """Insert a WireGuard config row. ``config_text`` is the .conf body."""
-    if isinstance(expire_date, str):
-        expire_date = datetime.fromisoformat(expire_date)
-    async with models.pool.acquire() as conn:
-        return await conn.fetchval(
-            """INSERT INTO configs
-                   (user_id, order_id, plan_id, client_email, config_link, sub_id,
-                    traffic_limit_gb, expire_date, server_id, service_type,
-                    wg_client_ip, wg_public_key, wg_private_key, wg_server_public_key,
-                    wg_endpoint, wg_port, wg_peer_id, is_active,
-                    reminder_traffic_sent, reminder_time_sent)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'wireguard',
-                       $10, $11, $12, $13, $14, $15, $16, TRUE, FALSE, FALSE)
-               RETURNING id""",
-            user_id, order_id, plan_id, client_email, config_text, client_ip,
-            traffic_gb, expire_date, server_id,
-            client_ip, public_key, private_key, server_public_key,
-            endpoint, port, peer_id
-        )
-
-
 async def get_config(config_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetchrow(
@@ -472,12 +435,7 @@ async def get_config(config_id: int):
                       p.name AS plan_name, p.duration_days, p.service_type AS plan_service_type,
                       s.service_type AS server_service_type, s.url AS server_url,
                       s.username AS server_username, s.password AS server_password,
-                      s.api_token AS server_api_token, s.api_port AS server_api_port,
-                      s.wg_interface AS server_wg_interface, s.wg_endpoint AS server_wg_endpoint,
-                      s.wg_port AS server_wg_port, s.wg_client_subnet AS server_wg_client_subnet,
-                      s.wg_dns AS server_wg_dns,
-                      s.wg_ip_range_start AS server_wg_ip_range_start,
-                      s.wg_ip_range_end AS server_wg_ip_range_end
+                      s.api_token AS server_api_token, s.api_port AS server_api_port
                FROM configs c
                LEFT JOIN plans p ON c.plan_id = p.id
                LEFT JOIN servers s ON c.server_id = s.id
@@ -493,9 +451,7 @@ async def get_configs_by_telegram_id(telegram_id: int):
                       p.name AS plan_name, p.duration_days,
                       s.service_type AS server_service_type, s.url AS server_url,
                       s.username AS server_username, s.password AS server_password,
-                      s.api_token AS server_api_token, s.api_port AS server_api_port,
-                      s.wg_interface AS server_wg_interface,
-                      s.wg_endpoint AS server_wg_endpoint, s.wg_port AS server_wg_port
+                      s.api_token AS server_api_token, s.api_port AS server_api_port
                FROM configs c
                JOIN users u ON c.user_id = u.id
                LEFT JOIN plans p ON c.plan_id = p.id
@@ -513,9 +469,7 @@ async def get_configs_by_user_id(user_id: int):
                       p.name AS plan_name, p.duration_days,
                       s.service_type AS server_service_type, s.url AS server_url,
                       s.username AS server_username, s.password AS server_password,
-                      s.api_token AS server_api_token, s.api_port AS server_api_port,
-                      s.wg_interface AS server_wg_interface,
-                      s.wg_endpoint AS server_wg_endpoint, s.wg_port AS server_wg_port
+                      s.api_token AS server_api_token, s.api_port AS server_api_port
                FROM configs c
                LEFT JOIN plans p ON c.plan_id = p.id
                LEFT JOIN servers s ON c.server_id = s.id
@@ -540,10 +494,7 @@ async def get_all_active_configs():
                       u.telegram_id, p.name AS plan_name,
                       s.service_type AS server_service_type, s.url AS server_url,
                       s.username AS server_username, s.password AS server_password,
-                      s.api_token AS server_api_token, s.api_port AS server_api_port,
-                      s.wg_interface AS server_wg_interface,
-                      s.wg_endpoint AS server_wg_endpoint, s.wg_port AS server_wg_port,
-                      s.wg_client_subnet AS server_wg_client_subnet
+                      s.api_token AS server_api_token, s.api_port AS server_api_port
                FROM configs c
                JOIN users u ON c.user_id = u.id
                LEFT JOIN plans p ON c.plan_id = p.id
@@ -706,12 +657,11 @@ async def get_refund(refund_id: int):
                       c.client_email, c.created_at AS config_created_at,
                       c.expire_date, c.config_link AS sub_url,
                       c.traffic_limit_gb AS traffic_gb, p.name AS plan_name,
-                      c.service_type, c.wg_client_ip, c.wg_public_key, c.used_bytes,
+                      c.service_type, c.used_bytes,
                       c.server_id, s.service_type AS server_service_type,
                       s.url AS server_url, s.username AS server_username,
                       s.password AS server_password, s.api_token AS server_api_token,
-                      s.api_port AS server_api_port,
-                      s.wg_interface AS server_wg_interface
+                      s.api_port AS server_api_port
                FROM refunds r
                JOIN users u ON r.user_id = u.id
                JOIN configs c ON r.config_id = c.id
@@ -736,180 +686,3 @@ async def update_refund(refund_id: int, status: str = None, admin_response: str 
         )
 
 
-# --------------------------------------------------------------------------- #
-# WireGuard helpers
-# --------------------------------------------------------------------------- #
-
-def parse_wg_network(subnet: str):
-    """Parse a subnet into an ip_network. Accepts '10.0.0.0/24' or '10.0.0.0'."""
-    value = (subnet or "").strip()
-    if not value:
-        return None
-    if "/" not in value:
-        value += "/24"
-    try:
-        return ipaddress.ip_network(value, strict=False)
-    except ValueError:
-        return None
-
-
-def _host_number(ip: str, net):
-    try:
-        return int(ipaddress.ip_address(ip)) - int(net.network_address)
-    except (ValueError, TypeError):
-        return None
-
-
-async def get_wg_used_host_numbers(server_id: int, subnet: str) -> set:
-    """Host offsets already used by active WireGuard configs of a server."""
-    net = parse_wg_network(subnet)
-    if net is None:
-        return set()
-    async with models.pool.acquire() as conn:
-        rows = await conn.fetch(
-            """SELECT wg_client_ip FROM configs
-               WHERE server_id=$1 AND service_type='wireguard' AND is_active=TRUE
-                 AND wg_client_ip IS NOT NULL""",
-            server_id
-        )
-    used = set()
-    for row in rows:
-        number = _host_number(row["wg_client_ip"], net)
-        if number is not None and number > 0:
-            used.add(number)
-    return used
-
-
-async def get_wg_configs_by_server(server_id: int):
-    async with models.pool.acquire() as conn:
-        return await conn.fetch(
-            """SELECT * FROM configs
-               WHERE server_id=$1 AND service_type='wireguard'""",
-            server_id
-        )
-
-
-async def update_wg_usage(config_id: int, last_rx: int, last_tx: int, used_bytes: int):
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            """UPDATE configs SET wg_last_rx=$1, wg_last_tx=$2, used_bytes=$3
-               WHERE id=$4""",
-            last_rx, last_tx, used_bytes, config_id
-        )
-
-
-async def set_config_peer_id(config_id: int, peer_id: str):
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            "UPDATE configs SET wg_peer_id=$1 WHERE id=$2", peer_id, config_id
-        )
-
-
-async def renew_wg_config(config_id: int, order_id: int, plan_id: int,
-                          traffic_gb: int, expire_date):
-    """Renew a WireGuard config, resetting its consumed-traffic baseline."""
-    if isinstance(expire_date, str):
-        expire_date = datetime.fromisoformat(expire_date)
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            """UPDATE configs
-               SET order_id=$1, plan_id=$2, traffic_limit_gb=$3, expire_date=$4,
-                   is_active=TRUE, used_bytes=0, wg_last_rx=0, wg_last_tx=0,
-                   reminder_traffic_sent=FALSE, reminder_time_sent=FALSE
-               WHERE id=$5""",
-            order_id, plan_id, traffic_gb, expire_date, config_id
-        )
-        # Drop per-router baselines so the next poll re-baselines at the
-        # current counter value instead of counting pre-renew history.
-        await conn.execute("DELETE FROM wg_router_usage WHERE config_id=$1", config_id)
-
-
-# --------------------------------------------------------------------------- #
-# Multi-router WireGuard accounting
-# --------------------------------------------------------------------------- #
-
-async def get_active_wg_servers():
-    async with models.pool.acquire() as conn:
-        return await conn.fetch(
-            """SELECT * FROM servers
-               WHERE is_active=TRUE AND service_type='wireguard'
-               ORDER BY id"""
-        )
-
-
-async def get_wg_cluster(server):
-    """Entry routers that share the same WireGuard interface/key as *server*.
-
-    Such routers host identical peers, so a user can connect to any of them and
-    provisioning/usage must span the whole cluster.
-    """
-    if not server:
-        return []
-    iface = server.get("wg_interface") if hasattr(server, "get") else server["wg_interface"]
-    pubkey = server.get("wg_server_public_key") if hasattr(server, "get") else server["wg_server_public_key"]
-    if not pubkey:
-        return [server]
-    async with models.pool.acquire() as conn:
-        return await conn.fetch(
-            """SELECT * FROM servers
-               WHERE is_active=TRUE AND service_type='wireguard'
-                 AND COALESCE(wg_interface,'')=$1 AND COALESCE(wg_server_public_key,'')=$2
-               ORDER BY id""",
-            iface or "", pubkey,
-        )
-
-
-async def get_wg_router_usage(config_id: int, server_id: int):
-    async with models.pool.acquire() as conn:
-        return await conn.fetchrow(
-            "SELECT * FROM wg_router_usage WHERE config_id=$1 AND server_id=$2",
-            config_id, server_id,
-        )
-
-
-async def get_wg_router_usages(config_id: int):
-    async with models.pool.acquire() as conn:
-        return await conn.fetch(
-            "SELECT * FROM wg_router_usage WHERE config_id=$1", config_id
-        )
-
-
-async def upsert_wg_router_usage(config_id: int, server_id: int, public_key: str,
-                                 last_rx: int, last_tx: int):
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO wg_router_usage
-                   (config_id, server_id, public_key, last_rx, last_tx, updated_at)
-               VALUES ($1, $2, $3, $4, $5, NOW())
-               ON CONFLICT (config_id, server_id)
-               DO UPDATE SET public_key=$3, last_rx=$4, last_tx=$5, updated_at=NOW()""",
-            config_id, server_id, public_key or "", last_rx, last_tx,
-        )
-
-
-async def set_config_used_bytes(config_id: int, used_bytes: int):
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            "UPDATE configs SET used_bytes=$1 WHERE id=$2", int(used_bytes), config_id
-        )
-
-
-async def get_wg_used_host_numbers_multi(server_ids, subnet: str) -> set:
-    """Union of host offsets used by any config attached to *server_ids*."""
-    net = parse_wg_network(subnet)
-    ids = [int(i) for i in (server_ids or []) if i]
-    if net is None or not ids:
-        return set()
-    async with models.pool.acquire() as conn:
-        rows = await conn.fetch(
-            """SELECT wg_client_ip FROM configs
-               WHERE service_type='wireguard' AND is_active=TRUE
-                 AND wg_client_ip IS NOT NULL AND server_id = ANY($1::int[])""",
-            ids,
-        )
-    used = set()
-    for row in rows:
-        number = _host_number(row["wg_client_ip"], net)
-        if number is not None and number > 0:
-            used.add(number)
-    return used
