@@ -298,6 +298,17 @@ class XUIClient:
         data = await self._request("GET", f"/panel/api/clients/links/{email}")
         return data.get("obj", [])
 
+
+    async def export_clients(self) -> dict:
+        """Return the panel's full clients export payload."""
+        data = await self._request("GET", "/panel/api/clients/export")
+        return data
+
+    async def import_clients(self, payload) -> bool:
+        """Import a clients export payload (as returned by :meth:`export_clients`)."""
+        data = await self._request("POST", "/panel/api/clients/import", json=payload)
+        return data.get("success", False)
+
     async def get_sub_links(self, sub_id: str) -> list:
         data = await self._request("GET", f"/panel/api/clients/subLinks/{sub_id}")
         return data.get("obj", [])

@@ -11,6 +11,7 @@ from bot.database import db
 from bot.services.reminders import start_reminders
 from bot.services.proxy_scanner import start_proxy_userbot
 from bot.services.subserver import start_sub_server
+from bot.services import panel_sync
 
 from bot.handlers.start import router as start_router
 from bot.handlers.buy import router as buy_router
@@ -61,6 +62,21 @@ async def _notify_transfer_done(bot: Bot):
         logging.warning(f"transfer notify check failed: {e}")
 
 
+async def _panel_sync_loop():
+    """Every 5 minutes, mirror the active panel's clients to the standby Iran nodes."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            panel_rec = await db.get_master_server("v2ray")
+            if panel_rec:
+                results = await panel_sync.sync_standby(panel_rec)
+                if results:
+                    logging.info(f"panel sync: {results}")
+        except Exception as e:
+            logging.warning(f"panel sync loop error: {type(e).__name__}: {e}")
+        await asyncio.sleep(300)
+
+
 async def main():
     await init_db()
 
@@ -91,6 +107,7 @@ async def main():
 
     start_reminders(bot)
     asyncio.create_task(start_proxy_userbot(bot))
+    asyncio.create_task(_panel_sync_loop())
 
     await start_sub_server(SUB_HOST, SUB_PORT)
 

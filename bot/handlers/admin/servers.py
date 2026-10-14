@@ -12,6 +12,7 @@ from bot.keyboards.inline import (
     server_delete_confirm_keyboard, cancel_keyboard,
 )
 from bot.services.xui import XUIClient
+from bot.services import panel_sync
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -487,3 +488,53 @@ async def delete_server(callback: CallbackQuery):
     await callback.message.edit_text(
         "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers)
     )
+
+
+# ---------------- Active server (Arvan DNS + sync) ----------------
+
+@router.callback_query(F.data == "admin:active_server")
+async def active_server_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    nodes = await db.get_iran_nodes()
+    if not nodes:
+        await callback.answer("❌ هیچ سرور ایرانی ثبت نشده (لوکیشن iran).", show_alert=True)
+        return
+    active_id = await db.get_setting("active_node_id", "")
+    rows = []
+    for n in nodes:
+        mark = "✅ " if str(n["id"]) == str(active_id) else ""
+        rows.append([InlineKeyboardButton(
+            text=f"{mark}{n['name']} — {n['ip']}", callback_data=f"admin:set_active:{n['id']}"
+        )])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")])
+    await callback.message.edit_text(
+        "🟢 انتخاب سرور فعال (دامنه به این سرور اشاره می‌کند):",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:set_active:"))
+async def set_active_server(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    node_id = int(callback.data.split(":")[2])
+    node = await db.get_node(node_id)
+    panel_rec = await db.get_master_server("v2ray")
+    if not node or not panel_rec:
+        await callback.answer("❌ سرور/پنل یافت نشد.", show_alert=True)
+        return
+    await callback.message.edit_text(f"⏳ تغییر سرور فعال به «{node['name']}» (آروان + سینک)...")
+    res = await panel_sync.switch_active(panel_rec, node)
+    await callback.message.edit_text(
+        "🟢 سرور فعال تنظیم شد\n"
+        f"سرور: {node['name']} ({node['ip']})\n"
+        f"آروان (تغییر DNS): {'✅' if res['arvan'] else '❌'}\n"
+        f"سینک کلاینت‌ها: {'✅' if res['sync'] else '❌'}\n"
+        f"{res['error']}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],
+        ]),
+    )
+    await callback.answer("✅ انجام شد")

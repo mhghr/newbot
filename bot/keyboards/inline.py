@@ -381,6 +381,7 @@ def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
             text=f"{status} {s['name']} - {s['location']}",
             callback_data=f"admin:server_detail:{s['id']}"
         )])
+    rows.append([InlineKeyboardButton(text="🟢 سرور فعال", callback_data="admin:active_server")])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
