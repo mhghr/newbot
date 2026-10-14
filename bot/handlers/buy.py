@@ -9,7 +9,7 @@ import logging
 from bot.database import db
 from bot.keyboards.inline import (
     plans_keyboard, cancel_keyboard,
-    order_approval_keyboard, main_menu_keyboard,
+    order_approval_keyboard, main_menu_keyboard, locations_keyboard,
 )
 from bot.config import ADMIN_IDS
 from bot.middlewares.membership import check_membership
@@ -54,8 +54,8 @@ async def show_sales_disabled(callback: CallbackQuery):
     await callback.answer()
 
 
-async def show_payment_and_wait(callback: CallbackQuery, state: FSMContext, plan, renew_config_id=None):
-    await state.update_data(plan_id=plan["id"], renew_config_id=renew_config_id)
+async def show_payment_and_wait(callback: CallbackQuery, state: FSMContext, plan, renew_config_id=None, tunnel_id=None):
+    await state.update_data(plan_id=plan["id"], renew_config_id=renew_config_id, tunnel_id=tunnel_id)
 
     card_number = await db.get_setting("card_number", "تنظیم نشده")
     card_holder = await db.get_setting("card_holder", "تنظیم نشده")
@@ -141,12 +141,30 @@ async def select_plan(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ پلن یافت نشد!", show_alert=True)
         return
 
-    servers = await db.get_active_servers("v2ray")
-    if not servers:
-        await callback.answer("❌ سروری فعال نیست!", show_alert=True)
-        return
+    locations = await db.get_locations()
+    if locations:
+        await state.update_data(plan_id=plan_id)
+        await _retry(lambda: callback.message.edit_text(
+            f"📍 لوکیشن مورد نظر را انتخاب کنید:\n(پلن: {plan['name']})",
+            reply_markup=locations_keyboard(locations),
+        ))
+    else:
+        await show_payment_and_wait(callback, state, plan)
+    await callback.answer()
 
-    await show_payment_and_wait(callback, state, plan)
+
+@router.callback_query(F.data.startswith("buy_loc:"))
+async def select_location(callback: CallbackQuery, state: FSMContext):
+    if not await db.is_sales_enabled():
+        await show_sales_disabled(callback)
+        return
+    loc_id = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    plan = await db.get_plan(data.get("plan_id")) if data.get("plan_id") else None
+    if not plan:
+        await callback.answer("❌ پلن یافت نشد!", show_alert=True)
+        return
+    await show_payment_and_wait(callback, state, plan, tunnel_id=loc_id)
     await callback.answer()
 
 
@@ -171,6 +189,7 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
         receipt_photo_id=photo_id,
         renew_config_id=renew_config_id,
         service_type="v2ray",
+        tunnel_id=data.get("tunnel_id"),
     )
     await state.clear()
 

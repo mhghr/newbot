@@ -255,12 +255,12 @@ async def delete_plan(plan_id: int):
 
 
 async def create_order(user_id: int, plan_id: int, receipt_photo_id: str, server_id: int = None,
-                       renew_config_id: int = None, service_type: str = "v2ray"):
+                       renew_config_id: int = None, service_type: str = "v2ray", tunnel_id: int = None):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO orders (user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
-            user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type
+            """INSERT INTO orders (user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id
         )
 
 
@@ -524,6 +524,21 @@ async def get_all_tunnels():
         return await conn.fetch("SELECT * FROM tunnels ORDER BY id")
 
 
+async def get_locations():
+    """Tunnels that are up and have an inbound — the selectable locations."""
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            """SELECT t.id, t.inbound_id, t.location, t.iran_node_id, t.foreign_node_id,
+                      i.name AS iran_name, i.ip AS iran_ip,
+                      f.name AS foreign_name, f.location AS foreign_location
+               FROM tunnels t
+               LEFT JOIN nodes i ON t.iran_node_id = i.id
+               LEFT JOIN nodes f ON t.foreign_node_id = f.id
+               WHERE t.inbound_id IS NOT NULL AND t.status='up'
+               ORDER BY t.id"""
+        )
+
+
 async def delete_tunnel(tunnel_id: int):
     async with models.pool.acquire() as conn:
         await conn.execute("DELETE FROM tunnels WHERE id=$1", tunnel_id)
@@ -543,7 +558,7 @@ async def set_user_sub_token(user_id: int, sub_token: str):
 
 async def create_config(user_id: int, order_id: int, plan_id: int, client_email: str,
                         sub_id: str, sub_url: str, traffic_gb: int, expire_date,
-                        server_id: int = None):
+                        server_id: int = None, tunnel_id: int = None):
     if isinstance(expire_date, str):
         expire_date = datetime.fromisoformat(expire_date)
     async with models.pool.acquire() as conn:
@@ -551,11 +566,11 @@ async def create_config(user_id: int, order_id: int, plan_id: int, client_email:
             """INSERT INTO configs
                    (user_id, order_id, plan_id, client_email, sub_id, config_link,
                     traffic_limit_gb, expire_date, server_id, service_type, is_active,
-                    reminder_traffic_sent, reminder_time_sent)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE)
+                    reminder_traffic_sent, reminder_time_sent, tunnel_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10)
                RETURNING id""",
             user_id, order_id, plan_id, client_email, sub_id, sub_url,
-            traffic_gb, expire_date, server_id
+            traffic_gb, expire_date, server_id, tunnel_id
         )
 
 

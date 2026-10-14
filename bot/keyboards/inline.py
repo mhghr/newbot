@@ -167,6 +167,19 @@ def order_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
     ])
 
 
+def locations_keyboard(locations: list) -> InlineKeyboardMarkup:
+    """Location picker for the buy / admin-create flows."""
+    buttons = []
+    for loc in locations:
+        label = loc.get("foreign_name") or loc.get("foreign_location") or f"#{loc['id']}"
+        buttons.append(InlineKeyboardButton(
+            text=f"📍 {label}", callback_data=f"buy_loc:{loc['id']}"
+        ))
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def configs_keyboard(configs: list) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(

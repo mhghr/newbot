@@ -9,7 +9,7 @@ import logging
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
-from bot.services import account_view
+from bot.services import account_view, panel_sync
 from bot.utils.helpers import admin_order_caption
 from bot.keyboards.inline import order_approval_keyboard
 
@@ -45,6 +45,72 @@ async def _send_config_to_user(bot: Bot, chat_id: int, qr_url: str, caption: str
         ))
 
 
+async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_caption: str):
+    """Approve an order that targets a location (WireGuard inbound on an Iran node)."""
+    order_id = order["id"]
+    try:
+        tunnel = await db.get_tunnel(order["tunnel_id"])
+        if not tunnel or not tunnel.get("inbound_id"):
+            raise Exception("لوکیشن یافت نشد")
+        node = await db.get_node(tunnel["iran_node_id"])
+        panel = await db.get_master_server("v2ray")
+        if not node or not panel:
+            raise Exception("سرور/پنل لوکیشن یافت نشد")
+
+        node_url = panel_sync.node_panel_url(panel["url"], node["ip"])
+        xui = XUIClient(node_url, api_token=panel.get("api_token") or "")
+
+        email = f"{order['telegram_id']}-order{order_id}"
+        try:
+            await xui.delete_client(email)
+        except Exception:
+            pass
+        await xui.add_client_full(
+            email=email,
+            traffic_gb=order["traffic_gb"],
+            expire_days=order["duration_days"],
+            limit_ip=order["max_users"] or 0,
+            all_inbound_ids=[tunnel["inbound_id"]],
+        )
+
+        link = ""
+        try:
+            links = await xui.get_client_links(email)
+            link = next((l for l in links if str(l).startswith("wireguard://")), links[0] if links else "")
+        except Exception:
+            pass
+
+        if order["duration_days"] and order["duration_days"] > 0:
+            expire_date = datetime.now() + timedelta(days=order["duration_days"])
+        else:
+            expire_date = None
+        await db.create_config(
+            order["user_id"], order_id, order["plan_id"], email, email, link,
+            order["traffic_gb"], expire_date, server_id=panel["id"], tunnel_id=tunnel["id"],
+        )
+
+        await account_view.deliver_wireguard(bot, order["telegram_id"], link, header="✅ اشتراک شما آماده شد!")
+        await db.update_order_status(order_id, "approved", link)
+        try:
+            await callback.message.edit_caption(
+                caption=base_caption + "\n\n✅ تایید و ارسال شد (وایرگارد)", reply_markup=None
+            )
+        except Exception:
+            pass
+        await callback.answer("✅ ارسال شد!")
+    except Exception as e:
+        logger.exception("location order approval failed")
+        await db.update_order_status(order_id, "pending")
+        try:
+            await callback.message.edit_caption(
+                caption=base_caption + f"\n\n❌ خطا: {str(e)[:200]}",
+                reply_markup=order_approval_keyboard(order_id),
+            )
+        except Exception:
+            pass
+        await callback.answer("❌ خطا! دوباره تلاش کنید.", show_alert=True)
+
+
 @router.callback_query(F.data.startswith("approve_order:"))
 async def approve_order(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
@@ -72,6 +138,10 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
     await db.update_order_status(order_id, "processing")
     base_caption = admin_order_caption(order, service_type="v2ray")
+
+    if order.get("tunnel_id"):
+        await _approve_location(bot, callback, order, base_caption)
+        return
 
     try:
         try:
