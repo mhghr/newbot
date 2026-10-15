@@ -266,8 +266,21 @@ def wg_conf_from_link(link: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+WG_GUIDE = (
+    "📌 این کانفیگ از نوع <b>WireGuard</b> است.\n\n"
+    "📥 اپلیکیشن WireGuard را بسته به دستگاه خود نصب کنید:\n"
+    "• Android: https://play.google.com/store/apps/details?id=com.wireguard.android\n"
+    "• iOS: https://apps.apple.com/app/wireguard/id1441195209\n"
+    "• Windows: https://download.wireguard.com/windows-client/wireguard-installer.exe\n"
+    "• macOS: https://apps.apple.com/app/wireguard/id1451685025\n\n"
+    "🧩 نحوه‌ی افزودن:\n"
+    "۱) فایل wireguard.conf بالا را دانلود کنید (یا QR را با اپ اسکن کنید).\n"
+    "۲) در اپ WireGuard روی «+» یا «Import from file» بزنید، فایل .conf را انتخاب کنید و Connect کنید."
+)
+
+
 async def deliver_wireguard(bot, chat_id: int, link: str, header: str):
-    """Send the WireGuard .conf file + a QR code image of it."""
+    """Send the WireGuard .conf file + a QR code image + a short usage guide."""
     if not link:
         await bot.send_message(chat_id=chat_id, text=f"{header}\n\n(کانفیگ وایرگارد یافت نشد)")
         return
@@ -289,6 +302,13 @@ async def deliver_wireguard(bot, chat_id: int, link: str, header: str):
         await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کانفیگ وایرگارد")
     except Exception as e:
         logger.warning("WireGuard QR send failed: %s", e)
+    try:
+        await bot.send_message(
+            chat_id=chat_id, text=WG_GUIDE, parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        logger.warning("WireGuard guide send failed: %s", e)
 
 
 async def resolve_delivery(xui, email: str, sub_id: str, server, sub_base: str = ""):
