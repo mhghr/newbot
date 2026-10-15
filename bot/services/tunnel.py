@@ -16,6 +16,7 @@ except Exception:  # pragma: no cover
 
 from bot.services.xui import XUIClient
 from bot.config import SOFTETHER_ADMIN_PASSWORD as SE_PASS
+from bot.config import LOCATION_EXIT_OUTBOUND
 
 # SoftEther release used when installing on a fresh node.
 SOFTETHER_URL = (
@@ -378,33 +379,53 @@ echo NAT_OK
                 break
         note.append(f"اینباند WG {'ساخته شد' if ok else 'ناموفق'} (id={inbound_id} tag={tag or '-'} name={loc_name})")
 
-    # 4) outbound + routing (tagged after the location name; stale loc-{tid}
-    #    entries from older runs are dropped). The inbound is only routed
-    #    through the tunnel when the far side is actually reachable — a dead
-    #    tunnel would otherwise black-hole all of the location's traffic.
+    # 4) outbound + routing. Prefer the shared working foreign exit
+    #    (LOCATION_EXIT_OUTBOUND, e.g. "softether-exit"); fall back to a
+    #    per-tunnel outbound (its own mark) when that exit is absent. The
+    #    inbound is only routed when the exit's tunnel is actually reachable —
+    #    a dead tunnel would otherwise black-hole the location's traffic.
     if tag:
-        reachable = False
-        try:
-            out = await asyncio.to_thread(
-                _ssh_run, iran,
-                f"ping -c1 -W2 {foreign_tap_ip} >/dev/null 2>&1 && echo UP || echo DOWN",
-            )
-            reachable = "UP" in out
-        except Exception as e:
-            logger.warning("tunnel reachability check failed: %s", e)
-        if not reachable:
-            note.append("تانل در دسترس نیست؛ اینباند بدون روتینگ (مستقیم) رها شد")
+        obj = await xui.get_xray_template()
+        xset = obj.get("xraySetting") or {}
+        outbounds = xset.get("outbounds") or []
+        out_tags = {o.get("tag") for o in outbounds}
+
+        if LOCATION_EXIT_OUTBOUND and LOCATION_EXIT_OUTBOUND in out_tags:
+            out_tag = LOCATION_EXIT_OUTBOUND
         else:
             out_tag = loc_name
-            obj = await xui.get_xray_template()
-            xset = obj.get("xraySetting") or {}
-            outbounds = [
-                o for o in (xset.get("outbounds") or [])
-                if o.get("tag") not in (out_tag, f"loc-{tid}")
-            ]
+            outbounds = [o for o in outbounds if o.get("tag") not in (out_tag, f"loc-{tid}")]
             outbounds.append({"tag": out_tag, "protocol": "freedom", "settings": {},
                               "streamSettings": {"sockopt": {"mark": mark}}})
             xset["outbounds"] = outbounds
+
+        # Reachability: read the exit outbound's mark, resolve its default
+        # gateway and ping it from the Iran node.
+        exit_mark = None
+        for o in (xset.get("outbounds") or []):
+            if o.get("tag") == out_tag:
+                exit_mark = ((o.get("streamSettings") or {}).get("sockopt") or {}).get("mark")
+        reachable = True
+        if exit_mark:
+            reachable = False
+            try:
+                gw = (await asyncio.to_thread(
+                    _ssh_run, iran,
+                    f"ip route show table {exit_mark} 2>/dev/null "
+                    "| awk '/default via/{print $3}' | head -1",
+                )).strip()
+                if gw:
+                    out = await asyncio.to_thread(
+                        _ssh_run, iran,
+                        f"ping -c1 -W2 {gw} >/dev/null 2>&1 && echo UP || echo DOWN",
+                    )
+                    reachable = "UP" in out
+            except Exception as e:
+                logger.warning("exit reachability check failed: %s", e)
+
+        if not reachable:
+            note.append(f"تانل خروجی «{out_tag}» در دسترس نیست؛ اینباند مستقیم رها شد")
+        else:
             routing = xset.setdefault("routing", {})
             rules = [
                 r for r in (routing.get("rules") or [])
@@ -414,7 +435,7 @@ echo NAT_OK
             rules.append({"type": "field", "enabled": True, "inboundTag": [tag], "outboundTag": out_tag})
             routing["rules"] = rules
             ok = await xui.update_xray_config(xset, obj.get("outboundTestUrl"))
-            note.append(f"outbound/routing {'ok' if ok else 'fail'} ({out_tag}, mark={mark})")
+            note.append(f"outbound/routing {'ok' if ok else 'fail'} ({out_tag})")
 
     return {"mark": mark, "port": port, "tag": tag, "inbound_id": inbound_id,
             "name": loc_name, "note": "; ".join(note)}

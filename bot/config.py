@@ -58,6 +58,12 @@ SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
 # the tunnel wizard to manage hubs/listeners/cascades.
 SOFTETHER_ADMIN_PASSWORD = os.getenv("SOFTETHER_ADMIN_PASSWORD", "SeAdmin-2026")
 
+# Outbound tag in the panel's Xray config that carries the working foreign exit.
+# Location inbounds are routed through this outbound so users exit abroad. When
+# the tag is absent from the panel the location falls back to its own per-tunnel
+# mark. Set to "direct" (or empty) to keep locations on the direct outbound.
+LOCATION_EXIT_OUTBOUND = os.getenv("LOCATION_EXIT_OUTBOUND", "softether-exit")
+
 # ArvanCloud CDN/DNS API — used to switch the entry domain's A record to the
 # currently active Iran node.
 ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")
