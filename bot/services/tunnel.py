@@ -313,7 +313,9 @@ echo NAT_OK
     await asyncio.to_thread(_ssh_run, foreign, foreign_script)
     note.append("خارج NAT ok")
 
-    # 3) WG inbound (skip if exists)
+    # 3) WG inbound: reuse the node's WireGuard inbound (renamed to the location
+    #    name) so a location never spawns a duplicate inbound. Only create a new
+    #    inbound when the node has none.
     xui = XUIClient(node_panel_url, api_token=token)
 
     def _as_obj(v):
@@ -324,16 +326,36 @@ echo NAT_OK
                 return {}
         return v or {}
 
+    loc_name = (foreign.get("name") or "").strip() or f"loc-{tid}"
+
     tag = ""
     inbound_id = None
-    for ib in await xui.get_inbounds():
-        if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == port:
-            tag = ib.get("tag") or ""
-            inbound_id = ib.get("id")
+    wg_inbounds = [
+        ib for ib in await xui.get_inbounds()
+        if (ib.get("protocol") or "").lower() == "wireguard"
+    ]
+    target = None
+    for ib in wg_inbounds:
+        if (ib.get("remark") or "").strip() == loc_name:
+            target = ib
             break
+    if target is None and len(wg_inbounds) == 1:
+        target = wg_inbounds[0]
 
-    if inbound_id is not None:
-        note.append(f"اینباند WG از قبل بود (id={inbound_id} tag={tag or '-'})")
+    if target is not None:
+        inbound_id = target.get("id")
+        tag = target.get("tag") or ""
+        port = target.get("port") or port
+        if (target.get("remark") or "").strip() != loc_name:
+            try:
+                obj = await xui.get_inbound(inbound_id)
+                obj["remark"] = loc_name
+                await xui.update_inbound(inbound_id, obj)
+                note.append(f"اینباند موجود استفاده و به نام «{loc_name}» تغییر یافت (id={inbound_id})")
+            except Exception as e:
+                note.append(f"از اینباند موجود (id={inbound_id}) استفاده شد؛ تغییر نام ناموفق: {str(e)[:100]}")
+        else:
+            note.append(f"اینباند لوکیشن از قبل بود (id={inbound_id} tag={tag or '-'})")
     else:
         tpl = await xui.find_wireguard_inbound()
         if not tpl:
@@ -342,7 +364,7 @@ echo NAT_OK
         for k in ("peers", "clients"):
             settings.pop(k, None)
         res = await xui.add_inbound({
-            "remark": f"loc-{tid}", "enable": True, "port": port, "protocol": "wireguard",
+            "remark": loc_name, "enable": True, "port": port, "protocol": "wireguard",
             "listen": "", "total": 0, "up": 0, "down": 0, "expiryTime": 0,
             "settings": settings,
             "streamSettings": _as_obj(tpl.get("streamSettings")),
@@ -354,7 +376,7 @@ echo NAT_OK
                 tag = ib.get("tag") or ""
                 inbound_id = ib.get("id")
                 break
-        note.append(f"اینباند WG {'ساخته شد' if ok else 'ناموفق'} (id={inbound_id} tag={tag or '-'})")
+        note.append(f"اینباند WG {'ساخته شد' if ok else 'ناموفق'} (id={inbound_id} tag={tag or '-'} name={loc_name})")
 
     # 4) outbound + routing
     if tag:
@@ -372,4 +394,5 @@ echo NAT_OK
         ok = await xui.update_xray_config(xset, obj.get("outboundTestUrl"))
         note.append(f"outbound/routing {'ok' if ok else 'fail'} (mark={mark})")
 
-    return {"mark": mark, "port": port, "tag": tag, "inbound_id": inbound_id, "note": "; ".join(note)}
+    return {"mark": mark, "port": port, "tag": tag, "inbound_id": inbound_id,
+            "name": loc_name, "note": "; ".join(note)}

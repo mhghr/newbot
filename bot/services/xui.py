@@ -320,6 +320,10 @@ class XUIClient:
         data = await self._request("POST", f"/panel/api/inbounds/del/{inbound_id}")
         return data.get("success", False)
 
+    async def update_inbound(self, inbound_id: int, payload: dict) -> dict:
+        """Update an existing inbound (e.g. to rename it)."""
+        return await self._request("POST", f"/panel/api/inbounds/update/{inbound_id}", json=payload)
+
     async def get_xray_template(self) -> dict:
         """Return the panel's Xray settings payload (obj is a JSON string)."""
         data = await self._request("POST", "/panel/api/xray/")
