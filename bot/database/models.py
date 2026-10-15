@@ -231,6 +231,8 @@ async def init_db():
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS tunnel_id INTEGER",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS used_bytes BIGINT DEFAULT 0",
+            # Allow deleting a plan that still has orders linked to it.
+            "ALTER TABLE orders ALTER COLUMN plan_id DROP NOT NULL",
             "UPDATE servers SET service_type='v2ray' WHERE service_type IS NULL",
             "UPDATE plans SET service_type='v2ray' WHERE service_type IS NULL",
             "UPDATE orders SET service_type='v2ray' WHERE service_type IS NULL",

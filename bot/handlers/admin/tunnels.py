@@ -117,6 +117,22 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
         await db.update_tunnel(tid, "error", f"SSH: {e}"[:400])
         await bot.send_message(chat_id, f"❌ اتصال SSH برقرار نشد (#{tid}):\n{e}")
         return
+
+    # Pre-check: report the current state and avoid duplicating an existing tunnel.
+    try:
+        check = await asyncio.to_thread(tunnel_svc.check_existing, iran, foreign)
+    except Exception as e:
+        check = f"check error: {e}"
+    await bot.send_message(chat_id, f"🔍 بررسی وضعیت موجود (#{tid}):\n{check}")
+    ip = iran.get("ip") or ""
+    if ip and ip in check and "Online" in check:
+        await db.update_tunnel(tid, "up", "existing established tunnel detected; not re-provisioned"[:400])
+        await bot.send_message(
+            chat_id,
+            f"ℹ️ برای سرور ایران {ip} از قبل یک cascade «Online» دیده شد؛ تانل دوباره ساخته نشد.",
+        )
+        return
+
     try:
         await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور ایران (#{tid})...")
         await asyncio.to_thread(tunnel_svc.provision_iran, iran, tunnel)

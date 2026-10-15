@@ -377,7 +377,12 @@ async def delete_plan(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         return
     plan_id = int(callback.data.split(":")[2])
-    await db.delete_plan(plan_id)
+    try:
+        await db.delete_plan(plan_id)
+    except Exception as e:
+        logger.exception("delete_plan failed")
+        await callback.answer(f"❌ خطا در حذف پلن: {str(e)[:120]}", show_alert=True)
+        return
     await callback.answer("✅ پلن حذف شد!")
     plans = await db.get_all_plans()
     if plans:

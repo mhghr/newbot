@@ -251,6 +251,12 @@ async def update_plan_field(plan_id: int, field: str, value):
 
 async def delete_plan(plan_id: int):
     async with models.pool.acquire() as conn:
+        # Detach references so the FK to plans(id) does not block the delete.
+        await conn.execute("UPDATE orders SET plan_id = NULL WHERE plan_id=$1", plan_id)
+        try:
+            await conn.execute("UPDATE configs SET plan_id = NULL WHERE plan_id=$1", plan_id)
+        except Exception:
+            pass
         await conn.execute("DELETE FROM plans WHERE id=$1", plan_id)
 
 

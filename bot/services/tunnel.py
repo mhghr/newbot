@@ -250,6 +250,43 @@ def _ssh_run(node, script: str, timeout: int = 300) -> str:
         client.close()
 
 
+def check_existing(iran: dict, foreign: dict) -> str:
+    """Best-effort health report of the SoftEther state on both nodes.
+
+    Detects whether vpnserver runs and lists the foreign node's cascades with
+    their destination + status (so an already-established tunnel to the same
+    Iran node can be recognised instead of duplicated).
+    """
+    lines = []
+    for name, node in (("ایران", iran), ("خارج", foreign)):
+        try:
+            r = _ssh_run(node, "pgrep -x vpnserver >/dev/null && echo RUNNING || echo NOT_RUNNING", timeout=30).strip()
+            lines.append(f"SoftEther {name}: {r}")
+        except Exception as e:
+            lines.append(f"SSH {name}: {type(e).__name__} {str(e)[:80]}")
+
+    script = r'''
+cd /usr/local/softether/vpnserver 2>/dev/null || { echo NO_SOFTETHER; exit 0; }
+PORT=""
+for p in 443 4300 992 5555 1194; do
+  if printf 'exit\n' | timeout 5 ./vpncmd /SERVER localhost:$p >/dev/null 2>&1; then PORT=$p; break; fi
+done
+[ -z "$PORT" ] && { echo NO_MGMT_PORT; exit 0; }
+echo "MGMT_PORT=$PORT"
+HUBS=$(printf 'HubList\nexit\n' | ./vpncmd /SERVER localhost:$PORT 2>/dev/null | awk -F'|' '/\|/{print $2}' | tr -d ' ' | grep -vE 'Name|^$|^-')
+for h in $HUBS; do
+  echo "HUB=$h"
+  printf 'Hub %s\nCascadeStatusGet\nExit\n' "$h" | ./vpncmd /SERVER localhost:$PORT 2>/dev/null | grep -E 'Session Status|Destination VPN Server'
+done
+'''
+    try:
+        lines.append("— cascades خارج —")
+        lines.append(_ssh_run(foreign, script, timeout=90).strip() or "(no output)")
+    except Exception as e:
+        lines.append(f"check cascades: {type(e).__name__} {str(e)[:120]}")
+    return "\n".join(lines)
+
+
 async def setup_location(node_panel_url: str, token: str, iran: dict, foreign: dict, tunnel: dict) -> dict:
     """Full location wiring for one tunnel:
     1. Iran node: Linux policy route (fwmark -> foreign tap) + guard.
@@ -296,11 +333,8 @@ echo NAT_OK
     await asyncio.to_thread(_ssh_run, foreign, foreign_script)
     note.append("خارج NAT ok")
 
-    # 3) Create the WireGuard inbound on the Iran node's panel
+    # 3) Create the WireGuard inbound on the Iran node's panel (skip if it exists)
     xui = XUIClient(node_panel_url, api_token=token)
-    tpl = await xui.find_wireguard_inbound()
-    if not tpl:
-        raise TunnelError("no WireGuard inbound template on the panel")
 
     def _as_obj(v):
         if isinstance(v, str):
@@ -310,30 +344,41 @@ echo NAT_OK
                 return {}
         return v or {}
 
-    settings = _as_obj(tpl.get("settings"))
-    for k in ("peers", "clients"):
-        settings.pop(k, None)
-
-    res = await xui.add_inbound({
-        "remark": f"loc-{tid}",
-        "enable": True,
-        "port": port,
-        "protocol": "wireguard",
-        "listen": "",
-        "total": 0, "up": 0, "down": 0, "expiryTime": 0,
-        "settings": settings,
-        "streamSettings": _as_obj(tpl.get("streamSettings")),
-        "sniffing": _as_obj(tpl.get("sniffing")),
-    })
-    inbound_ok = bool(res.get("success")) if isinstance(res, dict) else False
-
     tag = ""
     inbound_id = None
     for ib in await xui.get_inbounds():
         if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == port:
             tag = ib.get("tag") or ""
             inbound_id = ib.get("id")
-    note.append(f"اینباند WG {'ok' if inbound_ok else 'fail'} (id={inbound_id} tag={tag or '-'})")
+            break
+
+    if inbound_id is not None:
+        note.append(f"اینباند WG از قبل موجود بود (id={inbound_id} tag={tag or '-'}) — ساخته نشد")
+    else:
+        tpl = await xui.find_wireguard_inbound()
+        if not tpl:
+            raise TunnelError("no WireGuard inbound template on the panel")
+        settings = _as_obj(tpl.get("settings"))
+        for k in ("peers", "clients"):
+            settings.pop(k, None)
+        res = await xui.add_inbound({
+            "remark": f"loc-{tid}",
+            "enable": True,
+            "port": port,
+            "protocol": "wireguard",
+            "listen": "",
+            "total": 0, "up": 0, "down": 0, "expiryTime": 0,
+            "settings": settings,
+            "streamSettings": _as_obj(tpl.get("streamSettings")),
+            "sniffing": _as_obj(tpl.get("sniffing")),
+        })
+        inbound_ok = bool(res.get("success")) if isinstance(res, dict) else False
+        for ib in await xui.get_inbounds():
+            if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == port:
+                tag = ib.get("tag") or ""
+                inbound_id = ib.get("id")
+                break
+        note.append(f"اینباند WG {'ساخته شد' if inbound_ok else 'ناموفق'} (id={inbound_id} tag={tag or '-'})")
 
     # 4) Add marked outbound + routing rule
     if tag:
