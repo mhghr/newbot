@@ -367,7 +367,7 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
             callback_data=f"admin:toggle_server_wireguard:{sid}")],
     ]
     rows += [
-        [InlineKeyboardButton(text="🟢 سرور فعال (تغییر DNS آروان)", callback_data="admin:active_server")],
+        [InlineKeyboardButton(text="🌐 آی‌پی فعال (تغییر DNS آروان)", callback_data="admin:active_server")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{sid}"),

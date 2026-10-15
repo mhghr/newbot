@@ -500,15 +500,20 @@ async def active_server_menu(callback: CallbackQuery):
         await callback.answer("❌ هیچ سرور ایرانی ثبت نشده (لوکیشن iran).", show_alert=True)
         return
     active_id = await db.get_setting("active_node_id", "")
+    active_ip = ""
     rows = []
     for n in nodes:
+        if str(n["id"]) == str(active_id):
+            active_ip = n["ip"]
         mark = "✅ " if str(n["id"]) == str(active_id) else ""
         rows.append([InlineKeyboardButton(
-            text=f"{mark}{n['name']} — {n['ip']}", callback_data=f"admin:set_active:{n['id']}"
+            text=f"{mark}{n['ip']}  —  {n['name']}", callback_data=f"admin:set_active:{n['id']}"
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")])
     await callback.message.edit_text(
-        "🟢 انتخاب سرور فعال (دامنه به این سرور اشاره می‌کند):",
+        "🌐 آی‌پی فعال\n"
+        f"آی‌پی فعلی: {active_ip or 'تعیین نشده'}\n\n"
+        "آی‌پی سرور ایران را انتخاب کنید (رکورد DNS آروان روی این IP ست می‌شود):",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
