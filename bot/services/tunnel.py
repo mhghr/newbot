@@ -378,30 +378,43 @@ echo NAT_OK
                 break
         note.append(f"اینباند WG {'ساخته شد' if ok else 'ناموفق'} (id={inbound_id} tag={tag or '-'} name={loc_name})")
 
-    # 4) outbound + routing
     # 4) outbound + routing (tagged after the location name; stale loc-{tid}
-    #    entries from older runs are dropped)
+    #    entries from older runs are dropped). The inbound is only routed
+    #    through the tunnel when the far side is actually reachable — a dead
+    #    tunnel would otherwise black-hole all of the location's traffic.
     if tag:
-        out_tag = loc_name
-        obj = await xui.get_xray_template()
-        xset = obj.get("xraySetting") or {}
-        outbounds = [
-            o for o in (xset.get("outbounds") or [])
-            if o.get("tag") not in (out_tag, f"loc-{tid}")
-        ]
-        outbounds.append({"tag": out_tag, "protocol": "freedom", "settings": {},
-                          "streamSettings": {"sockopt": {"mark": mark}}})
-        xset["outbounds"] = outbounds
-        routing = xset.setdefault("routing", {})
-        rules = [
-            r for r in (routing.get("rules") or [])
-            if not (r.get("inboundTag") and tag in r.get("inboundTag"))
-            and (r.get("outboundTag") or "") not in (out_tag, f"loc-{tid}")
-        ]
-        rules.append({"type": "field", "enabled": True, "inboundTag": [tag], "outboundTag": out_tag})
-        routing["rules"] = rules
-        ok = await xui.update_xray_config(xset, obj.get("outboundTestUrl"))
-        note.append(f"outbound/routing {'ok' if ok else 'fail'} ({out_tag}, mark={mark})")
+        reachable = False
+        try:
+            out = await asyncio.to_thread(
+                _ssh_run, iran,
+                f"ping -c1 -W2 {foreign_tap_ip} >/dev/null 2>&1 && echo UP || echo DOWN",
+            )
+            reachable = "UP" in out
+        except Exception as e:
+            logger.warning("tunnel reachability check failed: %s", e)
+        if not reachable:
+            note.append("تانل در دسترس نیست؛ اینباند بدون روتینگ (مستقیم) رها شد")
+        else:
+            out_tag = loc_name
+            obj = await xui.get_xray_template()
+            xset = obj.get("xraySetting") or {}
+            outbounds = [
+                o for o in (xset.get("outbounds") or [])
+                if o.get("tag") not in (out_tag, f"loc-{tid}")
+            ]
+            outbounds.append({"tag": out_tag, "protocol": "freedom", "settings": {},
+                              "streamSettings": {"sockopt": {"mark": mark}}})
+            xset["outbounds"] = outbounds
+            routing = xset.setdefault("routing", {})
+            rules = [
+                r for r in (routing.get("rules") or [])
+                if not (r.get("inboundTag") and tag in r.get("inboundTag"))
+                and (r.get("outboundTag") or "") not in (out_tag, f"loc-{tid}")
+            ]
+            rules.append({"type": "field", "enabled": True, "inboundTag": [tag], "outboundTag": out_tag})
+            routing["rules"] = rules
+            ok = await xui.update_xray_config(xset, obj.get("outboundTestUrl"))
+            note.append(f"outbound/routing {'ok' if ok else 'fail'} ({out_tag}, mark={mark})")
 
     return {"mark": mark, "port": port, "tag": tag, "inbound_id": inbound_id,
             "name": loc_name, "note": "; ".join(note)}
