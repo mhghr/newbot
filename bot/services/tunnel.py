@@ -430,7 +430,6 @@ echo NAT_OK
             rules = [
                 r for r in (routing.get("rules") or [])
                 if not (r.get("inboundTag") and tag in r.get("inboundTag"))
-                and (r.get("outboundTag") or "") not in (out_tag, f"loc-{tid}")
             ]
             rules.append({"type": "field", "enabled": True, "inboundTag": [tag], "outboundTag": out_tag})
             routing["rules"] = rules
