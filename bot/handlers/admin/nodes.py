@@ -2,10 +2,12 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+import asyncio
 import logging
 
 from bot.config import ADMIN_IDS
 from bot.database import db
+from bot.services import tunnel as tunnel_svc
 from bot.keyboards.inline import (
     nodes_list_keyboard, node_actions_keyboard, node_delete_confirm_keyboard, cancel_keyboard,
 )
@@ -146,8 +148,27 @@ async def add_node_location(message: Message, state: FSMContext):
         ssh_pass=data.get("ssh_pass", ""), location=data.get("location", ""),
     )
     await state.clear()
+
+    node = {
+        "name": data["name"], "ip": data["ip"],
+        "ssh_port": data.get("ssh_port", 22), "ssh_user": data.get("ssh_user", "root"),
+        "ssh_pass": data.get("ssh_pass", ""),
+    }
+    status_msg = await message.answer("⏳ در حال تست اتصال SSH...")
+    try:
+        await asyncio.to_thread(tunnel_svc.test_ssh, node)
+        note = "✅ اتصال SSH تأیید شد."
+    except Exception as e:
+        note = f"⚠️ اتصال SSH برقرار نشد:\n{e}\n(IP/پورت/یوزر/پسورد را بررسی کنید)"
+    try:
+        await status_msg.delete()
+    except Exception:
+        pass
     nodes = await db.get_all_nodes()
-    await message.answer(f"✅ سرور «{data['name']}» اضافه شد!", reply_markup=nodes_list_keyboard(nodes))
+    await message.answer(
+        f"✅ سرور «{data['name']}» اضافه شد.\n{note}",
+        reply_markup=nodes_list_keyboard(nodes),
+    )
 
 
 # ---------------- Detail / edit / toggle / delete ----------------

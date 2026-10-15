@@ -283,7 +283,7 @@ def admin_tutorial_app_keyboard(platform: str, slug: str, has_video: bool) -> In
 
 
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=_rows([
+    rows = _rows([
         InlineKeyboardButton(text="🗄 مدیریت پنل", callback_data="admin:servers"),
         InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:nodes"),
         InlineKeyboardButton(text="🚇 تانل‌ها", callback_data="admin:tunnels"),
@@ -298,7 +298,9 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="admin:settings"),
         InlineKeyboardButton(text="📡 انتقال سرور", callback_data="admin:transfer"),
         InlineKeyboardButton(text="🔁 پر کردن دیتابیس", callback_data="admin:fill_db"),
-    ]))
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def create_account_plans_keyboard(plans: list) -> InlineKeyboardMarkup:

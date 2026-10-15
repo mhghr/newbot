@@ -110,13 +110,18 @@ async def pick_foreign(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
 async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreign: dict):
     tid = tunnel["id"]
-    try:
-        await asyncio.to_thread(tunnel_svc.test_ssh, iran)
-        await asyncio.to_thread(tunnel_svc.test_ssh, foreign)
-    except Exception as e:
-        await db.update_tunnel(tid, "error", f"SSH: {e}"[:400])
-        await bot.send_message(chat_id, f"❌ اتصال SSH برقرار نشد (#{tid}):\n{e}")
-        return
+
+    for label, node in (("ایران", iran), ("خارج", foreign)):
+        try:
+            await asyncio.to_thread(tunnel_svc.test_ssh, node)
+        except Exception as e:
+            await db.delete_tunnel(tid)
+            await bot.send_message(
+                chat_id,
+                f"❌ اتصال SSH به سرور {label} «{node.get('name')}» "
+                f"({node.get('ip')}:{node.get('ssh_port') or 22}) برقرار نشد.\n{e}",
+            )
+            return
 
     # Pre-check: report the current state and avoid duplicating an existing tunnel.
     try:
@@ -166,8 +171,8 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
         )
     except Exception as e:
         logger.exception("tunnel provision failed")
-        await db.update_tunnel(tid, "error", str(e)[:400])
-        await bot.send_message(chat_id, f"❌ خطا در برقراری تانل #{tid}:\n{str(e)[:400]}")
+        await db.delete_tunnel(tid)
+        await bot.send_message(chat_id, f"❌ خطا در برقراری تانل #{tid}:\n{str(e)[:300]}")
 
 
 @router.callback_query(F.data.startswith("admin:tunnel_detail:"))
