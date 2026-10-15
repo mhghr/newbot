@@ -35,3 +35,6 @@ Thumbs.db
 .opencode/
 .mcp.json
 *.pkl
+
+# Unrelated local file
+tunel.conf
