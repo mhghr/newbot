@@ -150,18 +150,17 @@ async def servers_menu(callback: CallbackQuery, state: FSMContext):
     servers = await db.get_all_servers()
     if not servers:
         await callback.message.edit_text(
-            "📋 هیچ سروری ثبت نشده است.\nبرای افزودن روی دکمه زیر بزنید.",
+            "📋 هیچ پنلی ثبت نشده است.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")],
                 [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
             ])
         )
         await callback.answer()
         return
+    panel = servers[0]
     await callback.message.edit_text(
-        "🖥 مدیریت سرورها\n\n"
-        "روی هر سرور بزنید تا ویرایش/تنظیم کنید:",
-        reply_markup=servers_list_keyboard(servers)
+        "🗄 مدیریت پنل\n" + _server_header(panel),
+        reply_markup=server_actions_keyboard(panel),
     )
     await callback.answer()
 

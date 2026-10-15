@@ -65,13 +65,15 @@ def refund_approval_keyboard(refund_id: int) -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="✅ تایید عودت", callback_data=f"refund_ok:{refund_id}"),
             InlineKeyboardButton(text="❌ عدم تایید", callback_data=f"refund_no:{refund_id}"),
-        ]
+        ],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
     ])
 
 
 def refund_upload_keyboard(refund_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📎 آپلود فیش واریز", callback_data=f"refund_upload:{refund_id}")]
+        [InlineKeyboardButton(text="📎 آپلود فیش واریز", callback_data=f"refund_upload:{refund_id}")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")],
     ])
 
 
@@ -239,16 +241,18 @@ def renew_plans_keyboard(config_id: int, plans: list) -> InlineKeyboardMarkup:
 
 def cancel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_action")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="cancel_action")],
     ])
 
 
 def tutorial_platforms_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=_rows([
+    rows = _rows([
         InlineKeyboardButton(text="📱 اندروید", callback_data="tutorial:android"),
         InlineKeyboardButton(text="🍎 iOS", callback_data="tutorial:ios"),
         InlineKeyboardButton(text="💻 ویندوز", callback_data="tutorial:windows"),
-    ]))
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def tutorial_apps_keyboard(platform: str, apps: list) -> InlineKeyboardMarkup:
@@ -363,11 +367,12 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
             callback_data=f"admin:toggle_server_wireguard:{sid}")],
     ]
     rows += [
+        [InlineKeyboardButton(text="🟢 سرور فعال (تغییر DNS آروان)", callback_data="admin:active_server")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{sid}"),
         ],
-        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -527,7 +532,7 @@ def new_plan_server_keyboard(servers: list) -> InlineKeyboardMarkup:
             text=f"{status} {s['name']} - {s.get('location') or ''}".strip(),
             callback_data=f"new_plan_server:{s['id']}",
         )])
-    rows.append([InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_action")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="cancel_action")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
