@@ -581,6 +581,21 @@ async def create_config(user_id: int, order_id: int, plan_id: int, client_email:
         )
 
 
+async def update_config_tunnel(config_id: int, tunnel_id: int, config_link: str = None):
+    """Point a config at another location's tunnel (after a location switch)."""
+    async with models.pool.acquire() as conn:
+        if config_link is not None:
+            await conn.execute(
+                "UPDATE configs SET tunnel_id=$2, config_link=$3 WHERE id=$1",
+                config_id, tunnel_id, config_link,
+            )
+        else:
+            await conn.execute(
+                "UPDATE configs SET tunnel_id=$2 WHERE id=$1",
+                config_id, tunnel_id,
+            )
+
+
 async def get_config(config_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetchrow(
@@ -624,9 +639,9 @@ async def get_configs_by_user_id(user_id: int):
                       s.username AS server_username, s.password AS server_password,
                       s.api_token AS server_api_token, s.api_port AS server_api_port
                FROM configs c
-               LEFT JOIN plans p ON c.plan_id = p.id
                LEFT JOIN servers s ON c.server_id = s.id
-                WHERE c.user_id=$1 AND c.is_active=TRUE
+               JOIN users u ON c.user_id = u.id
+               WHERE u.telegram_id=$1 AND c.is_active=TRUE
                ORDER BY c.created_at DESC""",
             user_id
         )

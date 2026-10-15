@@ -3,12 +3,13 @@ from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
 from urllib.parse import quote
+import logging
 
 from bot.database import db
 from bot.keyboards.inline import (
     my_configs_keyboard, account_detail_keyboard,
     renew_choice_keyboard, renew_plans_keyboard, back_to_menu_keyboard,
-    main_menu_keyboard,
+    main_menu_keyboard, change_location_keyboard,
 )
 from bot.middlewares.membership import check_membership
 from bot.services.xui import XUIClient
@@ -18,6 +19,7 @@ from bot.utils.helpers import format_gb
 from html import escape as _esc
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 ONE_GB = 1024 * 1024 * 1024
 
@@ -80,7 +82,10 @@ async def view_config(callback: CallbackQuery):
     renew_enabled = await db.is_renew_enabled()
     await callback.message.edit_text(
         text, parse_mode="HTML",
-        reply_markup=account_detail_keyboard(config["id"], service, show_renew=renew_enabled),
+        reply_markup=account_detail_keyboard(
+            config["id"], service, show_renew=renew_enabled,
+            show_change_location=bool(config.get("tunnel_id")),
+        ),
     )
     await callback.answer()
 
@@ -204,3 +209,64 @@ async def renew_plan(callback: CallbackQuery, state: FSMContext):
         return
     await show_payment_and_wait(callback, state, plan, renew_config_id=config_id)
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("changeloc:"))
+async def change_location(callback: CallbackQuery):
+    config_id = int(callback.data.split(":")[1])
+    config = await _get_owned_config(callback.from_user.id, config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+    if not config.get("tunnel_id"):
+        await callback.answer("این کانفیگ لوکیشن ندارد.", show_alert=True)
+        return
+    locations = [l for l in await db.get_locations() if l["id"] != config["tunnel_id"]]
+    if not locations:
+        await callback.answer("لوکیشن دیگری موجود نیست.", show_alert=True)
+        return
+    await callback.message.edit_text(
+        "📍 لوکیشن جدید را انتخاب کنید:",
+        reply_markup=change_location_keyboard(config_id, locations),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("setloc:"))
+async def set_location(callback: CallbackQuery, bot: Bot):
+    _, cid, tid = callback.data.split(":")
+    config_id, tunnel_id = int(cid), int(tid)
+    config = await _get_owned_config(callback.from_user.id, config_id)
+    if not config:
+        await callback.answer("❌ کانفیگ یافت نشد!", show_alert=True)
+        return
+    if config.get("tunnel_id") == tunnel_id:
+        await callback.answer("این همان لوکیشن فعلی است.", show_alert=True)
+        return
+    target = await db.get_tunnel(tunnel_id)
+    if not target or not target.get("inbound_id"):
+        await callback.answer("❌ لوکیشن یافت نشد!", show_alert=True)
+        return
+
+    await callback.answer("⏳ در حال انتقال به لوکیشن جدید...")
+    try:
+        link = await account_view.move_config_location(config, target)
+    except Exception as e:
+        logger.exception("location switch failed")
+        await callback.message.answer(f"❌ تغییر لوکیشن ناموفق بود:\n{str(e)[:200]}")
+        return
+
+    await db.update_config_tunnel(config_id, target["id"], link)
+    fresh = await db.get_config(config_id)
+    await account_view.send_account_config(bot, callback.from_user.id, fresh)
+    try:
+        await callback.message.edit_text(
+            await account_view.build_account_text(fresh), parse_mode="HTML",
+            reply_markup=account_detail_keyboard(
+                config_id, fresh.get("service_type") or "v2ray",
+                show_renew=await db.is_renew_enabled(),
+                show_change_location=bool(fresh.get("tunnel_id")),
+            ),
+        )
+    except Exception:
+        pass

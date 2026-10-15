@@ -68,6 +68,71 @@ async def _panel_for_config(config):
     return None, None
 
 
+async def _panel_for_tunnel(tunnel):
+    """Resolve (url, token) of the node panel that hosts a tunnel's inbound."""
+    if not tunnel or not tunnel.get("iran_node_id"):
+        return None, None
+    node = await db.get_node(tunnel["iran_node_id"])
+    if not node:
+        return None, None
+    from bot.services import tunnel as tunnel_svc
+    return await tunnel_svc._find_node_panel(node["ip"])
+
+
+async def move_config_location(config, target_tunnel) -> str:
+    """Move an account from its current inbound to ``target_tunnel``'s inbound.
+
+    The client is detached from the old inbound and attached to the new one
+    (recreated when the two locations live on different panels); the fresh
+    ``wireguard://`` link is returned.
+    """
+    emails = [e for e in (config.get("client_emails") or "").split(",") if e]
+    email = emails[0] if emails else config.get("client_email")
+    if not email:
+        raise Exception("کانفیگ یافت نشد")
+    if not target_tunnel or not target_tunnel.get("inbound_id"):
+        raise Exception("لوکیشن مقصد یافت نشد")
+
+    old_tunnel = await db.get_tunnel(config.get("tunnel_id")) if config.get("tunnel_id") else None
+    old_url, old_tok = await _panel_for_config(config)
+    new_url, new_tok = await _panel_for_tunnel(target_tunnel)
+    if not new_url:
+        raise Exception("پنل لوکیشن مقصد یافت نشد")
+
+    new_inbound = target_tunnel["inbound_id"]
+
+    if old_url and old_url == new_url:
+        xui = XUIClient(new_url, api_token=new_tok or "")
+        if old_tunnel and old_tunnel.get("inbound_id"):
+            try:
+                await xui.detach_client(email, [old_tunnel["inbound_id"]])
+            except Exception as e:
+                logger.warning("detach old inbound failed for %s: %s", email, e)
+        if not await xui.attach_client(email, [new_inbound]):
+            raise Exception("اتصال به لوکیشن جدید ناموفق بود")
+    else:
+        if old_url:
+            try:
+                await XUIClient(old_url, api_token=old_tok or "").delete_client(email)
+            except Exception as e:
+                logger.warning("delete old client failed for %s: %s", email, e)
+        days = remaining_days(config.get("expire_date")) or 0
+        await XUIClient(new_url, api_token=new_tok or "").add_client_full(
+            email=email,
+            traffic_gb=config.get("traffic_gb") or 0,
+            expire_days=days,
+            all_inbound_ids=[new_inbound],
+        )
+
+    link = ""
+    try:
+        ls = await XUIClient(new_url, api_token=new_tok or "").get_client_links(email)
+        link = next((l for l in ls if str(l).startswith("wireguard://")), ls[0] if ls else "")
+    except Exception as e:
+        logger.warning("fetch new location link failed for %s: %s", email, e)
+    return link
+
+
 async def traffic_summary(config) -> dict:
     """Traffic of an account = sum over all of its device clients (``client_emails``)."""
     emails = [e for e in (config.get("client_emails") or "").split(",") if e]

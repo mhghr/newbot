@@ -207,12 +207,28 @@ def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
 
 
 def account_detail_keyboard(config_id: int, service_type: str,
-                            show_renew: bool = True) -> InlineKeyboardMarkup:
+                            show_renew: bool = True,
+                            show_change_location: bool = False) -> InlineKeyboardMarkup:
     """Action buttons for an account (protocol aware). Account info lives in the message text."""
     rows = [[InlineKeyboardButton(text="📄 نمایش کانفیگ", callback_data=f"showconfig:{config_id}")]]
+    if show_change_location:
+        rows.append([InlineKeyboardButton(text="📍 تغییر لوکیشن", callback_data=f"changeloc:{config_id}")])
     if show_renew:
         rows.append([InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:my_configs")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def change_location_keyboard(config_id: int, locations: list) -> InlineKeyboardMarkup:
+    """Pick a new location for an existing account."""
+    buttons = []
+    for loc in locations:
+        label = loc.get("foreign_name") or loc.get("location") or f"#{loc['id']}"
+        buttons.append(InlineKeyboardButton(
+            text=f"📍 {label}", callback_data=f"setloc:{config_id}:{loc['id']}"
+        ))
+    rows = _rows(buttons)
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"cfg:{config_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
