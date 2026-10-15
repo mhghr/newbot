@@ -44,7 +44,6 @@ def admin_order_caption(order, service_type: str = None, kind: str = "new") -> s
         f"\u200f👤 نام: {name}\n"
         f"\u200f🔗 یوزرنیم: @{username or 'ندارد'}\n"
         f"\u200f🆔 آیدی: {order['telegram_id']}\n"
-        f"\u200f🧩 نوع سرویس: {service_label(stype)}\n"
         f"\u200f📦 پلن: {order['plan_name']}\n"
         f"\u200f💰 مبلغ: {order['price']:,} تومان"
     )

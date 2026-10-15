@@ -154,7 +154,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         master = await db.get_server_for_plan(order["plan_id"], "v2ray")
         if not master:
-            raise Exception("سرور V2Ray فعالی یافت نشد")
+            raise Exception("سرور فعالی یافت نشد")
 
         tg_id = order["telegram_id"]
         location = master["location"]
@@ -164,7 +164,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
         if not reality_ids:
-            raise Exception("سرور V2Ray به‌درستی تنظیم نشده. از «مدیریت سرور» اقدام کنید")
+            raise Exception("سرور به‌درستی تنظیم نشده. از «مدیریت پنل» اقدام کنید")
 
         renew_config_id = order["renew_config_id"]
         plan_max_users = order["max_users"] or 0

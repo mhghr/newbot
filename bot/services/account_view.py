@@ -24,7 +24,7 @@ SEP = f"{RTM}━━━━━━━━━━━━━━━━━"
 
 
 def type_label(config) -> str:
-    return "V2Ray"
+    return ""
 
 
 def remaining_days(expire_date):
@@ -80,13 +80,10 @@ async def last_order_time(config):
 
 
 async def build_account_text(config) -> str:
-    label = "V2Ray"
-
     lines = [
-        f"{RTM}🔑 <b>اکانت {label}</b> <code>#{config['id']}</code>",
+        f"{RTM}🔑 <b>اکانت</b> <code>#{config['id']}</code>",
         SEP,
         f"{RTM}📦 <b>پلن:</b> {_esc(config.get('plan_name') or '-')}",
-        f"{RTM}🔌 <b>نوع اتصال:</b> {label}",
     ]
 
     days = remaining_days(config.get("expire_date"))
@@ -121,7 +118,7 @@ async def send_account_config(bot, chat_id: int, config):
 
     await bot.send_message(
         chat_id=chat_id,
-        text=f"{RTM}🔗 <b>لینک اشتراک V2Ray:</b>\n{RTM}<code>{_esc(sub_link)}</code>",
+        text=f"{RTM}🔗 <b>لینک اشتراک:</b>\n{RTM}<code>{_esc(sub_link)}</code>",
         parse_mode="HTML",
     )
     qr_url = (
@@ -129,7 +126,7 @@ async def send_account_config(bot, chat_id: int, config):
         f"?size=500x500&qzone=2&margin=10&data={quote(sub_link, safe='')}"
     )
     try:
-        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کد اشتراک V2Ray")
+        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کد اشتراک")
     except Exception as e:
         logger.warning("V2Ray QR send failed: %s", e)
 

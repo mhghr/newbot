@@ -17,14 +17,14 @@ def _trunc(value, n: int = 30) -> str:
     return s if len(s) <= n else s[:n - 1] + "…"
 
 
-SERVICE_LABELS = {"v2ray": "V2Ray"}
-SERVICE_SHORT = {"v2ray": "V2Ray"}
+SERVICE_LABELS = {"v2ray": ""}
+SERVICE_SHORT = {"v2ray": ""}
 # Compact badge used in account/config lists so the protocol is obvious.
-SERVICE_BADGE = {"v2ray": "V2Ray"}
+SERVICE_BADGE = {"v2ray": ""}
 
 
 def service_label(service_type) -> str:
-    return "V2Ray"
+    return ""
 
 
 def main_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
@@ -195,9 +195,8 @@ def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
     buttons = []
     for c in configs:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
-        badge = SERVICE_BADGE.get(c.get("service_type"), "V2Ray")
         buttons.append(InlineKeyboardButton(
-            text=f"🔑 [{badge}] {_trunc(label, 26)}",
+            text=f"🔑 {_trunc(label, 26)}",
             callback_data=f"cfg:{c['id']}",
         ))
     rows = _rows(buttons)
@@ -306,7 +305,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
 def create_account_plans_keyboard(plans: list) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(
-            text=f"[{SERVICE_SHORT.get(plan.get('service_type'), 'V2Ray')}] {plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز",
+            text=f"{plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز",
             callback_data=f"acc_plan:{plan['id']}"
         )
         for plan in plans
@@ -348,7 +347,6 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
     sid = server["id"]
     toggle_text = "🔴 غیرفعال کردن" if server["is_active"] else "🟢 فعال کردن"
     rows = [
-        [InlineKeyboardButton(text=f"🧩 نوع: {service_label(server.get('service_type'))}", callback_data="admin:noop")],
         [InlineKeyboardButton(text=f"📛 نام سرور : {_trunc(server['name'])}", callback_data=f"admin:edit_server:{sid}:name")],
         [InlineKeyboardButton(text=f"📍 لوکیشن : {_trunc(server['location'])}", callback_data=f"admin:edit_server:{sid}:location")],
     ]
@@ -378,9 +376,8 @@ def plans_list_keyboard(plans: list) -> InlineKeyboardMarkup:
     rows = []
     for p in plans:
         status = "🟢" if p["is_active"] else "🔴"
-        stype = SERVICE_SHORT.get(p.get("service_type"), "V2Ray")
         rows.append([InlineKeyboardButton(
-            text=f"{status} [{stype}] {p['name']} | {p['price']:,} تومان",
+            text=f"{status} {p['name']} | {p['price']:,} تومان",
             callback_data=f"admin:plan_detail:{p['id']}"
         )])
     rows.append([InlineKeyboardButton(text="➕ افزودن پلن", callback_data="admin:add_plan")])
@@ -577,9 +574,8 @@ def admin_user_detail_keyboard(user, configs: list) -> InlineKeyboardMarkup:
     rows = []
     for c in configs:
         label = c.get("client_email") or c.get("plan_name") or "کانفیگ"
-        badge = SERVICE_SHORT.get(c.get("service_type"), "V2Ray")
         rows.append([InlineKeyboardButton(
-            text=f"🔑 [{badge}] {_trunc(label, 26)}",
+            text=f"🔑 {_trunc(label, 26)}",
             callback_data=f"admin:config_detail:{c['id']}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:search_user")])

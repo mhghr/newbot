@@ -120,7 +120,7 @@ async def show_qr(callback: CallbackQuery, bot: Bot):
         await bot.send_photo(
             chat_id=callback.from_user.id,
             photo=qr_url,
-            caption="📷 QR کد اشتراک V2Ray\nبا اپلیکیشن خود اسکن کنید.",
+            caption="📷 QR کد اشتراک\nبا اپلیکیشن خود اسکن کنید.",
         )
     except Exception:
         await callback.answer("❌ ارسال تصویر ناموفق بود.", show_alert=True)

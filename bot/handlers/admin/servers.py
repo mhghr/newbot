@@ -174,7 +174,7 @@ async def add_server_start(callback: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     await callback.message.edit_text(
-        "🖥 افزودن سرور V2Ray\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
+        "🖥 افزودن سرور\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(AddServerStates.waiting_url)
@@ -188,7 +188,7 @@ async def add_server_v2ray_compat(callback: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     await callback.message.edit_text(
-        "🖥 افزودن سرور V2Ray\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
+        "🖥 افزودن سرور\n\nآدرس پنل 3x-ui را وارد کنید:\n(مثال: https://panel.example.com:2053/path)",
         reply_markup=cancel_keyboard()
     )
     await state.set_state(AddServerStates.waiting_url)

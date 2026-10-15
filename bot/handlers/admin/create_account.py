@@ -251,7 +251,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
 
     master = await db.get_server_for_plan(plan_id, "v2ray")
     if not master:
-        await message.answer("❌ سرور V2Ray فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
+        await message.answer("❌ سرور فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
         return
 
     status_msg = await message.answer("⏳ در حال ساخت اکانت...")
