@@ -130,49 +130,46 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
         check = f"check error: {e}"
     await bot.send_message(chat_id, f"🔍 بررسی وضعیت موجود (#{tid}):\n{check}")
     ip = iran.get("ip") or ""
-    if ip and ip in check and "Established" in check:
-        await db.update_tunnel(tid, "up", "existing established tunnel detected; not re-provisioned"[:400])
+    already_up = bool(ip and ip in check and "Established" in check)
+    if already_up:
         await bot.send_message(
             chat_id,
-            f"ℹ️ برای سرور ایران {ip} از قبل یک cascade «Established» دیده شد؛ تانل دوباره ساخته نشد.",
+            f"ℹ️ تانل {ip} از قبل «Established» است؛ SoftEther دست‌نخورده می‌ماند و فقط لوکیشن (اینباند) سینک می‌شود.",
         )
-        return
-
-    try:
-        await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور ایران (#{tid})...")
-        await asyncio.to_thread(tunnel_svc.provision_iran, iran, tunnel)
-        await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور خارج (#{tid})...")
-        await asyncio.to_thread(tunnel_svc.provision_foreign, foreign, tunnel, iran["ip"])
-        out = await asyncio.to_thread(tunnel_svc.test_tunnel, foreign, tunnel)
-
-        # Wire up the location on the Iran node's panel. The correct panel token
-        # for that node is resolved by trial (panels are not always identical).
-        loc_note = ""
+    else:
         try:
-            node_url, node_tok = await tunnel_svc._find_node_panel(iran["ip"])
-        except Exception:
-            node_url, node_tok = None, None
-        if node_url:
-            try:
-                loc = await tunnel_svc.setup_location(node_url, node_tok, iran, foreign, tunnel)
-                loc_note = f"\nراه‌اندازی لوکیشن:\n{loc['note']}"
-                await db.update_tunnel(
-                    tid, "up", loc["note"][:400],
-                    inbound_id=loc.get("inbound_id"), location=loc.get("tag") or "",
-                )
-            except Exception as e:
-                loc_note = f"\nراه‌اندازی لوکیشن ناموفق: {str(e)[:200]}"
-        else:
-            loc_note = "\nراه‌اندازی لوکیشن: پنلِ این نود پیدا نشد (توکن درست یافت نشد)."
+            await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور ایران (#{tid})...")
+            await asyncio.to_thread(tunnel_svc.provision_iran, iran, tunnel)
+            await bot.send_message(chat_id, f"🔧 نصب/تنظیم SoftEther روی سرور خارج (#{tid})...")
+            await asyncio.to_thread(tunnel_svc.provision_foreign, foreign, tunnel, iran["ip"])
+            out = await asyncio.to_thread(tunnel_svc.test_tunnel, foreign, tunnel)
+        except Exception as e:
+            logger.exception("tunnel provision failed")
+            await db.delete_tunnel(tid)
+            await bot.send_message(chat_id, f"❌ خطا در برقراری تانل #{tid}:\n{str(e)[:300]}")
+            return
 
-        await bot.send_message(
-            chat_id,
-            f"✅ تانل SoftEther #{tid} برقرار شد.\n\n{out}{loc_note}",
-        )
-    except Exception as e:
-        logger.exception("tunnel provision failed")
-        await db.delete_tunnel(tid)
-        await bot.send_message(chat_id, f"❌ خطا در برقراری تانل #{tid}:\n{str(e)[:300]}")
+    # Always (idempotent) create/sync the location inbound + routing on the Iran
+    # panel, so get_locations() can list it (tunnel up AND inbound synced).
+    loc_note = ""
+    try:
+        node_url, node_tok = await tunnel_svc._find_node_panel(iran["ip"])
+    except Exception:
+        node_url, node_tok = None, None
+    if node_url:
+        try:
+            loc = await tunnel_svc.setup_location(node_url, node_tok, iran, foreign, tunnel)
+            loc_note = f"\nراه‌اندازی لوکیشن:\n{loc['note']}"
+            await db.update_tunnel(
+                tid, "up", loc["note"][:400],
+                inbound_id=loc.get("inbound_id"), location=loc.get("tag") or "",
+            )
+        except Exception as e:
+            loc_note = f"\nراه‌اندازی لوکیشن ناموفق: {str(e)[:200]}"
+    else:
+        loc_note = "\nراه‌اندازی لوکیشن: پنلِ این نود پیدا نشد (توکن درست یافت نشد)."
+
+    await bot.send_message(chat_id, f"✅ تانل #{tid} آماده است.{loc_note}")
 
 
 @router.callback_query(F.data.startswith("admin:tunnel_detail:"))
