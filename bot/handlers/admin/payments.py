@@ -53,12 +53,20 @@ async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_capti
         if not tunnel or not tunnel.get("inbound_id"):
             raise Exception("لوکیشن یافت نشد")
         node = await db.get_node(tunnel["iran_node_id"])
-        panel = await db.get_master_server("v2ray")
-        if not node or not panel:
-            raise Exception("سرور/پنل لوکیشن یافت نشد")
+        if not node:
+            raise Exception("سرور لوکیشن یافت نشد")
 
-        node_url = panel_sync.node_panel_url(panel["url"], node["ip"])
-        xui = XUIClient(node_url, api_token=panel.get("api_token") or "")
+        from bot.services import tunnel as tunnel_svc
+        node_url, node_tok = await tunnel_svc._find_node_panel(node["ip"])
+        if not node_url:
+            panel = await db.get_master_server("v2ray")
+            if panel:
+                node_url = panel_sync.node_panel_url(panel["url"], node["ip"])
+                node_tok = panel.get("api_token")
+        if not node_url:
+            raise Exception("پنل این نود یافت نشد")
+
+        xui = XUIClient(node_url, api_token=node_tok or "")
 
         email = f"{order['telegram_id']}-order{order_id}"
         try:
@@ -72,11 +80,10 @@ async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_capti
             limit_ip=order["max_users"] or 0,
             all_inbound_ids=[tunnel["inbound_id"]],
         )
-
         link = ""
         try:
-            links = await xui.get_client_links(email)
-            link = next((l for l in links if str(l).startswith("wireguard://")), links[0] if links else "")
+            ls = await xui.get_client_links(email)
+            link = next((l for l in ls if str(l).startswith("wireguard://")), ls[0] if ls else "")
         except Exception:
             pass
 
@@ -86,14 +93,14 @@ async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_capti
             expire_date = None
         await db.create_config(
             order["user_id"], order_id, order["plan_id"], email, email, link,
-            order["traffic_gb"], expire_date, server_id=panel["id"], tunnel_id=tunnel["id"],
+            order["traffic_gb"], expire_date, server_id=None, tunnel_id=tunnel["id"],
         )
 
-        await account_view.deliver_wireguard(bot, order["telegram_id"], link, header="✅ اشتراک شما آماده شد!")
+        await account_view.deliver_wireguard(bot, order["telegram_id"], link, header="✅ کانفیگ شما آماده شد!")
         await db.update_order_status(order_id, "approved", link)
         try:
             await callback.message.edit_caption(
-                caption=base_caption + "\n\n✅ تایید و ارسال شد (وایرگارد)", reply_markup=None
+                caption=base_caption + "\n\n✅ تایید و ارسال شد", reply_markup=None
             )
         except Exception:
             pass

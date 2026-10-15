@@ -58,9 +58,11 @@ async def _check_v2ray_config(bot: Bot, config, now: datetime, xui):
         if 0 < seconds_left <= 24 * 3600:
             await _send_time_reminder(bot, config)
 
-    if not config["reminder_traffic_sent"] and xui:
-        traffic = await xui.get_client_traffic(config["client_email"])
-        if traffic.get("total", 0) > 0 and 0 <= traffic.get("remaining", 0) <= ONE_GB:
+    if not config["reminder_traffic_sent"]:
+        # Sum traffic over all device clients of this account.
+        from bot.services import account_view
+        traffic = await account_view.traffic_summary(config)
+        if (traffic.get("total") or 0) > 0 and 0 <= (traffic.get("remaining") or 0) <= ONE_GB:
             await _send_traffic_reminder(bot, config)
 
 

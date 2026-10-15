@@ -261,12 +261,13 @@ async def delete_plan(plan_id: int):
 
 
 async def create_order(user_id: int, plan_id: int, receipt_photo_id: str, server_id: int = None,
-                       renew_config_id: int = None, service_type: str = "v2ray", tunnel_id: int = None):
+                       renew_config_id: int = None, service_type: str = "v2ray", tunnel_id: int = None,
+                       device_count: int = 1):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO orders (user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
-            user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id
+            """INSERT INTO orders (user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id, device_count)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
+            user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id, device_count
         )
 
 
@@ -564,7 +565,7 @@ async def set_user_sub_token(user_id: int, sub_token: str):
 
 async def create_config(user_id: int, order_id: int, plan_id: int, client_email: str,
                         sub_id: str, sub_url: str, traffic_gb: int, expire_date,
-                        server_id: int = None, tunnel_id: int = None):
+                        server_id: int = None, tunnel_id: int = None, client_emails: str = ""):
     if isinstance(expire_date, str):
         expire_date = datetime.fromisoformat(expire_date)
     async with models.pool.acquire() as conn:
@@ -572,11 +573,11 @@ async def create_config(user_id: int, order_id: int, plan_id: int, client_email:
             """INSERT INTO configs
                    (user_id, order_id, plan_id, client_email, sub_id, config_link,
                     traffic_limit_gb, expire_date, server_id, service_type, is_active,
-                    reminder_traffic_sent, reminder_time_sent, tunnel_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10)
+                    reminder_traffic_sent, reminder_time_sent, tunnel_id, client_emails)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10, $11)
                RETURNING id""",
             user_id, order_id, plan_id, client_email, sub_id, sub_url,
-            traffic_gb, expire_date, server_id, tunnel_id
+            traffic_gb, expire_date, server_id, tunnel_id, client_emails
         )
 
 

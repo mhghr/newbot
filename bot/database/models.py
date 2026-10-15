@@ -228,9 +228,13 @@ async def init_db():
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS server_id INTEGER",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tunnel_id INTEGER",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS device_count INTEGER DEFAULT 1",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS tunnel_id INTEGER",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS used_bytes BIGINT DEFAULT 0",
+            # A single account may have several WireGuard clients (devices); their
+            # panel emails are stored here (comma separated) so traffic can be summed.
+            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS client_emails TEXT DEFAULT ''",
             # Allow deleting a plan that still has orders linked to it.
             "ALTER TABLE orders ALTER COLUMN plan_id DROP NOT NULL",
             "UPDATE servers SET service_type='v2ray' WHERE service_type IS NULL",

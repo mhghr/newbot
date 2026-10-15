@@ -47,19 +47,49 @@ def _fmt_dt(value) -> str:
         return str(value)
 
 
-async def traffic_summary(config) -> dict:
-    """Return ``{used, total, remaining}`` in bytes (``None`` = unknown, total 0 = unlimited)."""
+async def _panel_for_config(config):
+    """Resolve (url, token) of the panel that hosts this config's clients."""
+    tunnel_id = config.get("tunnel_id")
+    if tunnel_id:
+        try:
+            t = await db.get_tunnel(tunnel_id)
+            if t and t.get("iran_node_id"):
+                node = await db.get_node(t["iran_node_id"])
+                if node:
+                    from bot.services import tunnel as tunnel_svc
+                    url, tok = await tunnel_svc._find_node_panel(node["ip"])
+                    if url:
+                        return url, tok
+        except Exception:
+            pass
     master = await db.get_master_server("v2ray")
     if master:
+        return master["url"], master.get("api_token")
+    return None, None
+
+
+async def traffic_summary(config) -> dict:
+    """Traffic of an account = sum over all of its device clients (``client_emails``)."""
+    emails = [e for e in (config.get("client_emails") or "").split(",") if e]
+    if not emails:
+        emails = [config.get("client_email")] if config.get("client_email") else []
+
+    url, tok = await _panel_for_config(config)
+    if url and emails:
         try:
-            xui = XUIClient(master["url"], api_token=master["api_token"])
-            t = await xui.get_client_traffic(config["client_email"])
-            total = (t.get("total") or 0) or ((config.get("traffic_gb") or 0) * ONE_GB)
-            used = t.get("used", 0)
+            xui = XUIClient(url, api_token=tok or "")
+            used = 0
+            total = 0
+            for em in emails:
+                t = await xui.get_client_traffic(em)
+                used += t.get("used", 0)
+                total += (t.get("total") or 0)
+            if total == 0:
+                total = (config.get("traffic_gb") or 0) * ONE_GB
             remaining = max(0, total - used) if total > 0 else None
             return {"used": used, "total": total or None, "remaining": remaining}
         except Exception as e:
-            logger.warning("v2ray traffic fetch failed for config %s: %s", config.get("id"), e)
+            logger.warning("traffic fetch failed for config %s: %s", config.get("id"), e)
 
     total = (config.get("traffic_gb") or 0) * ONE_GB
     used = config.get("used_bytes") or 0
@@ -110,7 +140,24 @@ async def build_account_text(config) -> str:
 
 
 async def send_account_config(bot, chat_id: int, config):
-    """Deliver the V2Ray subscription link + QR."""
+    """Deliver the config: WireGuard device config, or the subscription link + QR."""
+    emails = [e for e in (config.get("client_emails") or "").split(",") if e]
+    if config.get("tunnel_id") or emails:
+        em = emails[0] if emails else config.get("client_email")
+        url, tok = await _panel_for_config(config)
+        link = ""
+        if url and em:
+            try:
+                xui = XUIClient(url, api_token=tok or "")
+                ls = await xui.get_client_links(em)
+                link = next((l for l in ls if str(l).startswith("wireguard://")), ls[0] if ls else "")
+            except Exception:
+                pass
+        if not link:
+            link = config.get("sub_url") or config.get("config_link") or ""
+        await deliver_wireguard(bot, chat_id, link, header="✅ کانفیگ شما آماده شد")
+        return
+
     sub_link = config.get("sub_url") or config.get("config_link")
     if not sub_link:
         await bot.send_message(chat_id=chat_id, text="❌ لینک اشتراک یافت نشد.")
