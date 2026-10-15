@@ -285,7 +285,7 @@ def _do_transfer(host: str, username: str, password: str, report: callable):
             "export DEBIAN_FRONTEND=noninteractive && "
             "apt-get update -y && "
             "apt-get install -y python3 python3-venv python3-pip "
-            "postgresql postgresql-contrib openssl curl ffmpeg"
+            "postgresql postgresql-contrib openssl curl"
         ))
 
         # --- Step 2: DB backup locally ---

@@ -34,10 +34,10 @@ echo "        MigMig VPN Bot - Ubuntu Deploy"
 echo "=================================================="
 
 # ---------- 1) System dependencies ----------
-info "Updating apt and installing dependencies (python, postgresql, ffmpeg)..."
+info "Updating apt and installing dependencies (python, postgresql)..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip postgresql postgresql-contrib openssl curl ffmpeg
+apt-get install -y python3 python3-venv python3-pip postgresql postgresql-contrib openssl curl
 systemctl enable postgresql >/dev/null 2>&1 || true
 systemctl start postgresql
 
