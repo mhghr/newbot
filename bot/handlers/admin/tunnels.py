@@ -130,11 +130,11 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
         check = f"check error: {e}"
     await bot.send_message(chat_id, f"🔍 بررسی وضعیت موجود (#{tid}):\n{check}")
     ip = iran.get("ip") or ""
-    if ip and ip in check and "Online" in check:
+    if ip and ip in check and "Established" in check:
         await db.update_tunnel(tid, "up", "existing established tunnel detected; not re-provisioned"[:400])
         await bot.send_message(
             chat_id,
-            f"ℹ️ برای سرور ایران {ip} از قبل یک cascade «Online» دیده شد؛ تانل دوباره ساخته نشد.",
+            f"ℹ️ برای سرور ایران {ip} از قبل یک cascade «Established» دیده شد؛ تانل دوباره ساخته نشد.",
         )
         return
 
@@ -145,17 +145,16 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
         await asyncio.to_thread(tunnel_svc.provision_foreign, foreign, tunnel, iran["ip"])
         out = await asyncio.to_thread(tunnel_svc.test_tunnel, foreign, tunnel)
 
-        # Wire up the location on the Iran node's panel (routing + WG inbound +
-        # outbound/routing), addressed by the node IP with the panel api_token.
+        # Wire up the location on the Iran node's panel. The correct panel token
+        # for that node is resolved by trial (panels are not always identical).
         loc_note = ""
-        panel_rec = await db.get_master_server("v2ray")
-        if panel_rec:
+        try:
+            node_url, node_tok = await tunnel_svc._find_node_panel(iran["ip"])
+        except Exception:
+            node_url, node_tok = None, None
+        if node_url:
             try:
-                from bot.services.panel_sync import node_panel_url
-                node_url = node_panel_url(panel_rec["url"], iran["ip"])
-                loc = await tunnel_svc.setup_location(
-                    node_url, panel_rec.get("api_token") or "", iran, foreign, tunnel
-                )
+                loc = await tunnel_svc.setup_location(node_url, node_tok, iran, foreign, tunnel)
                 loc_note = f"\nراه‌اندازی لوکیشن:\n{loc['note']}"
                 await db.update_tunnel(
                     tid, "up", loc["note"][:400],
@@ -163,7 +162,8 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
                 )
             except Exception as e:
                 loc_note = f"\nراه‌اندازی لوکیشن ناموفق: {str(e)[:200]}"
-                await db.update_tunnel(tid, "up", f"tunnel up; location error: {e}"[:400])
+        else:
+            loc_note = "\nراه‌اندازی لوکیشن: پنلِ این نود پیدا نشد (توکن درست یافت نشد)."
 
         await bot.send_message(
             chat_id,

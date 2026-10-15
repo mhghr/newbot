@@ -54,6 +54,10 @@ BASE_URL = os.getenv("BASE_URL", "")
 SUB_HOST = os.getenv("SUB_HOST", "0.0.0.0")
 SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
 
+# SoftEther VPN Server administrator password (same on all our nodes). Used by
+# the tunnel wizard to manage hubs/listeners/cascades.
+SOFTETHER_ADMIN_PASSWORD = os.getenv("SOFTETHER_ADMIN_PASSWORD", "SeAdmin-2026")
+
 # ArvanCloud CDN/DNS API — used to switch the entry domain's A record to the
 # currently active Iran node.
 ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")
