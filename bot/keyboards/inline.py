@@ -304,7 +304,6 @@ def admin_tutorial_app_keyboard(platform: str, slug: str, has_video: bool) -> In
 
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
     rows = _rows([
-        InlineKeyboardButton(text="🗄 مدیریت پنل", callback_data="admin:servers"),
         InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:nodes"),
         InlineKeyboardButton(text="🚇 تانل‌ها", callback_data="admin:tunnels"),
         InlineKeyboardButton(text="📦 مدیریت پلن‌ها", callback_data="admin:plans"),
@@ -425,6 +424,8 @@ def nodes_list_keyboard(nodes: list) -> InlineKeyboardMarkup:
             callback_data=f"admin:node_detail:{n['id']}",
         )])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_node")])
+    rows.append([InlineKeyboardButton(text="🌐 آی‌پی فعال (تغییر DNS آروان)", callback_data="admin:active_server")])
+    rows.append([InlineKeyboardButton(text="🌐 دامنه اندپوینت (هاست)", callback_data="admin:endpoint_domain")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -439,6 +440,10 @@ def node_actions_keyboard(node) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=f"👤 یوزر SSH : {node.get('ssh_user') or 'root'}", callback_data=f"admin:edit_node:{nid}:ssh_user")],
         [InlineKeyboardButton(text=f"🔑 پسورد SSH : {node.get('ssh_pass') or '-'}", callback_data=f"admin:edit_node:{nid}:ssh_pass")],
         [InlineKeyboardButton(text=f"📍 لوکیشن : {node.get('location') or '-'}", callback_data=f"admin:edit_node:{nid}:location")],
+        [InlineKeyboardButton(text=f"🧩 نوع : {node.get('kind') or '-'}", callback_data=f"admin:edit_node:{nid}:kind")],
+        [InlineKeyboardButton(text=f"🌐 پنل : {_trunc(node.get('panel_url') or '-')}", callback_data=f"admin:edit_node:{nid}:panel_url")],
+        [InlineKeyboardButton(text=f"🔑 توکن پنل : {_trunc(node.get('panel_token') or '-')}", callback_data=f"admin:edit_node:{nid}:panel_token")],
+        [InlineKeyboardButton(text=f"🔌 پورت لوکیشن : {node.get('wg_port') or '-'}", callback_data=f"admin:edit_node:{nid}:wg_port")],
         [
             InlineKeyboardButton(text=toggle, callback_data=f"admin:toggle_node:{nid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_node:{nid}"),

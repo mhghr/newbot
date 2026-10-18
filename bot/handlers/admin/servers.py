@@ -513,7 +513,7 @@ async def active_server_menu(callback: CallbackQuery):
         rows.append([InlineKeyboardButton(
             text=f"{mark}{n['ip']}  —  {n['name']}", callback_data=f"admin:set_active:{n['id']}"
         )])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")])
     await callback.message.edit_text(
         "🌐 آی‌پی فعال\n"
         f"آی‌پی فعلی: {active_ip or 'تعیین نشده'}\n\n"
@@ -541,7 +541,7 @@ async def set_active_server(callback: CallbackQuery):
         f"ایمپورت کلاینت‌ها: {'✅' if res['sync'] else '❌'} ({res.get('count', 0)} کلاینت)\n"
         f"{res['error']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],
+            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")],
         ]),
     )
     await callback.answer("✅ انجام شد")

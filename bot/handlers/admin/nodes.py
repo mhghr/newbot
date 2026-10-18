@@ -43,10 +43,11 @@ class NodeEditStates(StatesGroup):
 
 def _node_header(node) -> str:
     status = "فعال 🟢" if node["is_active"] else "غیرفعال 🔴"
-    kind = "ایران" if db.is_iran_location(node["location"]) else "خارج"
+    kind = "ایران" if db.is_iran_node(node) else "خارج"
     return (
         f"🖥 {node['name']} ({kind}) — {status}\n"
         f"🌐 {node['ip']}:{node.get('ssh_port') or 22}\n"
+        f"🌍 {node.get('location') or '-'} | 🔌 {node.get('wg_port') or '-'}\n"
         "روی هر مورد بزنید تا ویرایش شود:"
     )
 
@@ -298,7 +299,7 @@ async def edit_node_save(message: Message, state: FSMContext):
     nid = data["node_id"]
     field = data["node_field"]
     value = message.text.strip()
-    if field == "ssh_port" and not value.isdigit():
+    if field in ("ssh_port", "wg_port") and not value.isdigit():
         await message.answer("⚠️ فقط عدد وارد کنید:", reply_markup=cancel_keyboard())
         return
     await db.update_node_field(nid, field, value)
