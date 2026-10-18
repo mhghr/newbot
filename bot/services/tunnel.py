@@ -391,9 +391,10 @@ echo NAT_OK
     await asyncio.to_thread(_ssh_run, foreign, foreign_script)
     note.append("خارج NAT ok")
 
-    # 3) WG inbound: reuse the node's WireGuard inbound (renamed to the location
-    #    name) so a location never spawns a duplicate inbound. Only create a new
-    #    inbound when the node has none.
+    # 3) WG inbound: one inbound per location. Reuse the node's inbound whose
+    #    remark matches the location name; otherwise create a new one (using the
+    #    port the active node uses for this location, so client configs keep
+    #    working after the entry IP switch).
     xui = XUIClient(node_panel_url, api_token=token)
 
     def _as_obj(v):
@@ -405,6 +406,7 @@ echo NAT_OK
         return v or {}
 
     loc_name = (foreign.get("name") or "").strip() or f"loc-{tid}"
+    wanted = loc_name.lower()
 
     tag = ""
     inbound_id = None
@@ -414,11 +416,9 @@ echo NAT_OK
     ]
     target = None
     for ib in wg_inbounds:
-        if (ib.get("remark") or "").strip() == loc_name:
+        if (ib.get("remark") or "").strip().lower() == wanted:
             target = ib
             break
-    if target is None and len(wg_inbounds) == 1:
-        target = wg_inbounds[0]
 
     if target is not None:
         inbound_id = target.get("id")
@@ -437,9 +437,8 @@ echo NAT_OK
     else:
         tpl = await xui.find_wireguard_inbound()
         if not tpl:
-            # Fresh node: clone the active Iran node's inbound (same settings
-            # and port, so client configs keep working after the IP switch).
-            tpl = await _template_from_active_node()
+            # Fresh node: clone the active Iran node's inbound of this location.
+            tpl = await _template_from_active_node(loc_name)
             if tpl:
                 note.append("الگوی اینباند از سرور فعال گرفته شد")
         if not tpl:
@@ -449,7 +448,8 @@ echo NAT_OK
         # the same location, so users keep working after the entry IP switch.
         settings.setdefault("clients", [])
         settings.setdefault("peers", [])
-        inbound_port = tpl.get("port") or port
+        same_location = (tpl.get("remark") or "").strip().lower() == wanted
+        inbound_port = (tpl.get("port") if same_location else None) or port
         res = await xui.add_inbound({
             "remark": loc_name, "enable": True, "port": inbound_port, "protocol": "wireguard",
             "listen": "", "total": 0, "up": 0, "down": 0, "expiryTime": 0,
@@ -465,6 +465,13 @@ echo NAT_OK
                 inbound_id = ib.get("id")
                 break
         note.append(f"اینباند WG {'ساخته شد' if ok else 'ناموفق'} (id={inbound_id} tag={tag or '-'} name={loc_name})")
+
+    if inbound_id is not None:
+        try:
+            from bot.database import db as _db
+            await _db.upsert_node_inbound(iran.get("id"), tid, inbound_id, tag, loc_name)
+        except Exception as e:
+            logger.warning("record node inbound failed: %s", e)
 
     # 4) outbound + routing. Prefer the shared working foreign exit
     #    (LOCATION_EXIT_OUTBOUND, e.g. "softether-exit"); fall back to a

@@ -86,13 +86,61 @@ async def refresh_export() -> int:
     return len(clients)
 
 
-async def import_to_node(target_node, clients: list) -> bool:
+async def _remap_inbound_ids(clients: list, source_node, target_node) -> list:
+    """Remap each client's ``inboundIds`` from the source node to the target.
+
+    The same location has a different inbound id on every node; the mapping is
+    stored in ``node_inbounds`` when a location is created/synced.
+    """
+    try:
+        src_rows = await db.get_node_inbounds(source_node["id"])
+        dst_rows = await db.get_node_inbounds(target_node["id"])
+    except Exception as e:
+        logger.warning("inbound map load failed: %s", e)
+        return clients
+    old_to_tunnel = {int(r["inbound_id"]): int(r["tunnel_id"]) for r in src_rows}
+    tunnel_to_new = {int(r["tunnel_id"]): int(r["inbound_id"]) for r in dst_rows}
+    if not old_to_tunnel or not tunnel_to_new:
+        logger.warning("inbound map empty (source=%d target=%d)",
+                       len(old_to_tunnel), len(tunnel_to_new))
+        return clients
+
+    out, skipped = [], 0
+    for item in clients:
+        ids = item.get("inboundIds") or []
+        if not ids:
+            continue
+        new_ids = []
+        for old in ids:
+            try:
+                tid = old_to_tunnel.get(int(old))
+            except Exception:
+                tid = None
+            if tid is not None and tid in tunnel_to_new:
+                new_ids.append(tunnel_to_new[tid])
+        if not new_ids:
+            skipped += 1
+            continue
+        item = dict(item)
+        item["inboundIds"] = new_ids
+        out.append(item)
+    if skipped:
+        logger.info("client import: skipped %d clients with unmapped inbounds", skipped)
+    return out
+
+
+async def import_to_node(target_node, clients: list, source_node=None) -> bool:
     if not clients:
         return False
     url, tok = await _node_panel(target_node)
     if not url:
         return False
-    return await XUIClient(url, api_token=tok or "").import_clients(clients)
+    src = source_node or await active_node()
+    mapped = await _remap_inbound_ids(clients, src, target_node) if src else clients
+    if not mapped:
+        logger.warning("import: nothing left after inbound remap")
+        return False
+    return await XUIClient(url, api_token=tok or "").import_clients(mapped)
 
 
 async def switch_active(target_node) -> dict:
@@ -119,7 +167,7 @@ async def switch_active(target_node) -> dict:
 
     # 2) import the clients into the new node
     try:
-        result["sync"] = await import_to_node(target_node, clients)
+        result["sync"] = await import_to_node(target_node, clients, source_node=active)
     except Exception as e:
         result["error"] += f"import: {e}; "
 

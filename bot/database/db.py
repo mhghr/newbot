@@ -488,6 +488,36 @@ async def delete_node(node_id: int):
 
 
 # --------------------------------------------------------------------------- #
+# Per-node location inbound mapping (tunnel -> inbound id on a specific node)
+# --------------------------------------------------------------------------- #
+
+async def upsert_node_inbound(node_id: int, tunnel_id: int, inbound_id: int,
+                              tag: str = "", location: str = ""):
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO node_inbounds (node_id, tunnel_id, inbound_id, tag, location)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (node_id, tunnel_id)
+               DO UPDATE SET inbound_id=EXCLUDED.inbound_id, tag=EXCLUDED.tag,
+                             location=EXCLUDED.location, updated_at=NOW()""",
+            node_id, tunnel_id, inbound_id, tag, location,
+        )
+
+
+async def get_node_inbounds(node_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM node_inbounds WHERE node_id=$1 ORDER BY tunnel_id", node_id)
+
+
+async def get_tunnel_inbound_on_node(node_id: int, tunnel_id: int):
+    async with models.pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM node_inbounds WHERE node_id=$1 AND tunnel_id=$2",
+            node_id, tunnel_id)
+
+
+# --------------------------------------------------------------------------- #
 # Tunnels (Iran node <-> foreign node)
 # --------------------------------------------------------------------------- #
 

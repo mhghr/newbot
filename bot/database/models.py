@@ -154,6 +154,28 @@ async def init_db():
             )
         """)
 
+        # Per-node inbound ids: the same location (tunnel) gets a different
+        # inbound id on every Iran node, so the mapping is stored here and used
+        # to remap client inboundIds when importing them into another node.
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS node_inbounds (
+                id SERIAL PRIMARY KEY,
+                node_id INTEGER NOT NULL,
+                tunnel_id INTEGER NOT NULL,
+                inbound_id INTEGER NOT NULL,
+                tag TEXT DEFAULT '',
+                location TEXT DEFAULT '',
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        try:
+            await conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS node_inbounds_node_tunnel "
+                "ON node_inbounds (node_id, tunnel_id)"
+            )
+        except Exception:
+            pass
+
         try:
             await conn.execute("ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_token TEXT DEFAULT ''")
         except Exception:
