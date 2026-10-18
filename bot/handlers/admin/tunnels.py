@@ -189,10 +189,68 @@ async def tunnel_detail(callback: CallbackQuery):
         f"جزئیات: {(t.get('detail') or '-')[:600]}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:tunnels")]
+        [InlineKeyboardButton(text="🔄 ساخت/سینک لوکیشن", callback_data=f"admin:tunnel_sync:{tid}")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:tunnels")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:tunnel_sync:"))
+async def tunnel_sync(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    tid = int(callback.data.split(":")[2])
+    t = await db.get_tunnel(tid)
+    if not t:
+        await callback.answer("❌ تانل یافت نشد!", show_alert=True)
+        return
+    iran = await db.get_node(t["iran_node_id"]) if t["iran_node_id"] else None
+    foreign = await db.get_node(t["foreign_node_id"]) if t["foreign_node_id"] else None
+    if not iran or not foreign:
+        await callback.answer("❌ سرورهای تانل یافت نشد!", show_alert=True)
+        return
+
+    panel_url = (iran.get("panel_url") or "").strip()
+    panel_tok = iran.get("panel_token") or ""
+    if not panel_url:
+        panel_url, panel_tok = await tunnel_svc._find_node_panel(iran["ip"])
+    if not panel_url:
+        await callback.answer("⚠️ اطلاعات پنل این سرور تنظیم نشده.", show_alert=True)
+        return
+
+    await callback.answer("⏳ در حال ساخت لوکیشن...")
+    status = await callback.message.answer("⏳ در حال ساخت اینباند/روتینگ لوکیشن...")
+    try:
+        tdict = {
+            "id": tid,
+            "subnet": f"10.240.{tid}.0/30",
+            "foreign_tap_ip": f"10.240.{tid}.2",
+        }
+        loc = await tunnel_svc.setup_location(
+            panel_url, panel_tok, dict(iran), dict(foreign), tdict
+        )
+        await db.update_tunnel(
+            tid, "up", loc["note"][:400],
+            inbound_id=loc.get("inbound_id"),
+            location=loc.get("name") or loc.get("tag") or "",
+        )
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await callback.message.answer(
+            f"✅ لوکیشن تانل #{tid} آماده شد.\n\n📍 {loc.get('name')}\n"
+            f"🆔 inbound id: {loc.get('inbound_id')}\n🧩 {loc.get('note')}",
+            reply_markup=admin_menu_keyboard(),
+        )
+    except Exception as e:
+        logger.exception("tunnel location sync failed")
+        try:
+            await status.edit_text(f"❌ ساخت لوکیشن ناموفق بود:\n{str(e)[:250]}")
+        except Exception:
+            await callback.message.answer(f"❌ ساخت لوکیشن ناموفق بود:\n{str(e)[:250]}")
+        await callback.message.answer("منوی مدیریت:", reply_markup=admin_menu_keyboard())
 
 
 @router.message(TunnelPanelStates.waiting_url)

@@ -27,8 +27,20 @@ async def export_active(panel_rec) -> dict:
 
 
 async def import_to_node(panel_rec, node) -> bool:
-    url = node_panel_url(panel_rec["url"], node["ip"])
-    xui = XUIClient(url, api_token=panel_rec.get("api_token") or "")
+    """Import the active panel's clients into ``node``.
+
+    Prefers the node's own stored panel URL/token (scheme/port may differ from
+    the master panel), falling back to the master panel URL rewritten to the
+    node's IP.
+    """
+    node_url = (node.get("panel_url") or "").strip()
+    if node_url:
+        url = node_url
+        token = node.get("panel_token") or ""
+    else:
+        url = node_panel_url(panel_rec["url"], node["ip"])
+        token = panel_rec.get("api_token") or ""
+    xui = XUIClient(url, api_token=token)
     payload = await export_active(panel_rec)
     return await xui.import_clients(payload)
 
