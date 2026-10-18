@@ -298,6 +298,32 @@ async def create_location_inbound(panel_url, token, wg_port, remark):
     })
 
 
+async def _template_from_active_node() -> dict:
+    """Return a WireGuard inbound from the active Iran node to clone.
+
+    The location inbound on a fresh node is created as a copy (same settings and
+    port) so a client config keeps working after the entry IP is switched.
+    """
+    from bot.database import db
+    try:
+        active_id = await db.get_setting("active_node_id", "")
+    except Exception:
+        active_id = ""
+    nodes = await db.get_iran_nodes()
+    ordered = sorted(nodes, key=lambda n: 0 if str(n["id"]) == str(active_id) else 1)
+    for n in ordered:
+        try:
+            url, tok = await _find_node_panel(n["ip"])
+            if not url:
+                continue
+            tpl = await XUIClient(url, api_token=tok or "").find_wireguard_inbound()
+            if tpl:
+                return tpl
+        except Exception:
+            continue
+    return {}
+
+
 async def setup_location(node_panel_url: str, token: str, iran: dict, foreign: dict, tunnel: dict) -> dict:
     """Wire the location: Iran routing + WG inbound + xray outbound/routing + foreign NAT."""
     import asyncio
@@ -379,20 +405,28 @@ echo NAT_OK
     else:
         tpl = await xui.find_wireguard_inbound()
         if not tpl:
+            # Fresh node: clone the active Iran node's inbound (same settings
+            # and port, so client configs keep working after the IP switch).
+            tpl = await _template_from_active_node()
+            if tpl:
+                note.append("الگوی اینباند از سرور فعال گرفته شد")
+        if not tpl:
             raise TunnelError("no WireGuard inbound template on the panel")
         settings = _as_obj(tpl.get("settings"))
         for k in ("peers", "clients"):
             settings.pop(k, None)
+        inbound_port = tpl.get("port") or port
         res = await xui.add_inbound({
-            "remark": loc_name, "enable": True, "port": port, "protocol": "wireguard",
+            "remark": loc_name, "enable": True, "port": inbound_port, "protocol": "wireguard",
             "listen": "", "total": 0, "up": 0, "down": 0, "expiryTime": 0,
             "settings": settings,
             "streamSettings": _as_obj(tpl.get("streamSettings")),
             "sniffing": _as_obj(tpl.get("sniffing")),
         })
         ok = bool(res.get("success")) if isinstance(res, dict) else False
+        port = inbound_port
         for ib in await xui.get_inbounds():
-            if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == port:
+            if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("port") == inbound_port:
                 tag = ib.get("tag") or ""
                 inbound_id = ib.get("id")
                 break
