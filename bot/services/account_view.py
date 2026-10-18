@@ -383,7 +383,7 @@ async def resolve_delivery(xui, email: str, sub_id: str, server, sub_base: str =
     or ``"direct"`` (subscription vs. plain config link) depending on the
     server's subscription toggle.
     """
-    if rec_get(server, "wireguard", False):
+    if rec_get(server, "wireguard", True):
         try:
             links = await xui.get_client_links(email)
             link = next((l for l in links if str(l).startswith("wireguard://")), "")
@@ -392,8 +392,9 @@ async def resolve_delivery(xui, email: str, sub_id: str, server, sub_base: str =
         except Exception as e:
             logger.warning("WireGuard link fetch failed for %s: %s", email, e)
             link = ""
-        return link, "wg"
+        if link:
+            return link, "wg"
 
-    sub_enabled = bool(rec_get(server, "sub_enabled", True))
+    sub_enabled = bool(rec_get(server, "sub_enabled", False))
     link, is_sub = await fetch_delivery_link(xui, email, sub_id, sub_enabled, sub_base)
     return link, ("sub" if is_sub else "direct")

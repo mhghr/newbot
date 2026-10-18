@@ -407,22 +407,6 @@ async def save_inbounds(message: Message, state: FSMContext):
     await message.answer(f"✅ ذخیره شد: {cleaned}", reply_markup=server_inbounds_keyboard(server_id, ids))
 
 
-# ---------------- Sync Inbounds ----------------
-
-@router.callback_query(F.data.startswith("admin:sync_inbounds:"))
-async def sync_inbounds(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS: return
-    server_id = int(callback.data.split(":")[2])
-    server = await db.get_server(server_id)
-    if not server:
-        await callback.answer("❌ سرور یافت نشد", show_alert=True)
-        return
-
-    status = await callback.message.answer("⏳ شروع همگام‌سازی...")
-    await callback.answer()
-    asyncio.create_task(_sync_clients_to_inbounds(server, callback.from_user.id, callback.bot, status_message=status))
-
-
 # ---------------- Toggle / Delete ----------------
 
 @router.callback_query(F.data.startswith("admin:toggle_server:"))
@@ -436,32 +420,6 @@ async def toggle_server(callback: CallbackQuery):
         reply_markup=server_actions_keyboard(server)
     )
     await callback.answer("✅ وضعیت تغییر کرد!")
-
-
-@router.callback_query(F.data.startswith("admin:toggle_server_sub:"))
-async def toggle_server_sub(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS: return
-    server_id = int(callback.data.split(":")[2])
-    await db.toggle_server_sub(server_id)
-    server = await db.get_server(server_id)
-    await callback.message.edit_text(
-        _server_header(server),
-        reply_markup=server_actions_keyboard(server)
-    )
-    await callback.answer("✅ وضعیت لینک ساب تغییر کرد!")
-
-
-@router.callback_query(F.data.startswith("admin:toggle_server_wireguard:"))
-async def toggle_server_wireguard(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS: return
-    server_id = int(callback.data.split(":")[2])
-    await db.toggle_server_wireguard(server_id)
-    server = await db.get_server(server_id)
-    await callback.message.edit_text(
-        _server_header(server),
-        reply_markup=server_actions_keyboard(server)
-    )
-    await callback.answer("✅ وضعیت وایرگارد تغییر کرد!")
 
 
 @router.callback_query(F.data.startswith("admin:delete_server:"))

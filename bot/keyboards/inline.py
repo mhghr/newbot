@@ -375,13 +375,6 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
         [InlineKeyboardButton(text=f"🔑 کلید اتصال : {_trunc(server['api_token'])}", callback_data=f"admin:edit_server:{sid}:api_token")],
         [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
-        [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
-        [InlineKeyboardButton(
-            text=f"🔗 لینک ساب : {'فعال 🟢' if server.get('sub_enabled', True) else 'غیرفعال 🔴'}",
-            callback_data=f"admin:toggle_server_sub:{sid}")],
-        [InlineKeyboardButton(
-            text=f"🧩 وایرگارد : {'فعال 🟢' if server.get('wireguard', False) else 'غیرفعال 🔴'}",
-            callback_data=f"admin:toggle_server_wireguard:{sid}")],
     ]
     rows += [
         [InlineKeyboardButton(text="🌐 آی‌پی فعال (تغییر DNS آروان)", callback_data="admin:active_server")],

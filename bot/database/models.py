@@ -223,8 +223,10 @@ async def init_db():
         for stmt in (
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_port INTEGER DEFAULT 8728",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS sub_enabled BOOLEAN DEFAULT TRUE",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wireguard BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS sub_enabled BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wireguard BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE servers ALTER COLUMN sub_enabled SET DEFAULT FALSE",
+            "ALTER TABLE servers ALTER COLUMN wireguard SET DEFAULT TRUE",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS active_server_id INTEGER",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS server_id INTEGER",
