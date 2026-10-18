@@ -35,14 +35,25 @@ _SE_MGMT = (
 )
 
 # Bash snippet: install SoftEther into /usr/local/softether if missing.
+# The official Linux tarball is a *source* package: it must be built with
+# ``.install.sh`` (make) to produce the ``vpnserver`` / ``vpncmd`` binaries.
+# The download from softether-download.com can be slow/truncated on some
+# networks, so it is retried and resumed.
 _SE_INSTALL = (
     'if [ ! -x /usr/local/softether/vpnserver/vpnserver ]; then\n'
     '  set -e\n'
     '  apt-get update -qq >/dev/null 2>&1 || true\n'
-    '  for pkg in libreadline8 libssl3 zlib1g libsodium23; do apt-get install -y -qq $pkg >/dev/null 2>&1 || true; done\n'
-    '  cd /tmp && curl -fsSL --retry 3 -o se.tar.gz "' + SOFTETHER_URL + '"\n'
-    '  rm -rf /tmp/se_x && mkdir -p /tmp/se_x && tar xzf se.tar.gz -C /tmp/se_x\n'
-    '  mkdir -p /usr/local/softether && cp -a /tmp/se_x/vpnserver /usr/local/softether/\n'
+    '  for pkg in build-essential gcc make libreadline8 libssl3 zlib1g libsodium23; do apt-get install -y -qq $pkg >/dev/null 2>&1 || true; done\n'
+    '  cd /tmp && rm -rf se_x se.tar.gz && mkdir -p se_x\n'
+    '  for i in 1 2 3 4 5 6 7 8 9 10; do\n'
+    '    curl -fL -C - --max-time 600 -o se.tar.gz "' + SOFTETHER_URL + '" && break\n'
+    '    sleep 3\n'
+    '  done\n'
+    '  tar xzf se.tar.gz -C se_x\n'
+    '  (cd se_x/vpnserver && sh .install.sh) >/tmp/se_build.log 2>&1 || { echo BUILD_FAIL >&2; tail -30 /tmp/se_build.log >&2; exit 1; }\n'
+    '  mkdir -p /usr/local/softether\n'
+    '  rm -rf /usr/local/softether/vpnserver\n'
+    '  cp -a /tmp/se_x/vpnserver /usr/local/softether/\n'
     '  chmod +x /usr/local/softether/vpnserver/vpnserver /usr/local/softether/vpnserver/vpncmd\n'
     '  set +e\n'
     'fi\n'
