@@ -324,6 +324,26 @@ class XUIClient:
         """Update an existing inbound (e.g. to rename it)."""
         return await self._request("POST", f"/panel/api/inbounds/update/{inbound_id}", json=payload)
 
+    async def get_hosts(self) -> list:
+        data = await self._request("GET", "/panel/api/hosts/list")
+        return data.get("obj") or []
+
+    async def get_hosts_by_inbound(self, inbound_id: int) -> list:
+        data = await self._request("GET", f"/panel/api/hosts/byInbound/{inbound_id}")
+        obj = data.get("obj") or []
+        return obj if isinstance(obj, list) else [obj]
+
+    async def get_host(self, group_id: str) -> dict:
+        data = await self._request("GET", f"/panel/api/hosts/get/{group_id}")
+        return data.get("obj") or {}
+
+    async def add_host(self, payload: dict) -> dict:
+        """Create a host group. ``hosts`` is a list of "domain:port" strings."""
+        return await self._request("POST", "/panel/api/hosts/add", json=payload)
+
+    async def update_host(self, group_id: str, payload: dict) -> dict:
+        return await self._request("POST", f"/panel/api/hosts/update/{group_id}", json=payload)
+
     async def get_xray_template(self) -> dict:
         """Return the panel's Xray settings payload (obj is a JSON string)."""
         data = await self._request("POST", "/panel/api/xray/")

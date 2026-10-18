@@ -9,13 +9,17 @@ from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.keyboards.inline import (
     servers_list_keyboard, server_actions_keyboard, server_inbounds_keyboard,
-    server_delete_confirm_keyboard, cancel_keyboard,
+    server_delete_confirm_keyboard, cancel_keyboard, admin_menu_keyboard,
 )
 from bot.services.xui import XUIClient
 from bot.services import panel_sync
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+class EndpointDomainStates(StatesGroup):
+    waiting_domain = State()
 
 async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, status_message=None):
     try:
@@ -451,6 +455,41 @@ async def delete_server(callback: CallbackQuery):
     servers = await db.get_all_servers()
     await callback.message.edit_text(
         "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers)
+    )
+
+
+# ---------------- Endpoint domain (panel host) ----------------
+
+@router.callback_query(F.data == "admin:endpoint_domain")
+async def endpoint_domain_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    current = await db.get_setting("endpoint_domain", "")
+    await callback.message.edit_text(
+        "🌐 دامنه اندپوینت (هاست)\n\n"
+        f"مقدار فعلی: {current or '(تنظیم نشده)'}\n\n"
+        "دامنه‌ی جدید را وارد کنید (مثال: res.manointernet.ir):",
+        reply_markup=cancel_keyboard(),
+    )
+    await state.set_state(EndpointDomainStates.waiting_domain)
+    await callback.answer()
+
+
+@router.message(EndpointDomainStates.waiting_domain)
+async def endpoint_domain_save(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    raw = (message.text or "").strip()
+    domain = raw.replace("https://", "").replace("http://", "").split("/")[0]
+    if not domain:
+        await message.answer("⚠️ دامنه نامعتبر است. دوباره وارد کنید:", reply_markup=cancel_keyboard())
+        return
+    await db.set_setting("endpoint_domain", domain)
+    await state.clear()
+    await message.answer(
+        f"✅ دامنه اندپوینت روی «{domain}» تنظیم شد.\n\n"
+        "برای اعمال، «🔄 ساخت/سینک لوکیشن» هر تانل را بزن تا هاست با این دامنه ساخته/به‌روز شود.",
+        reply_markup=admin_menu_keyboard(),
     )
 
 

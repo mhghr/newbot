@@ -11,6 +11,7 @@ from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services import tunnel as tunnel_svc
 from bot.keyboards.inline import cancel_keyboard, admin_menu_keyboard
+from bot.services.xui import XUIClient
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -181,11 +182,29 @@ async def tunnel_detail(callback: CallbackQuery):
         return
     iran = await db.get_node(t["iran_node_id"]) if t["iran_node_id"] else None
     foreign = await db.get_node(t["foreign_node_id"]) if t["foreign_node_id"] else None
+    mapping = await db.get_tunnel_inbound_on_node(t["iran_node_id"], tid) if t["iran_node_id"] else None
+    host_line = ""
+    if mapping:
+        inbound_id = mapping["inbound_id"]
+        host_line = f"🔌 اینباند: {inbound_id} ({mapping.get('tag') or '-'})\n"
+        try:
+            node = await db.get_node(t["iran_node_id"])
+            purl, ptok = await tunnel_svc._find_node_panel(node["ip"])
+            if purl:
+                groups = await XUIClient(purl, api_token=ptok or "").get_hosts_by_inbound(inbound_id)
+                if groups:
+                    hosts = groups[0].get("hosts") or []
+                    host_line += f"🌐 هاست: {', '.join(hosts) if hosts else '(خالی)'}\n"
+                else:
+                    host_line += "🌐 هاست: (ندارد)\n"
+        except Exception:
+            pass
     text = (
         f"🚇 تانل #{tid}\n"
         f"🇮🇷 ایران: {iran['name'] if iran else '-'}\n"
         f"🌍 خارج: {foreign['name'] if foreign else '-'}\n"
         f"وضعیت: {t['status']}\n"
+        f"{host_line}"
         f"جزئیات: {(t.get('detail') or '-')[:600]}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[

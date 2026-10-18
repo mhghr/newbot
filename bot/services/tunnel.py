@@ -17,6 +17,7 @@ except Exception:  # pragma: no cover
 from bot.services.xui import XUIClient
 from bot.config import SOFTETHER_ADMIN_PASSWORD as SE_PASS
 from bot.config import LOCATION_EXIT_OUTBOUND
+from bot.config import ENDPOINT_DOMAIN
 
 # SoftEther release used when installing on a fresh node.
 SOFTETHER_URL = (
@@ -356,6 +357,33 @@ async def _template_from_active_node(loc_name: str = "") -> dict:
     return {}
 
 
+async def _ensure_host(xui, inbound_id: int, port: int, loc_name: str, domain: str) -> str:
+    """Create/update the panel host group so client links use our endpoint domain."""
+    domain = (domain or "").strip()
+    if not domain:
+        return "هاست: دامنه اندپوینت تنظیم نشده"
+    host_str = f"{domain}:{port}"
+    payload = {
+        "remark": loc_name,
+        "inboundIds": [inbound_id],
+        "port": port,
+        "hosts": [host_str],
+    }
+    try:
+        groups = await xui.get_hosts_by_inbound(inbound_id)
+    except Exception:
+        groups = []
+    try:
+        if groups:
+            res = await xui.update_host(groups[0].get("groupId"), payload)
+        else:
+            res = await xui.add_host(payload)
+        ok = bool(res.get("success")) if isinstance(res, dict) else bool(res)
+        return f"هاست {'ok' if ok else 'fail'} ({host_str})"
+    except Exception as e:
+        return f"هاست fail ({host_str}): {str(e)[:100]}"
+
+
 async def setup_location(node_panel_url: str, token: str, iran: dict, foreign: dict, tunnel: dict) -> dict:
     """Wire the location: Iran routing + WG inbound + xray outbound/routing + foreign NAT."""
     import asyncio
@@ -470,8 +498,11 @@ echo NAT_OK
         try:
             from bot.database import db as _db
             await _db.upsert_node_inbound(iran.get("id"), tid, inbound_id, tag, loc_name)
+            domain = await _db.get_setting("endpoint_domain", ENDPOINT_DOMAIN)
         except Exception as e:
             logger.warning("record node inbound failed: %s", e)
+            domain = ENDPOINT_DOMAIN
+        note.append(await _ensure_host(xui, inbound_id, port, loc_name, domain))
 
     # 4) outbound + routing. Prefer the shared working foreign exit
     #    (LOCATION_EXIT_OUTBOUND, e.g. "softether-exit"); fall back to a

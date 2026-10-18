@@ -64,6 +64,11 @@ SOFTETHER_ADMIN_PASSWORD = os.getenv("SOFTETHER_ADMIN_PASSWORD", "SeAdmin-2026")
 # mark. Set to "direct" (or empty) to keep locations on the direct outbound.
 LOCATION_EXIT_OUTBOUND = os.getenv("LOCATION_EXIT_OUTBOUND", "softether-exit")
 
+# Public domain used as the client config endpoint (the entry A record). Every
+# location inbound gets a panel "host" pointing at this domain, so configs keep
+# working after the A record is switched. Overridable from the admin panel.
+ENDPOINT_DOMAIN = os.getenv("ENDPOINT_DOMAIN", "my.manointernet.ir")
+
 # ArvanCloud CDN/DNS API — used to switch the entry domain's A record to the
 # currently active Iran node.
 ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")

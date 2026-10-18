@@ -377,6 +377,7 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
     ]
     rows += [
+        [InlineKeyboardButton(text="🌐 دامنه اندپوینت (هاست)", callback_data="admin:endpoint_domain")],
         [InlineKeyboardButton(text="🌐 آی‌پی فعال (تغییر DNS آروان)", callback_data="admin:active_server")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
