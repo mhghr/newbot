@@ -429,12 +429,16 @@ def is_iran_location(location) -> bool:
 
 
 async def add_node(name: str, ip: str, ssh_port: int = 22, ssh_user: str = "root",
-                   ssh_pass: str = "", location: str = ""):
+                   ssh_pass: str = "", location: str = "", kind: str = "",
+                   panel_url: str = "", panel_token: str = "", wg_port: int = 0):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO nodes (name, ip, ssh_port, ssh_user, ssh_pass, location)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
-            name, ip, ssh_port, ssh_user, ssh_pass, location,
+            """INSERT INTO nodes
+                   (name, ip, ssh_port, ssh_user, ssh_pass, location, kind,
+                    panel_url, panel_token, wg_port)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
+            name, ip, ssh_port, ssh_user, ssh_pass, location, kind,
+            panel_url, panel_token, wg_port,
         )
 
 
@@ -449,21 +453,27 @@ async def get_node(node_id: int):
 
 
 async def get_iran_nodes():
-    nodes = await get_all_nodes()
-    return [n for n in nodes if is_iran_location(n["location"])]
+    return [n for n in await get_all_nodes() if is_iran_node(n)]
 
 
 async def get_foreign_nodes():
-    nodes = await get_all_nodes()
-    return [n for n in nodes if not is_iran_location(n["location"])]
+    return [n for n in await get_all_nodes() if not is_iran_node(n)]
+
+
+def is_iran_node(node) -> bool:
+    """True when a node is an entry (Iran) node; ``kind`` wins over location."""
+    kind = (node.get("kind") or "").strip().lower()
+    if kind:
+        return kind == "iran"
+    return is_iran_location(node.get("location"))
 
 
 async def update_node_field(node_id: int, field: str, value):
     allowed = {"name", "ip", "ssh_port", "ssh_user", "ssh_pass", "location",
-               "panel_url", "panel_token"}
+               "panel_url", "panel_token", "kind", "wg_port"}
     if field not in allowed:
         raise ValueError("invalid field")
-    value = int(value) if field == "ssh_port" else str(value)
+    value = int(value) if field in ("ssh_port", "wg_port") else str(value)
     async with models.pool.acquire() as conn:
         await conn.execute(f"UPDATE nodes SET {field}=$1 WHERE id=$2", value, node_id)
 

@@ -31,7 +31,10 @@ class AddNodeStates(StatesGroup):
     waiting_ssh_port = State()
     waiting_ssh_user = State()
     waiting_ssh_pass = State()
+    waiting_panel_url = State()
+    waiting_panel_token = State()
     waiting_location = State()
+    waiting_wg_port = State()
 
 
 class NodeEditStates(StatesGroup):
@@ -77,12 +80,33 @@ async def nodes_menu(callback: CallbackQuery, state: FSMContext):
 
 # ---------------- Add node ----------------
 
+def _kind_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇮🇷 سرور ایران (ورودی)", callback_data="admin:add_node_kind:iran")],
+        [InlineKeyboardButton(text="🌍 سرور خارج (خروجی)", callback_data="admin:add_node_kind:foreign")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")],
+    ])
+
+
 @router.callback_query(F.data == "admin:add_node")
 async def add_node_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
         return
     await state.clear()
-    await callback.message.edit_text("🖥 افزودن سرور\n\n📛 نام سرور را وارد کنید:", reply_markup=cancel_keyboard())
+    await callback.message.edit_text(
+        "🖥 افزودن سرور\n\nنوع سرور را انتخاب کنید:", reply_markup=_kind_kb()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:add_node_kind:"))
+async def add_node_kind(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    kind = callback.data.split(":")[2]
+    await state.clear()
+    await state.update_data(kind=kind)
+    await callback.message.edit_text("📛 نام سرور را وارد کنید:", reply_markup=cancel_keyboard())
     await state.set_state(AddNodeStates.waiting_name)
     await callback.answer()
 
@@ -129,21 +153,68 @@ async def add_node_pass(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
     await state.update_data(ssh_pass=message.text.strip())
-    await message.answer(
-        "📍 لوکیشن را وارد کنید:\n(برای سرورهای ایران بنویسید: `iran`؛ برای خارج نام شهر/کشور)",
-        parse_mode="Markdown", reply_markup=cancel_keyboard(),
-    )
-    await state.set_state(AddNodeStates.waiting_location)
+    data = await state.get_data()
+    if data.get("kind") == "iran":
+        await message.answer(
+            "🌐 آدرس پنل x-ui را وارد کنید:\n(مثال: https://res.manointernet.ir:9999/janan)",
+            reply_markup=cancel_keyboard(),
+        )
+        await state.set_state(AddNodeStates.waiting_panel_url)
+    else:
+        await message.answer(
+            "📍 نام لوکیشن/کشور سرور خارج (مثال: Turkey):",
+            reply_markup=cancel_keyboard(),
+        )
+        await state.set_state(AddNodeStates.waiting_location)
+
+
+@router.message(AddNodeStates.waiting_panel_url)
+async def add_node_panel_url(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    url = (message.text or "").strip()
+    if not url:
+        await message.answer("⚠️ آدرس نامعتبر است. دوباره وارد کنید:", reply_markup=cancel_keyboard())
+        return
+    await state.update_data(panel_url=await tunnel_svc.normalize_panel_url(url))
+    await message.answer("🔑 توکن API پنل:", reply_markup=cancel_keyboard())
+    await state.set_state(AddNodeStates.waiting_panel_token)
+
+
+@router.message(AddNodeStates.waiting_panel_token)
+async def add_node_panel_token(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    await state.update_data(panel_token=(message.text or "").strip())
+    await _finish_add_node(message, state)
 
 
 @router.message(AddNodeStates.waiting_location)
 async def add_node_location(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
-    await state.update_data(location=message.text.strip())
+    await state.update_data(location=(message.text or "").strip())
+    await message.answer(
+        "🔌 پورت اینباند این لوکیشن را وارد کنید (مثال: 8585):",
+        reply_markup=cancel_keyboard(),
+    )
+    await state.set_state(AddNodeStates.waiting_wg_port)
+
+
+@router.message(AddNodeStates.waiting_wg_port)
+async def add_node_wg_port(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    t = (message.text or "").strip()
+    await state.update_data(wg_port=int(t) if t.isdigit() else 8585)
+    await _finish_add_node(message, state)
+
+
+async def _finish_add_node(message: Message, state: FSMContext):
     data = await state.get_data()
+    kind = (data.get("kind") or "iran").lower()
     node = {
-        "name": data["name"], "ip": data["ip"],
+        "name": data.get("name", ""), "ip": data.get("ip", ""),
         "ssh_port": data.get("ssh_port", 22), "ssh_user": data.get("ssh_user", "root"),
         "ssh_pass": data.get("ssh_pass", ""),
     }
@@ -166,9 +237,13 @@ async def add_node_location(message: Message, state: FSMContext):
         return
 
     await db.add_node(
-        name=node["name"], ip=node["ip"],
-        ssh_port=node["ssh_port"], ssh_user=node["ssh_user"],
-        ssh_pass=node["ssh_pass"], location=data.get("location", ""),
+        name=node["name"], ip=node["ip"], ssh_port=node["ssh_port"],
+        ssh_user=node["ssh_user"], ssh_pass=node["ssh_pass"],
+        location=("iran" if kind == "iran" else data.get("location", "")),
+        kind=kind,
+        panel_url=(data.get("panel_url") or "") if kind == "iran" else "",
+        panel_token=(data.get("panel_token") or "") if kind == "iran" else "",
+        wg_port=(data.get("wg_port") or 0) if kind != "iran" else 0,
     )
     await state.clear()
     try:
@@ -176,8 +251,9 @@ async def add_node_location(message: Message, state: FSMContext):
     except Exception:
         pass
     nodes = await db.get_all_nodes()
+    label = "ایران" if kind == "iran" else "خارج"
     await message.answer(
-        f"✅ سرور «{node['name']}» اضافه شد (اتصال SSH تأیید شد).",
+        f"✅ سرور «{node['name']}» ({label}) اضافه شد (اتصال SSH تأیید شد).",
         reply_markup=nodes_list_keyboard(nodes),
     )
 

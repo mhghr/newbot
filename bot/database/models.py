@@ -131,6 +131,8 @@ async def init_db():
                 ssh_user TEXT DEFAULT 'root',
                 ssh_pass TEXT DEFAULT '',
                 location TEXT DEFAULT '',
+                kind TEXT DEFAULT '',
+                wg_port INTEGER DEFAULT 0,
                 panel_url TEXT DEFAULT '',
                 panel_token TEXT DEFAULT '',
                 is_active BOOLEAN DEFAULT TRUE,
@@ -265,6 +267,8 @@ async def init_db():
             # the bot can create the location inbound / routing and clients.
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_url TEXT DEFAULT ''",
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_token TEXT DEFAULT ''",
+            "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT ''",
+            "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS wg_port INTEGER DEFAULT 0",
             # Allow deleting a plan that still has orders linked to it.
             "ALTER TABLE orders ALTER COLUMN plan_id DROP NOT NULL",
             "UPDATE servers SET service_type='v2ray' WHERE service_type IS NULL",

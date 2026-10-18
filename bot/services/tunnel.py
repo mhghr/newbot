@@ -392,6 +392,7 @@ async def setup_location(node_panel_url: str, token: str, iran: dict, foreign: d
     tid = tunnel["id"]
     mark = 200 + tid
     port = 8600 + tid
+    loc_port = int(foreign.get("wg_port") or 0)
     subnet = tunnel["subnet"]
     foreign_tap_ip = tunnel["foreign_tap_ip"]
     note = []
@@ -477,7 +478,7 @@ echo NAT_OK
         settings.setdefault("clients", [])
         settings.setdefault("peers", [])
         same_location = (tpl.get("remark") or "").strip().lower() == wanted
-        inbound_port = (tpl.get("port") if same_location else None) or port
+        inbound_port = loc_port or ((tpl.get("port") if same_location else None) or port)
         res = await xui.add_inbound({
             "remark": loc_name, "enable": True, "port": inbound_port, "protocol": "wireguard",
             "listen": "", "total": 0, "up": 0, "down": 0, "expiryTime": 0,
