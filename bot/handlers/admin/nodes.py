@@ -142,13 +142,6 @@ async def add_node_location(message: Message, state: FSMContext):
         return
     await state.update_data(location=message.text.strip())
     data = await state.get_data()
-    await db.add_node(
-        name=data["name"], ip=data["ip"],
-        ssh_port=data.get("ssh_port", 22), ssh_user=data.get("ssh_user", "root"),
-        ssh_pass=data.get("ssh_pass", ""), location=data.get("location", ""),
-    )
-    await state.clear()
-
     node = {
         "name": data["name"], "ip": data["ip"],
         "ssh_port": data.get("ssh_port", 22), "ssh_user": data.get("ssh_user", "root"),
@@ -157,16 +150,34 @@ async def add_node_location(message: Message, state: FSMContext):
     status_msg = await message.answer("⏳ در حال تست اتصال SSH...")
     try:
         await asyncio.to_thread(tunnel_svc.test_ssh, node)
-        note = "✅ اتصال SSH تأیید شد."
     except Exception as e:
-        note = f"⚠️ اتصال SSH برقرار نشد:\n{e}\n(IP/پورت/یوزر/پسورد را بررسی کنید)"
+        await state.clear()
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+        nodes = await db.get_all_nodes()
+        await message.answer(
+            "❌ اتصال SSH برقرار نشد؛ سرور اضافه نشد.\n\n"
+            "IP/پورت/یوزر/پسورد را بررسی کنید:\n"
+            f"{(str(e) or '')[:300]}",
+            reply_markup=nodes_list_keyboard(nodes) if nodes else _empty_nodes_kb(),
+        )
+        return
+
+    await db.add_node(
+        name=node["name"], ip=node["ip"],
+        ssh_port=node["ssh_port"], ssh_user=node["ssh_user"],
+        ssh_pass=node["ssh_pass"], location=data.get("location", ""),
+    )
+    await state.clear()
     try:
         await status_msg.delete()
     except Exception:
         pass
     nodes = await db.get_all_nodes()
     await message.answer(
-        f"✅ سرور «{data['name']}» اضافه شد.\n{note}",
+        f"✅ سرور «{node['name']}» اضافه شد (اتصال SSH تأیید شد).",
         reply_markup=nodes_list_keyboard(nodes),
     )
 
