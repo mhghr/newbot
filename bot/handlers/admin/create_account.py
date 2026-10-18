@@ -39,7 +39,6 @@ async def _retry(coro_factory, attempts: int = 6, delay: float = 3.0):
 class CreateAccountStates(StatesGroup):
     waiting_traffic = State()
     waiting_days = State()
-    waiting_users = State()
     waiting_name = State()
 
 
@@ -154,26 +153,10 @@ async def acc_days(message: Message, state: FSMContext):
             await message.answer("⚠️ فقط عدد وارد کنید. مثال: 30", reply_markup=cancel_keyboard())
             return
         await state.update_data(days=int(text))
-        await message.answer(
-            "👥 تعداد کاربر (محدودیت IP) را وارد کنید:\n(عدد، برای نامحدود 0)",
-            reply_markup=cancel_keyboard()
-        )
-        await state.set_state(CreateAccountStates.waiting_users)
+        await _ask_name(message, state)
     except Exception as e:
         logger.exception(f"acc_days failed: {e}")
         await message.answer(f"❌ خطا: {str(e)[:200]}", reply_markup=cancel_keyboard())
-
-
-@router.message(CreateAccountStates.waiting_users)
-async def acc_users(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    text = message.text.strip()
-    if not text.isdigit():
-        await message.answer("⚠️ فقط عدد وارد کنید. برای نامحدود 0", reply_markup=cancel_keyboard())
-        return
-    await state.update_data(users=int(text))
-    await _ask_name(message, state)
 
 
 async def _create_location_account(message: Message, bot: Bot, chat_id: int, name, traffic_gb, days, users, plan_id, tunnel_id):
@@ -247,7 +230,10 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     locations = await db.get_locations()
     if locations:
         await state.set_state(None)
-        await message.answer("📍 لوکیشن را انتخاب کنید:", reply_markup=locations_keyboard(locations))
+        await message.answer(
+            "📍 لوکیشن را انتخاب کنید:",
+            reply_markup=locations_keyboard(locations, prefix="acc_loc", back_cb="admin:back"),
+        )
         return
 
     data = await state.get_data()
