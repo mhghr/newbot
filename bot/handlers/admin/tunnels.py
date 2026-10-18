@@ -261,6 +261,7 @@ async def tunnel_panel_url(message: Message, state: FSMContext):
     if not url:
         await message.answer("⚠️ آدرس پنل نامعتبر است. دوباره وارد کنید:", reply_markup=cancel_keyboard())
         return
+    url = await tunnel_svc.normalize_panel_url(url)
     await state.update_data(panel_url=url)
     await message.answer(
         "🔑 توکن API پنل را وارد کنید:\n"

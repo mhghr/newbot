@@ -234,6 +234,28 @@ ping -I {tunnel['foreign_tap_ip']} -c 4 -W 3 {tunnel['iran_tap_ip']} | tail -3
         client.close()
 
 
+async def normalize_panel_url(url: str) -> str:
+    """Upgrade an ``http://`` panel URL to ``https://`` when the panel enforces TLS.
+
+    Panels reached by IP (not by the domain, which points to the active node)
+    often redirect http to https; probing the https variant avoids an empty
+    307 response that would otherwise look like an empty/failed panel.
+    """
+    url = (url or "").strip().rstrip("/")
+    if not url.startswith("http://"):
+        return url
+    https_url = "https://" + url[len("http://"):]
+    try:
+        import httpx
+        async with httpx.AsyncClient(verify=False, timeout=8) as client:
+            resp = await client.get(f"{https_url}/", follow_redirects=False)
+        if resp.status_code < 500:
+            return https_url
+    except Exception:
+        pass
+    return url
+
+
 async def _find_node_panel(node_ip: str):
     """Find (url, token) of a panel reachable at the node's IP.
 
