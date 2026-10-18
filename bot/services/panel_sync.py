@@ -1,13 +1,14 @@
-"""Keep the Iran nodes' WireGuard clients in sync and switch the entry domain (Arvan).
+"""Export the active node's clients and switch the entry domain (Arvan).
 
-A location lives in one WireGuard inbound per Iran node. For a failover the
-active node's peers (clients) are copied verbatim into the other nodes' inbound
-(the inbound was cloned with the same server keys), and only then is the entry
-domain's A record switched — so users reconnect to the new node without a new
-config.
+Every minute the active Iran node's panel is asked for
+``GET /panel/api/clients/export`` and the returned array
+(``[{client, inboundIds, traffic}]``) is saved on disk. When the active IP is
+switched, the A record is updated in Arvan and the saved array is imported into
+the new node with ``POST /panel/api/clients/import`` (``{"data": "<json>"}``).
 """
 import json
 import logging
+import os
 from urllib.parse import urlparse
 
 from bot.database import db
@@ -15,6 +16,8 @@ from bot.services import arvan
 from bot.services.xui import XUIClient
 
 logger = logging.getLogger(__name__)
+
+EXPORT_PATH = "/root/newbot/backups/clients_export.json"
 
 
 def node_panel_url(panel_url: str, node_ip: str) -> str:
@@ -26,15 +29,6 @@ def node_panel_url(panel_url: str, node_ip: str) -> str:
     return f"{scheme}://{node_ip}:{port}{path}"
 
 
-def _as_obj(value):
-    if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except Exception:
-            return {}
-    return value or {}
-
-
 async def _node_panel(node):
     """(url, token) of a node's panel; prefers the info stored on the node."""
     url = (node.get("panel_url") or "").strip()
@@ -44,14 +38,8 @@ async def _node_panel(node):
     return await tunnel_svc._find_node_panel(node["ip"])
 
 
-async def _wg_inbound(xui):
-    for ib in await xui.get_inbounds():
-        if (ib.get("protocol") or "").lower() == "wireguard":
-            return ib
-    return {}
-
-
-async def _active_node():
+async def active_node():
+    """The Iran node the entry domain currently points to."""
     active_id = await db.get_setting("active_node_id", "")
     nodes = await db.get_iran_nodes()
     if active_id:
@@ -61,86 +49,80 @@ async def _active_node():
     return nodes[0] if nodes else None
 
 
-async def sync_wg_clients(active_node, target_node) -> bool:
-    """Mirror the active node's WireGuard inbound (with its clients) to the target.
+async def export_active(active=None) -> list:
+    """Return the active node's export array ([{client, inboundIds, traffic}])."""
+    node = active or await active_node()
+    if not node:
+        return []
+    url, tok = await _node_panel(node)
+    if not url:
+        return []
+    return await XUIClient(url, api_token=tok or "").export_clients()
 
-    The panel's inbound update does not persist WireGuard peers reliably, so the
-    target inbound is recreated from the active one (same remark/port/settings,
-    including the clients list). The inbound tag is derived from the port, so the
-    routing rules keep matching.
-    """
-    if not active_node or not target_node:
+
+def save_export(clients: list) -> str:
+    """Persist the export array on disk (atomic write)."""
+    os.makedirs(os.path.dirname(EXPORT_PATH), exist_ok=True)
+    tmp = EXPORT_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(clients, f, ensure_ascii=False)
+    os.replace(tmp, EXPORT_PATH)
+    return EXPORT_PATH
+
+
+def load_export() -> list:
+    try:
+        with open(EXPORT_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+async def refresh_export() -> int:
+    """Export the active node's clients and save them; returns the count."""
+    clients = await export_active()
+    save_export(clients)
+    return len(clients)
+
+
+async def import_to_node(target_node, clients: list) -> bool:
+    if not clients:
         return False
-    a_url, a_tok = await _node_panel(active_node)
-    t_url, t_tok = await _node_panel(target_node)
-    if not a_url or not t_url:
+    url, tok = await _node_panel(target_node)
+    if not url:
         return False
-    a_xui = XUIClient(a_url, api_token=a_tok or "")
-    t_xui = XUIClient(t_url, api_token=t_tok or "")
-    a_ib = await _wg_inbound(a_xui)
-    if not a_ib:
-        logger.warning("wg sync: active node has no WireGuard inbound")
-        return False
-
-    settings = _as_obj(a_ib.get("settings"))
-    settings.setdefault("clients", [])
-    settings.setdefault("peers", [])
-
-    t_ib = await _wg_inbound(t_xui)
-    if t_ib:
-        await t_xui.delete_inbound(t_ib["id"])
-
-    payload = {
-        "remark": a_ib.get("remark") or "loc",
-        "enable": True,
-        "port": a_ib.get("port") or 8585,
-        "protocol": "wireguard",
-        "listen": a_ib.get("listen") or "",
-        "total": 0, "up": 0, "down": 0, "expiryTime": 0,
-        "settings": settings,
-        "streamSettings": _as_obj(a_ib.get("streamSettings")),
-        "sniffing": _as_obj(a_ib.get("sniffing")),
-    }
-    res = await t_xui.add_inbound(payload)
-    ok = bool(res.get("success")) if isinstance(res, dict) else bool(res)
-    if ok:
-        logger.info("wg sync: recreated %s with %d clients",
-                    target_node.get("name"), len(settings.get("clients") or []))
-    else:
-        logger.warning("wg sync add failed for %s: %s", target_node.get("name"), res)
-    return ok
+    return await XUIClient(url, api_token=tok or "").import_clients(clients)
 
 
 async def switch_active(target_node) -> dict:
-    """Sync clients to ``target_node`` first, then point the entry domain at it."""
-    result = {"arvan": False, "sync": False, "error": ""}
-    active = await _active_node()
+    """Change the Arvan A record to ``target_node``, then import the clients."""
+    result = {"arvan": False, "sync": False, "error": "", "count": 0}
+
+    # Fresh export from the node the domain currently points to (also on disk).
+    active = await active_node()
+    clients = []
     try:
-        result["sync"] = await sync_wg_clients(active, target_node)
+        clients = await export_active(active) if active else []
+        if clients:
+            save_export(clients)
     except Exception as e:
-        result["error"] += f"sync: {e}; "
-    if not result["sync"]:
-        return result
+        result["error"] += f"export: {e}; "
+        clients = load_export()
+    result["count"] = len(clients)
+
+    # 1) point the domain at the new node
     try:
         result["arvan"] = await arvan.set_a_record(target_node["ip"])
     except Exception as e:
         result["error"] += f"arvan: {e}; "
-    if result["arvan"]:
+
+    # 2) import the clients into the new node
+    try:
+        result["sync"] = await import_to_node(target_node, clients)
+    except Exception as e:
+        result["error"] += f"import: {e}; "
+
+    if result["sync"]:
         await db.set_setting("active_node_id", str(target_node["id"]))
     return result
-
-
-async def sync_standby() -> list:
-    """Mirror the active node's WG clients to every other Iran node."""
-    active = await _active_node()
-    if not active:
-        return []
-    out = []
-    for n in await db.get_iran_nodes():
-        if str(n["id"]) == str(active["id"]):
-            continue
-        try:
-            out.append((n["name"], await sync_wg_clients(active, n)))
-        except Exception as e:
-            out.append((n["name"], f"error: {e}"))
-    return out

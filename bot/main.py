@@ -63,16 +63,15 @@ async def _notify_transfer_done(bot: Bot):
 
 
 async def _panel_sync_loop():
-    """Every 5 minutes, mirror the active panel's clients to the standby Iran nodes."""
-    await asyncio.sleep(60)
+    """Every minute, export the active node's clients and save them on disk."""
+    await asyncio.sleep(30)
     while True:
         try:
-            results = await panel_sync.sync_standby()
-            if results:
-                logging.info(f"panel sync: {results}")
+            n = await panel_sync.refresh_export()
+            logging.info(f"clients export: {n} saved to {panel_sync.EXPORT_PATH}")
         except Exception as e:
-            logging.warning(f"panel sync loop error: {type(e).__name__}: {e}")
-        await asyncio.sleep(300)
+            logging.warning(f"clients export loop error: {type(e).__name__}: {e}")
+        await asyncio.sleep(60)
 
 
 async def main():

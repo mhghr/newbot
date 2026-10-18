@@ -491,8 +491,8 @@ async def set_active_server(callback: CallbackQuery):
     await callback.message.edit_text(
         "🟢 سرور فعال تنظیم شد\n"
         f"سرور: {node['name']} ({node['ip']})\n"
-        f"سینک کلاینت‌ها: {'✅' if res['sync'] else '❌'}\n"
         f"آروان (تغییر DNS): {'✅' if res['arvan'] else '❌'}\n"
+        f"ایمپورت کلاینت‌ها: {'✅' if res['sync'] else '❌'} ({res.get('count', 0)} کلاینت)\n"
         f"{res['error']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],

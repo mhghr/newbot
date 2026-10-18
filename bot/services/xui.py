@@ -344,14 +344,26 @@ class XUIClient:
         return data.get("success", False)
 
 
-    async def export_clients(self) -> dict:
-        """Return the panel's full clients export payload."""
+    async def export_clients(self) -> list:
+        """Return the clients export array (``[{client, inboundIds, traffic}]``)."""
         data = await self._request("GET", "/panel/api/clients/export")
-        return data
+        obj = data.get("obj")
+        if isinstance(obj, str):
+            try:
+                obj = json.loads(obj)
+            except Exception:
+                obj = []
+        return obj or []
 
-    async def import_clients(self, payload) -> bool:
-        """Import a clients export payload (as returned by :meth:`export_clients`)."""
-        data = await self._request("POST", "/panel/api/clients/import", json=payload)
+    async def import_clients(self, clients) -> bool:
+        """Import an export array via ``POST /panel/api/clients/import``.
+
+        The endpoint expects ``{"data": "<json-encoded array>"}``.
+        """
+        if isinstance(clients, dict):
+            clients = clients.get("data", [])
+        body = {"data": json.dumps(clients, ensure_ascii=False)}
+        data = await self._request("POST", "/panel/api/clients/import", json=body)
         return data.get("success", False)
 
     async def get_sub_links(self, sub_id: str) -> list:
