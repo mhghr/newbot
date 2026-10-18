@@ -1,10 +1,18 @@
-"""Keep the identical Iran panels in sync and switch the entry domain (Arvan)."""
+"""Keep the Iran nodes' WireGuard clients in sync and switch the entry domain (Arvan).
+
+A location lives in one WireGuard inbound per Iran node. For a failover the
+active node's peers (clients) are copied verbatim into the other nodes' inbound
+(the inbound was cloned with the same server keys), and only then is the entry
+domain's A record switched — so users reconnect to the new node without a new
+config.
+"""
+import json
 import logging
 from urllib.parse import urlparse
 
 from bot.database import db
-from bot.services.xui import XUIClient
 from bot.services import arvan
+from bot.services.xui import XUIClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,59 +26,107 @@ def node_panel_url(panel_url: str, node_ip: str) -> str:
     return f"{scheme}://{node_ip}:{port}{path}"
 
 
-def _panel(panel_rec):
-    return XUIClient(panel_rec["url"], api_token=panel_rec.get("api_token") or "")
+def _as_obj(value):
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return {}
+    return value or {}
 
 
-async def export_active(panel_rec) -> dict:
-    return await _panel(panel_rec).export_clients()
+async def _node_panel(node):
+    """(url, token) of a node's panel; prefers the info stored on the node."""
+    url = (node.get("panel_url") or "").strip()
+    if url:
+        return url, node.get("panel_token") or ""
+    from bot.services import tunnel as tunnel_svc
+    return await tunnel_svc._find_node_panel(node["ip"])
 
 
-async def import_to_node(panel_rec, node) -> bool:
-    """Import the active panel's clients into ``node``.
+async def _wg_inbound(xui):
+    for ib in await xui.get_inbounds():
+        if (ib.get("protocol") or "").lower() == "wireguard":
+            return ib
+    return {}
 
-    Prefers the node's own stored panel URL/token (scheme/port may differ from
-    the master panel), falling back to the master panel URL rewritten to the
-    node's IP.
-    """
-    node_url = (node.get("panel_url") or "").strip()
-    if node_url:
-        url = node_url
-        token = node.get("panel_token") or ""
+
+async def _active_node():
+    active_id = await db.get_setting("active_node_id", "")
+    nodes = await db.get_iran_nodes()
+    if active_id:
+        for n in nodes:
+            if str(n["id"]) == str(active_id):
+                return n
+    return nodes[0] if nodes else None
+
+
+async def sync_wg_clients(active_node, target_node) -> bool:
+    """Copy the active node's WireGuard clients into the target node's inbound."""
+    if not active_node or not target_node:
+        return False
+    a_url, a_tok = await _node_panel(active_node)
+    t_url, t_tok = await _node_panel(target_node)
+    if not a_url or not t_url:
+        return False
+    a_xui = XUIClient(a_url, api_token=a_tok or "")
+    t_xui = XUIClient(t_url, api_token=t_tok or "")
+    a_ib = await _wg_inbound(a_xui)
+    t_ib = await _wg_inbound(t_xui)
+    if not a_ib or not t_ib:
+        logger.warning("wg sync: missing inbound (active=%s target=%s)", bool(a_ib), bool(t_ib))
+        return False
+
+    clients = _as_obj(a_ib.get("settings")).get("clients") or []
+    if not clients:
+        return True
+
+    obj = await t_xui.get_inbound(t_ib["id"])
+    settings = _as_obj(obj.get("settings"))
+    merged = {c.get("email"): c for c in (settings.get("clients") or [])}
+    for c in clients:
+        merged[c.get("email")] = c
+    settings["clients"] = list(merged.values())
+    obj["settings"] = settings
+    res = await t_xui.update_inbound(t_ib["id"], obj)
+    ok = bool(res.get("success")) if isinstance(res, dict) else bool(res)
+    if ok:
+        logger.info("wg sync: %d clients -> %s", len(merged), target_node.get("name"))
     else:
-        url = node_panel_url(panel_rec["url"], node["ip"])
-        token = panel_rec.get("api_token") or ""
-    xui = XUIClient(url, api_token=token)
-    payload = await export_active(panel_rec)
-    return await xui.import_clients(payload)
+        logger.warning("wg sync update failed for %s: %s", target_node.get("name"), res)
+    return ok
 
 
-async def switch_active(panel_rec, node) -> dict:
-    """Point the entry domain at ``node`` (Arvan) and sync clients to that node."""
+async def switch_active(target_node) -> dict:
+    """Sync clients to ``target_node`` first, then point the entry domain at it."""
     result = {"arvan": False, "sync": False, "error": ""}
+    active = await _active_node()
     try:
-        result["arvan"] = await arvan.set_a_record(node["ip"])
-    except Exception as e:
-        result["error"] += f"arvan: {e}; "
-    try:
-        result["sync"] = await import_to_node(panel_rec, node)
+        result["sync"] = await sync_wg_clients(active, target_node)
     except Exception as e:
         result["error"] += f"sync: {e}; "
-    if result["sync"]:
-        await db.set_setting("active_node_id", str(node["id"]))
+    if not result["sync"]:
+        return result
+    try:
+        result["arvan"] = await arvan.set_a_record(target_node["ip"])
+    except Exception as e:
+        result["error"] += f"arvan: {e}; "
+    if result["arvan"]:
+        await db.set_setting("active_node_id", str(target_node["id"]))
     return result
 
 
-async def sync_standby(panel_rec) -> list:
-    """Export the active panel and import into every other Iran node."""
-    active_id = await db.get_setting("active_node_id", "")
-    nodes = await db.get_iran_nodes()
+async def sync_standby() -> list:
+    """Mirror the active node's WG clients to every other Iran node."""
+    active = await _active_node()
+    if not active:
+        return []
     out = []
-    for n in nodes:
-        if str(n["id"]) == str(active_id):
+    for n in await db.get_iran_nodes():
+        if str(n["id"]) == str(active["id"]):
             continue
         try:
-            out.append((n["name"], await import_to_node(panel_rec, n)))
+            out.append((n["name"], await sync_wg_clients(active, n)))
         except Exception as e:
             out.append((n["name"], f"error: {e}"))
     return out

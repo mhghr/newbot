@@ -483,17 +483,16 @@ async def set_active_server(callback: CallbackQuery):
         return
     node_id = int(callback.data.split(":")[2])
     node = await db.get_node(node_id)
-    panel_rec = await db.get_master_server("v2ray")
-    if not node or not panel_rec:
-        await callback.answer("❌ سرور/پنل یافت نشد.", show_alert=True)
+    if not node:
+        await callback.answer("❌ سرور یافت نشد.", show_alert=True)
         return
-    await callback.message.edit_text(f"⏳ تغییر سرور فعال به «{node['name']}» (آروان + سینک)...")
-    res = await panel_sync.switch_active(panel_rec, node)
+    await callback.message.edit_text(f"⏳ تغییر سرور فعال به «{node['name']}» (سینک + آروان)...")
+    res = await panel_sync.switch_active(node)
     await callback.message.edit_text(
         "🟢 سرور فعال تنظیم شد\n"
         f"سرور: {node['name']} ({node['ip']})\n"
-        f"آروان (تغییر DNS): {'✅' if res['arvan'] else '❌'}\n"
         f"سینک کلاینت‌ها: {'✅' if res['sync'] else '❌'}\n"
+        f"آروان (تغییر DNS): {'✅' if res['arvan'] else '❌'}\n"
         f"{res['error']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:servers")],

@@ -67,11 +67,9 @@ async def _panel_sync_loop():
     await asyncio.sleep(60)
     while True:
         try:
-            panel_rec = await db.get_master_server("v2ray")
-            if panel_rec:
-                results = await panel_sync.sync_standby(panel_rec)
-                if results:
-                    logging.info(f"panel sync: {results}")
+            results = await panel_sync.sync_standby()
+            if results:
+                logging.info(f"panel sync: {results}")
         except Exception as e:
             logging.warning(f"panel sync loop error: {type(e).__name__}: {e}")
         await asyncio.sleep(300)
