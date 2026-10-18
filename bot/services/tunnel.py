@@ -226,10 +226,18 @@ ping -I {tunnel['foreign_tap_ip']} -c 4 -W 3 {tunnel['iran_tap_ip']} | tail -3
 async def _find_node_panel(node_ip: str):
     """Find (url, token) of a panel reachable at the node's IP.
 
-    Tries every configured panel's api_token against the node IP and returns the
-    first that authenticates (panels are not necessarily identical).
+    Prefers the panel URL/token the admin stored on the node (entered in the
+    tunnel wizard); otherwise tries every configured panel's api_token against
+    the node IP and returns the first that authenticates.
     """
     from bot.database import db
+    try:
+        for n in await db.get_all_nodes():
+            if n.get("ip") == node_ip and (n.get("panel_url") or "").strip():
+                return n["panel_url"], (n.get("panel_token") or "")
+    except Exception:
+        pass
+
     base_urls = []
     for s in await db.get_all_servers():
         if s.get("api_token"):

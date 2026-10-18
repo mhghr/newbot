@@ -1,6 +1,7 @@
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 import asyncio
 import random
 import string
@@ -9,9 +10,15 @@ import logging
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services import tunnel as tunnel_svc
+from bot.keyboards.inline import cancel_keyboard, admin_menu_keyboard
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+class TunnelPanelStates(StatesGroup):
+    waiting_url = State()
+    waiting_token = State()
 
 
 def _nodes_kb(nodes, prefix: str) -> InlineKeyboardMarkup:
@@ -105,10 +112,11 @@ async def pick_foreign(callback: CallbackQuery, state: FSMContext, bot: Bot):
         f"⏳ در حال تست SSH و برقراری تانل SoftEther (#{tid})...\nممکن است چند دقیقه طول بکشد."
     )
     await callback.answer()
-    asyncio.create_task(_do_provision(bot, callback.from_user.id, tunnel, dict(iran), dict(foreign)))
+    asyncio.create_task(_do_provision(bot, callback.from_user.id, tunnel, dict(iran), dict(foreign), state))
 
 
-async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreign: dict):
+async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreign: dict,
+                        state: FSMContext):
     tid = tunnel["id"]
 
     for label, node in (("ایران", iran), ("خارج", foreign)):
@@ -149,28 +157,17 @@ async def _do_provision(bot: Bot, chat_id: int, tunnel: dict, iran: dict, foreig
             await bot.send_message(chat_id, f"❌ خطا در برقراری تانل #{tid}:\n{str(e)[:300]}")
             return
 
-    # Always (idempotent) create/sync the location inbound + routing on the Iran
-    # panel, so get_locations() can list it (tunnel up AND inbound synced).
-    loc_note = ""
-    try:
-        node_url, node_tok = await tunnel_svc._find_node_panel(iran["ip"])
-    except Exception:
-        node_url, node_tok = None, None
-    if node_url:
-        try:
-            loc = await tunnel_svc.setup_location(node_url, node_tok, iran, foreign, tunnel)
-            loc_note = f"\nراه‌اندازی لوکیشن:\n{loc['note']}"
-            await db.update_tunnel(
-                tid, "up", loc["note"][:400],
-                inbound_id=loc.get("inbound_id"),
-                location=loc.get("name") or loc.get("tag") or "",
-            )
-        except Exception as e:
-            loc_note = f"\nراه‌اندازی لوکیشن ناموفق: {str(e)[:200]}"
-    else:
-        loc_note = "\nراه‌اندازی لوکیشن: پنلِ این نود پیدا نشد (توکن درست یافت نشد)."
-
-    await bot.send_message(chat_id, f"✅ تانل #{tid} آماده است.{loc_note}")
+    # The tunnel is established. Ask the admin for the Iran node's x-ui panel
+    # credentials; the location inbound + routing are created once they arrive.
+    await state.update_data(tid=tid, iran_id=iran.get("id"))
+    await state.set_state(TunnelPanelStates.waiting_url)
+    await bot.send_message(
+        chat_id,
+        f"✅ تانل #{tid} برقرار شد.\n\n"
+        "🌐 حالا آدرس پنل x-ui سرور ایران را وارد کنید:\n"
+        "(مثال: https://1.2.3.4:9999/janan)",
+        reply_markup=cancel_keyboard(),
+    )
 
 
 @router.callback_query(F.data.startswith("admin:tunnel_detail:"))
@@ -196,3 +193,79 @@ async def tunnel_detail(callback: CallbackQuery):
     ])
     await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
+
+
+@router.message(TunnelPanelStates.waiting_url)
+async def tunnel_panel_url(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    url = (message.text or "").strip()
+    if not url:
+        await message.answer("⚠️ آدرس پنل نامعتبر است. دوباره وارد کنید:", reply_markup=cancel_keyboard())
+        return
+    await state.update_data(panel_url=url)
+    await message.answer(
+        "🔑 توکن API پنل را وارد کنید:\n"
+        "(از پنل x-ui → Settings → API Token)",
+        reply_markup=cancel_keyboard(),
+    )
+    await state.set_state(TunnelPanelStates.waiting_token)
+
+
+@router.message(TunnelPanelStates.waiting_token)
+async def tunnel_panel_token(message: Message, state: FSMContext, bot: Bot):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    token = (message.text or "").strip()
+    data = await state.get_data()
+    tid = data.get("tid")
+    panel_url = data.get("panel_url")
+    await state.clear()
+    if not tid or not panel_url:
+        await message.answer("❌ اطلاعات ناقص است؛ دوباره از «تانل‌ها» شروع کنید.",
+                             reply_markup=admin_menu_keyboard())
+        return
+
+    tunnel = await db.get_tunnel(tid)
+    if not tunnel:
+        await message.answer("❌ تانل یافت نشد.", reply_markup=admin_menu_keyboard())
+        return
+    iran = await db.get_node(tunnel["iran_node_id"])
+    foreign = await db.get_node(tunnel["foreign_node_id"])
+    if not iran or not foreign:
+        await message.answer("❌ سرورهای تانل یافت نشد.", reply_markup=admin_menu_keyboard())
+        return
+
+    status = await message.answer("⏳ در حال اتصال به پنل و ساخت اینباند/روتینگ...")
+    try:
+        # Persist the panel info on the node so later client creation uses it.
+        await db.set_node_panel(iran["id"], panel_url, token)
+        tunnel_dict = {
+            "id": tid,
+            "subnet": f"10.240.{tid}.0/30",
+            "foreign_tap_ip": f"10.240.{tid}.2",
+        }
+        loc = await tunnel_svc.setup_location(panel_url, token, dict(iran), dict(foreign), tunnel_dict)
+        await db.update_tunnel(
+            tid, "up", loc["note"][:400],
+            inbound_id=loc.get("inbound_id"),
+            location=loc.get("name") or loc.get("tag") or "",
+        )
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await message.answer(
+            f"✅ تانل #{tid} کامل شد.\n\n📍 لوکیشن: {loc.get('name')}\n"
+            f"🆔 inbound id: {loc.get('inbound_id')}\n"
+            f"🧩 {loc.get('note')}",
+            reply_markup=admin_menu_keyboard(),
+        )
+    except Exception as e:
+        logger.exception("location setup after panel info failed")
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await message.answer(f"❌ ساخت لوکیشن ناموفق بود:\n{str(e)[:250]}",
+                             reply_markup=admin_menu_keyboard())

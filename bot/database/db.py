@@ -475,12 +475,22 @@ async def get_foreign_nodes():
 
 
 async def update_node_field(node_id: int, field: str, value):
-    allowed = {"name", "ip", "ssh_port", "ssh_user", "ssh_pass", "location"}
+    allowed = {"name", "ip", "ssh_port", "ssh_user", "ssh_pass", "location",
+               "panel_url", "panel_token"}
     if field not in allowed:
         raise ValueError("invalid field")
     value = int(value) if field == "ssh_port" else str(value)
     async with models.pool.acquire() as conn:
         await conn.execute(f"UPDATE nodes SET {field}=$1 WHERE id=$2", value, node_id)
+
+
+async def set_node_panel(node_id: int, panel_url: str, panel_token: str):
+    """Store the x-ui panel URL/token of a node (used to create inbounds/clients)."""
+    async with models.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE nodes SET panel_url=$1, panel_token=$2 WHERE id=$3",
+            panel_url, panel_token, node_id,
+        )
 
 
 async def toggle_node(node_id: int):

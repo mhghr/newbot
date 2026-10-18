@@ -131,6 +131,8 @@ async def init_db():
                 ssh_user TEXT DEFAULT 'root',
                 ssh_pass TEXT DEFAULT '',
                 location TEXT DEFAULT '',
+                panel_url TEXT DEFAULT '',
+                panel_token TEXT DEFAULT '',
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT NOW()
             )
@@ -235,6 +237,10 @@ async def init_db():
             # A single account may have several WireGuard clients (devices); their
             # panel emails are stored here (comma separated) so traffic can be summed.
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS client_emails TEXT DEFAULT ''",
+            # x-ui panel of a node, provided by the admin in the tunnel wizard so
+            # the bot can create the location inbound / routing and clients.
+            "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_url TEXT DEFAULT ''",
+            "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_token TEXT DEFAULT ''",
             # Allow deleting a plan that still has orders linked to it.
             "ALTER TABLE orders ALTER COLUMN plan_id DROP NOT NULL",
             "UPDATE servers SET service_type='v2ray' WHERE service_type IS NULL",
