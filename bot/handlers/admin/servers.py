@@ -162,9 +162,9 @@ async def servers_menu(callback: CallbackQuery, state: FSMContext):
     active_id = await db.get_setting("active_node_id", "")
     active_node = next((n for n in nodes if str(n["id"]) == str(active_id)), None)
     if active_node:
-        active_line = f"🟢 سرور فعال الان: {active_node['name']} ({active_node['ip']})\n"
+        active_line = f"🌐 آی‌پی فعال الان: {active_node['ip']}  ({active_node['name']})\n"
     else:
-        active_line = "🟠 سرور فعال تنظیم نشده است.\n"
+        active_line = "🟠 آی‌پی فعال تنظیم نشده است.\n"
     await callback.message.edit_text(
         "🗄 مدیریت پنل\n" + active_line + "\n" + _server_header(panel),
         reply_markup=server_actions_keyboard(panel),
