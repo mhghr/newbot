@@ -423,8 +423,10 @@ echo NAT_OK
         if not tpl:
             raise TunnelError("no WireGuard inbound template on the panel")
         settings = _as_obj(tpl.get("settings"))
-        for k in ("peers", "clients"):
-            settings.pop(k, None)
+        # Keep the template's clients/peers: a fresh node is a failover copy of
+        # the same location, so users keep working after the entry IP switch.
+        settings.setdefault("clients", [])
+        settings.setdefault("peers", [])
         inbound_port = tpl.get("port") or port
         res = await xui.add_inbound({
             "remark": loc_name, "enable": True, "port": inbound_port, "protocol": "wireguard",

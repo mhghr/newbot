@@ -62,7 +62,13 @@ async def _active_node():
 
 
 async def sync_wg_clients(active_node, target_node) -> bool:
-    """Copy the active node's WireGuard clients into the target node's inbound."""
+    """Mirror the active node's WireGuard inbound (with its clients) to the target.
+
+    The panel's inbound update does not persist WireGuard peers reliably, so the
+    target inbound is recreated from the active one (same remark/port/settings,
+    including the clients list). The inbound tag is derived from the port, so the
+    routing rules keep matching.
+    """
     if not active_node or not target_node:
         return False
     a_url, a_tok = await _node_panel(active_node)
@@ -72,28 +78,36 @@ async def sync_wg_clients(active_node, target_node) -> bool:
     a_xui = XUIClient(a_url, api_token=a_tok or "")
     t_xui = XUIClient(t_url, api_token=t_tok or "")
     a_ib = await _wg_inbound(a_xui)
-    t_ib = await _wg_inbound(t_xui)
-    if not a_ib or not t_ib:
-        logger.warning("wg sync: missing inbound (active=%s target=%s)", bool(a_ib), bool(t_ib))
+    if not a_ib:
+        logger.warning("wg sync: active node has no WireGuard inbound")
         return False
 
-    clients = _as_obj(a_ib.get("settings")).get("clients") or []
-    if not clients:
-        return True
+    settings = _as_obj(a_ib.get("settings"))
+    settings.setdefault("clients", [])
+    settings.setdefault("peers", [])
 
-    obj = await t_xui.get_inbound(t_ib["id"])
-    settings = _as_obj(obj.get("settings"))
-    merged = {c.get("email"): c for c in (settings.get("clients") or [])}
-    for c in clients:
-        merged[c.get("email")] = c
-    settings["clients"] = list(merged.values())
-    obj["settings"] = settings
-    res = await t_xui.update_inbound(t_ib["id"], obj)
+    t_ib = await _wg_inbound(t_xui)
+    if t_ib:
+        await t_xui.delete_inbound(t_ib["id"])
+
+    payload = {
+        "remark": a_ib.get("remark") or "loc",
+        "enable": True,
+        "port": a_ib.get("port") or 8585,
+        "protocol": "wireguard",
+        "listen": a_ib.get("listen") or "",
+        "total": 0, "up": 0, "down": 0, "expiryTime": 0,
+        "settings": settings,
+        "streamSettings": _as_obj(a_ib.get("streamSettings")),
+        "sniffing": _as_obj(a_ib.get("sniffing")),
+    }
+    res = await t_xui.add_inbound(payload)
     ok = bool(res.get("success")) if isinstance(res, dict) else bool(res)
     if ok:
-        logger.info("wg sync: %d clients -> %s", len(merged), target_node.get("name"))
+        logger.info("wg sync: recreated %s with %d clients",
+                    target_node.get("name"), len(settings.get("clients") or []))
     else:
-        logger.warning("wg sync update failed for %s: %s", target_node.get("name"), res)
+        logger.warning("wg sync add failed for %s: %s", target_node.get("name"), res)
     return ok
 
 
