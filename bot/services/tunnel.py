@@ -298,11 +298,14 @@ async def create_location_inbound(panel_url, token, wg_port, remark):
     })
 
 
-async def _template_from_active_node() -> dict:
-    """Return a WireGuard inbound from the active Iran node to clone.
+async def _template_from_active_node(loc_name: str = "") -> dict:
+    """Return the WireGuard inbound of ``loc_name`` from the active Iran node.
 
-    The location inbound on a fresh node is created as a copy (same settings and
-    port) so a client config keeps working after the entry IP is switched.
+    The foreign node in the tunnel determines the location; the inbound whose
+    remark matches that location on the active Iran node is cloned (same
+    settings, port and keys) so a client config keeps working after the entry IP
+    is switched. When no exact match exists the node's first WireGuard inbound
+    is used as a fallback.
     """
     from bot.database import db
     try:
@@ -311,16 +314,23 @@ async def _template_from_active_node() -> dict:
         active_id = ""
     nodes = await db.get_iran_nodes()
     ordered = sorted(nodes, key=lambda n: 0 if str(n["id"]) == str(active_id) else 1)
+    wanted = (loc_name or "").strip().lower()
     for n in ordered:
         try:
             url, tok = await _find_node_panel(n["ip"])
             if not url:
                 continue
-            tpl = await XUIClient(url, api_token=tok or "").find_wireguard_inbound()
-            if tpl:
-                return tpl
+            inbs = await XUIClient(url, api_token=tok or "").get_inbounds()
         except Exception:
             continue
+        wg = [ib for ib in inbs if (ib.get("protocol") or "").lower() == "wireguard"]
+        if not wg:
+            continue
+        if wanted:
+            for ib in wg:
+                if (ib.get("remark") or "").strip().lower() == wanted:
+                    return ib
+        return wg[0]
     return {}
 
 
