@@ -155,7 +155,7 @@ class XUIClient:
             expire_ms = int((datetime.now() + timedelta(days=expire_days)).timestamp() * 1000)
         else:
             expire_ms = 0
-        traffic_bytes = traffic_gb * 1024 * 1024 * 1024 if traffic_gb and traffic_gb > 0 else 0
+        traffic_bytes = int(traffic_gb * 1024 * 1024 * 1024) if traffic_gb and traffic_gb > 0 else 0
 
         inbound_ids = all_inbound_ids if all_inbound_ids else [inbound_id]
 
@@ -248,7 +248,7 @@ class XUIClient:
             expire_ms = int((datetime.now() + timedelta(days=expire_days)).timestamp() * 1000)
         else:
             expire_ms = 0
-        traffic_bytes = traffic_gb * 1024 * 1024 * 1024 if traffic_gb and traffic_gb > 0 else 0
+        traffic_bytes = int(traffic_gb * 1024 * 1024 * 1024) if traffic_gb and traffic_gb > 0 else 0
 
         client = {
             "email": email,
