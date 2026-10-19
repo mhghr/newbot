@@ -220,7 +220,19 @@ async def send_account_config(bot, chat_id: int, config):
                 pass
         if not link:
             link = config.get("sub_url") or config.get("config_link") or ""
-        await deliver_wireguard(bot, chat_id, link, header="✅ کانفیگ شما آماده شد")
+        days_left = None
+        try:
+            if config.get("expire_date"):
+                days_left = max(0, (config["expire_date"] - datetime.now()).days)
+        except Exception:
+            days_left = None
+        await deliver_wireguard(
+            bot, chat_id, link,
+            title="✅ کانفیگ شما",
+            plan_name=config.get("plan_name") or "",
+            days=days_left,
+            traffic_gb=config.get("traffic_gb"),
+        )
         return
 
     sub_link = config.get("sub_url") or config.get("config_link")
@@ -336,49 +348,82 @@ def wg_conf_from_link(link: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-WG_GUIDE = (
-    "📌 این کانفیگ از نوع <b>WireGuard</b> است.\n\n"
-    "📥 اپلیکیشن WireGuard را بسته به دستگاه خود نصب کنید:\n"
-    "• Android: https://play.google.com/store/apps/details?id=com.wireguard.android\n"
-    "• iOS: https://apps.apple.com/app/wireguard/id1441195209\n"
-    "• Windows: https://download.wireguard.com/windows-client/wireguard-installer.exe\n"
-    "• macOS: https://apps.apple.com/app/wireguard/id1451685025\n\n"
-    "🧩 نحوه‌ی افزودن:\n"
-    "۱) فایل wireguard.conf بالا را دانلود کنید (یا QR را با اپ اسکن کنید).\n"
-    "۲) در اپ WireGuard روی «+» یا «Import from file» بزنید، فایل .conf را انتخاب کنید و Connect کنید."
-)
+def _wg_download_links() -> str:
+    return (
+        "• Android: https://play.google.com/store/apps/details?id=com.wireguard.android\n"
+        "• iOS: https://apps.apple.com/app/wireguard/id1441195209\n"
+        "• Windows: https://download.wireguard.com/windows-client/wireguard-installer.exe\n"
+        "• macOS: https://apps.apple.com/app/wireguard/id1451685025"
+    )
 
 
-async def deliver_wireguard(bot, chat_id: int, link: str, header: str):
-    """Send the WireGuard .conf file + a QR code image + a short usage guide."""
+def wg_message(title: str = "✅ اکانت شما با موفقیت ساخته شد",
+               plan_name: str = "", days=None, traffic_gb=None, user_id=None) -> str:
+    rows = [f"<b>{title}</b>"]
+    if plan_name:
+        rows.append(f"📦 پلن انتخابی: {plan_name}")
+    if days:
+        rows.append(f"📅 تعداد روز: {days}")
+    if traffic_gb:
+        rows.append(f"💾 مقدار حجم: {traffic_gb} GB")
+    if user_id:
+        rows.append(f"🆔 یوزرآیدی: {user_id}")
+    rows += [
+        "",
+        "✦ ─────────────── ✦",
+        "",
+        "📌 این کانفیگ از نوع <b>WireGuard</b> است.",
+        "",
+        "📥 لینک دانلود اپلیکیشن:",
+        _wg_download_links(),
+        "",
+        "🧩 نحوه‌ی افزودن کانفیگ:",
+        "۱) آیکون <b>+</b> داخل نرم‌افزار را بزنید.",
+        "۲) اگر از <b>تصویر QR</b> استفاده می‌کنید: گزینه‌ی «Scan from QR code» را انتخاب و تصویر را اسکن کنید.",
+        "۳) اگر از <b>فایل کانفیگ</b> استفاده می‌کنید: ابتدا فایل را روی دستگاه دانلود و ذخیره کنید، سپس «Import from file» را بزنید و فایل `.conf` را انتخاب کنید.",
+    ]
+    return "\n".join(rows)
+
+
+async def deliver_wireguard(bot, chat_id: int, link: str, header: str = None,
+                            title: str = "✅ اکانت شما با موفقیت ساخته شد",
+                            plan_name: str = "", days=None, traffic_gb=None, user_id=None):
+    """Send the account summary + the .conf file (no caption) + the QR (no caption)."""
     if not link:
-        await bot.send_message(chat_id=chat_id, text=f"{header}\n\n(کانفیگ وایرگارد یافت نشد)")
+        await bot.send_message(chat_id=chat_id, text="❌ کانفیگ وایرگارد یافت نشد.")
         return
     conf = wg_conf_from_link(link)
     qr_url = (
         "https://api.qrserver.com/v1/create-qr-code/"
         f"?size=500x500&qzone=2&margin=10&data={quote(conf, safe='')}"
     )
+
+    # 1) account summary + guide
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=wg_message(title, plan_name, days, traffic_gb, user_id),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        logger.warning("WireGuard summary send failed: %s", e)
+
+    # 2) config file, no caption
     try:
         await bot.send_document(
             chat_id=chat_id,
             document=BufferedInputFile(conf.encode("utf-8"), filename="wireguard.conf"),
-            caption=header,
         )
     except Exception as e:
         logger.warning("WireGuard .conf send failed: %s", e)
-        await bot.send_message(chat_id=chat_id, text=f"{header}\n\n{conf}")
+        await bot.send_message(chat_id=chat_id, text=f"<pre>{conf}</pre>", parse_mode="HTML")
+
+    # 3) QR image, no caption
     try:
-        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کانفیگ وایرگارد")
+        await bot.send_photo(chat_id=chat_id, photo=qr_url)
     except Exception as e:
         logger.warning("WireGuard QR send failed: %s", e)
-    try:
-        await bot.send_message(
-            chat_id=chat_id, text=WG_GUIDE, parse_mode="HTML",
-            disable_web_page_preview=True,
-        )
-    except Exception as e:
-        logger.warning("WireGuard guide send failed: %s", e)
 
 
 async def resolve_delivery(xui, email: str, sub_id: str, server, sub_base: str = ""):

@@ -112,7 +112,13 @@ async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_capti
             order["traffic_gb"], expire_date, server_id=None, tunnel_id=tunnel["id"],
         )
 
-        await account_view.deliver_wireguard(bot, order["telegram_id"], link, header="✅ کانفیگ شما آماده شد!")
+        await account_view.deliver_wireguard(
+            bot, order["telegram_id"], link,
+            plan_name=order.get("plan_name") or "",
+            days=order.get("duration_days"),
+            traffic_gb=order.get("traffic_gb"),
+            user_id=order["telegram_id"],
+        )
         await db.update_order_status(order_id, "approved", link)
         try:
             await callback.message.edit_caption(
@@ -276,7 +282,11 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
         if kind == "wg":
             await account_view.deliver_wireguard(
-                bot, order["telegram_id"], link, header="✅ اشتراک شما آماده شد!"
+                bot, order["telegram_id"], link,
+                plan_name=order.get("plan_name") or "",
+                days=order.get("duration_days"),
+                traffic_gb=order.get("traffic_gb"),
+                user_id=order["telegram_id"],
             )
         else:
             await account_view.deliver_account(

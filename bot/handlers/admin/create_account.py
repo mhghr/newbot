@@ -224,9 +224,12 @@ async def _create_location_account(message: Message, bot: Bot, chat_id: int, nam
             target["id"], None, plan_id, email, email, link,
             traffic_gb, expire_date, server_id=None, tunnel_id=tunnel_id,
         )
+        plan = await db.get_plan(plan_id) if plan_id else None
         await account_view.deliver_wireguard(
             bot, chat_id, link,
-            header=f"✅ اکانت ساخته شد\n📝 {name}\n📍 لوکیشن: {tunnel.get('location') or tunnel_id}{note}",
+            plan_name=(plan["name"] if plan else "دلخواه"),
+            days=days, traffic_gb=traffic_gb,
+            user_id=(target.get("telegram_id") if target and target.get("telegram_id") else None),
         )
         try:
             await status.delete()
@@ -329,7 +332,10 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         )
         if kind == "wg":
             await _retry(lambda: account_view.deliver_wireguard(
-                bot, message.from_user.id, link, header=header
+                bot, message.from_user.id, link,
+                plan_name=(plan["name"] if plan else "دلخواه"),
+                days=days, traffic_gb=traffic_gb,
+                user_id=(name if name.isdigit() else None),
             ))
         else:
             await _retry(lambda: account_view.deliver_account(
