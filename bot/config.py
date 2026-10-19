@@ -69,6 +69,11 @@ LOCATION_EXIT_OUTBOUND = os.getenv("LOCATION_EXIT_OUTBOUND", "softether-exit")
 # working after the A record is switched. Overridable from the admin panel.
 ENDPOINT_DOMAIN = os.getenv("ENDPOINT_DOMAIN", "my.manointernet.ir")
 
+# MTU written into delivered WireGuard configs. 1420 can be too high on some
+# Iranian ISP paths (PPPoE etc.) and causes large packets to be dropped, which
+# shows up as pages/videos loading poorly. 1380 is a safe default.
+WG_MTU = int(os.getenv("WG_MTU", "1380"))
+
 # ArvanCloud CDN/DNS API — used to switch the entry domain's A record to the
 # currently active Iran node.
 ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")

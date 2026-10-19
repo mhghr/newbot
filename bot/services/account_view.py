@@ -316,6 +316,11 @@ def wg_conf_from_link(link: str) -> str:
     public_key = unquote(q.get("publickey", ""))
     keepalive = q.get("keepalive", "25")
     mtu = q.get("mtu", "1420")
+    try:
+        from bot.config import WG_MTU
+        mtu = str(min(int(mtu or 1420), WG_MTU))
+    except Exception:
+        pass
     lines = ["[Interface]", f"PrivateKey = {private_key}", f"Address = {address}"]
     if mtu:
         lines.append(f"MTU = {mtu}")
