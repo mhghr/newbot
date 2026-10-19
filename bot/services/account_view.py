@@ -358,8 +358,11 @@ def _wg_download_links() -> str:
 
 
 def wg_message(title: str = "✅ اکانت شما با موفقیت ساخته شد",
-               plan_name: str = "", days=None, traffic_gb=None, user_id=None) -> str:
+               plan_name: str = "", days=None, traffic_gb=None, user_id=None,
+               intro: str = "") -> str:
     rows = [f"<b>{title}</b>"]
+    if intro:
+        rows.append(intro)
     if plan_name:
         rows.append(f"📦 پلن انتخابی: {plan_name}")
     if days:
@@ -387,7 +390,8 @@ def wg_message(title: str = "✅ اکانت شما با موفقیت ساخته 
 
 async def deliver_wireguard(bot, chat_id: int, link: str, header: str = None,
                             title: str = "✅ اکانت شما با موفقیت ساخته شد",
-                            plan_name: str = "", days=None, traffic_gb=None, user_id=None):
+                            plan_name: str = "", days=None, traffic_gb=None, user_id=None,
+                            intro: str = ""):
     """Send the account summary + the .conf file (no caption) + the QR (no caption)."""
     if not link:
         await bot.send_message(chat_id=chat_id, text="❌ کانفیگ وایرگارد یافت نشد.")
@@ -402,7 +406,7 @@ async def deliver_wireguard(bot, chat_id: int, link: str, header: str = None,
     try:
         await bot.send_message(
             chat_id=chat_id,
-            text=wg_message(title, plan_name, days, traffic_gb, user_id),
+            text=wg_message(title, plan_name, days, traffic_gb, user_id, intro),
             parse_mode="HTML",
             disable_web_page_preview=True,
         )
