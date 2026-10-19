@@ -162,10 +162,32 @@ async def acc_days(message: Message, state: FSMContext):
 async def _create_location_account(message: Message, bot: Bot, chat_id: int, name, traffic_gb, days, users, plan_id, tunnel_id):
     from bot.services import tunnel as tunnel_svc
     tunnel = await db.get_tunnel(tunnel_id)
-    node = await db.get_node(tunnel["iran_node_id"]) if (tunnel and tunnel["iran_node_id"]) else None
-    if not tunnel or not tunnel.get("inbound_id") or not node:
+    if not tunnel:
         await message.answer("❌ لوکیشن/سرور یافت نشد.", reply_markup=admin_menu_keyboard())
         return
+
+    # Create the client on the ACTIVE Iran node: the entry domain points there,
+    # so a peer created on another node would never complete the handshake.
+    active = await panel_sync.active_node()
+    node = active or (await db.get_node(tunnel["iran_node_id"]) if tunnel["iran_node_id"] else None)
+    if not node:
+        await message.answer("❌ سرور فعال یافت نشد.", reply_markup=admin_menu_keyboard())
+        return
+
+    inbound_id = None
+    try:
+        mapping = await db.get_tunnel_inbound_on_node(node["id"], tunnel_id)
+        if mapping:
+            inbound_id = mapping["inbound_id"]
+    except Exception:
+        inbound_id = None
+    if not inbound_id and tunnel["iran_node_id"] and node["id"] == tunnel["iran_node_id"]:
+        inbound_id = tunnel.get("inbound_id")
+    if not inbound_id:
+        await message.answer("❌ اینباند این لوکیشن روی سرور فعال پیدا نشد. اول «سینک لوکیشن» را بزن.",
+                             reply_markup=admin_menu_keyboard())
+        return
+
     node_url, node_tok = await tunnel_svc._find_node_panel(node["ip"])
     if not node_url:
         panel = await db.get_master_server("v2ray")
@@ -183,7 +205,7 @@ async def _create_location_account(message: Message, bot: Bot, chat_id: int, nam
             email = f"{name}_{int(datetime.now().timestamp())}"
         await xui.add_client_full(
             email=email, traffic_gb=traffic_gb, expire_days=days,
-            limit_ip=users, all_inbound_ids=[tunnel["inbound_id"]],
+            limit_ip=users, all_inbound_ids=[inbound_id],
         )
         link = ""
         try:

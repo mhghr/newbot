@@ -50,11 +50,27 @@ async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_capti
     order_id = order["id"]
     try:
         tunnel = await db.get_tunnel(order["tunnel_id"])
-        if not tunnel or not tunnel.get("inbound_id"):
+        if not tunnel:
             raise Exception("لوکیشن یافت نشد")
-        node = await db.get_node(tunnel["iran_node_id"])
+
+        # Create the client on the ACTIVE Iran node (the entry domain points
+        # there), so the peer is reachable immediately.
+        active = await panel_sync.active_node()
+        node = active or (await db.get_node(tunnel["iran_node_id"]) if tunnel["iran_node_id"] else None)
         if not node:
-            raise Exception("سرور لوکیشن یافت نشد")
+            raise Exception("سرور فعال یافت نشد")
+
+        inbound_id = None
+        try:
+            mapping = await db.get_tunnel_inbound_on_node(node["id"], tunnel["id"])
+            if mapping:
+                inbound_id = mapping["inbound_id"]
+        except Exception:
+            inbound_id = None
+        if not inbound_id and tunnel["iran_node_id"] and node["id"] == tunnel["iran_node_id"]:
+            inbound_id = tunnel.get("inbound_id")
+        if not inbound_id:
+            raise Exception("اینباند این لوکیشن روی سرور فعال پیدا نشد")
 
         from bot.services import tunnel as tunnel_svc
         node_url, node_tok = await tunnel_svc._find_node_panel(node["ip"])
@@ -78,7 +94,7 @@ async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_capti
             traffic_gb=order["traffic_gb"],
             expire_days=order["duration_days"],
             limit_ip=order["max_users"] or 0,
-            all_inbound_ids=[tunnel["inbound_id"]],
+            all_inbound_ids=[inbound_id],
         )
         link = ""
         try:

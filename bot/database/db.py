@@ -566,9 +566,14 @@ async def get_all_tunnels():
 
 
 async def get_locations():
-    """Tunnels that are up and have an inbound — the selectable locations."""
+    """Selectable locations: one entry per foreign server (location).
+
+    Several Iran nodes may each have a tunnel to the same foreign server; the
+    user/admin sees a single entry per location. The inbound for a given Iran
+    node is resolved from ``node_inbounds`` at creation time.
+    """
     async with models.pool.acquire() as conn:
-        return await conn.fetch(
+        rows = await conn.fetch(
             """SELECT t.id, t.inbound_id, t.location, t.iran_node_id, t.foreign_node_id,
                       i.name AS iran_name, i.ip AS iran_ip,
                       f.name AS foreign_name, f.location AS foreign_location
@@ -578,6 +583,11 @@ async def get_locations():
                WHERE t.inbound_id IS NOT NULL AND t.status='up'
                ORDER BY t.id"""
         )
+    out = {}
+    for r in rows:
+        key = r["foreign_node_id"] or r["location"] or r["id"]
+        out.setdefault(key, r)
+    return list(out.values())
 
 
 async def delete_tunnel(tunnel_id: int):
