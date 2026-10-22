@@ -1,4 +1,5 @@
 ﻿import httpx
+import asyncio
 import uuid
 import json
 import logging
@@ -56,8 +57,41 @@ class XUIClient:
                 logger.error(f"Login error: {e}")
                 return False
 
+    async def _curl_post(self, path: str, payload, timeout: float) -> dict:
+        """POST JSON through curl.
+
+        Some 3x-ui panels stall reading a request body from Python's HTTP
+        stack while accepting the same request from curl; using curl here
+        keeps account creation reliable.
+        """
+        cmd = [
+            "curl", "-k", "-sS", "--max-time", str(int(timeout)),
+            "-X", "POST", f"{self.base_url}{path}",
+            "-H", f"Authorization: Bearer {self.api_token}",
+            "-H", "accept: application/json",
+            "-H", "Content-Type: application/json",
+            "--data-binary", "@-",
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        out, err = await proc.communicate(json.dumps(payload).encode())
+        if proc.returncode != 0:
+            raise Exception(
+                f"panel POST failed: {err.decode(errors='replace')[:200]}"
+            )
+        try:
+            return json.loads(out.decode() or "{}")
+        except Exception:
+            raise Exception(f"invalid panel response: {out[:200]!r}")
+
     async def _request(self, method: str, path: str, **kwargs) -> dict:
-        timeout = kwargs.pop("timeout", 15)
+        timeout = kwargs.pop("timeout", 60)
+        if method.upper() == "POST" and self.api_token and "json" in kwargs:
+            return await self._curl_post(path, kwargs.pop("json"), timeout)
         headers = {"accept": "application/json"}
 
         if self.api_token:
@@ -168,7 +202,7 @@ class XUIClient:
                               traffic_gb: int = 0, expire_days: int = 0,
                               flow: str = "", tg_id=0, comment: str = "",
                               all_inbound_ids: list = None, inbound_id: int = 0,
-                              limit_ip: int = 0, timeout: float = 15) -> bool:
+                              limit_ip: int = 0, timeout: float = 120) -> bool:
         if expire_days and expire_days > 0:
             expire_ms = int((datetime.now() + timedelta(days=expire_days)).timestamp() * 1000)
         else:
