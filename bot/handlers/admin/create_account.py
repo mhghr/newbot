@@ -3,7 +3,6 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramNetworkError
-from urllib.parse import quote
 from datetime import datetime, timedelta
 import asyncio
 import logging
@@ -13,7 +12,7 @@ from bot.database import db
 from bot.services.xui import XUIClient, panel_sub_base
 from bot.services import account_view, panel_sync
 from bot.keyboards.inline import (
-    create_account_plans_keyboard, admin_menu_keyboard, cancel_keyboard, locations_keyboard,
+    create_account_plans_keyboard, admin_menu_keyboard, cancel_keyboard,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,21 +44,6 @@ class CreateAccountStates(StatesGroup):
 async def _ask_name(message: Message, state: FSMContext):
     await message.answer("📝 نام اکانت را وارد کنید (انگلیسی، بدون فاصله):", reply_markup=cancel_keyboard())
     await state.set_state(CreateAccountStates.waiting_name)
-
-
-@router.callback_query(F.data.startswith("acc_loc:"))
-async def acc_loc(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    loc_id = int(callback.data.split(":")[1])
-    data = await state.get_data()
-    await state.clear()
-    await callback.answer("⏳ در حال ساخت...")
-    await _create_location_account(
-        callback.message, bot, callback.from_user.id,
-        data.get("name") or "user", data.get("traffic_gb", 0),
-        data.get("days", 0), data.get("users", 0), data.get("plan_id"), loc_id,
-    )
 
 
 @router.callback_query(F.data == "admin:create_account")
@@ -159,88 +143,6 @@ async def acc_days(message: Message, state: FSMContext):
         await message.answer(f"❌ خطا: {str(e)[:200]}", reply_markup=cancel_keyboard())
 
 
-async def _create_location_account(message: Message, bot: Bot, chat_id: int, name, traffic_gb, days, users, plan_id, tunnel_id):
-    from bot.services import tunnel as tunnel_svc
-    tunnel = await db.get_tunnel(tunnel_id)
-    if not tunnel:
-        await message.answer("❌ لوکیشن/سرور یافت نشد.", reply_markup=admin_menu_keyboard())
-        return
-
-    # Create the client on the ACTIVE Iran node: the entry domain points there,
-    # so a peer created on another node would never complete the handshake.
-    active = await panel_sync.active_node()
-    node = active or (await db.get_node(tunnel["iran_node_id"]) if tunnel["iran_node_id"] else None)
-    if not node:
-        await message.answer("❌ سرور فعال یافت نشد.", reply_markup=admin_menu_keyboard())
-        return
-
-    inbound_id = None
-    try:
-        mapping = await db.get_tunnel_inbound_on_node(node["id"], tunnel_id)
-        if mapping:
-            inbound_id = mapping["inbound_id"]
-    except Exception:
-        inbound_id = None
-    if not inbound_id and tunnel["iran_node_id"] and node["id"] == tunnel["iran_node_id"]:
-        inbound_id = tunnel.get("inbound_id")
-    if not inbound_id:
-        await message.answer("❌ اینباند این لوکیشن روی سرور فعال پیدا نشد. اول «سینک لوکیشن» را بزن.",
-                             reply_markup=admin_menu_keyboard())
-        return
-
-    node_url, node_tok = await tunnel_svc._find_node_panel(node["ip"])
-    if not node_url:
-        panel = await db.get_master_server("v2ray")
-        if panel:
-            node_url = panel_sync.node_panel_url(panel["url"], node["ip"])
-            node_tok = panel.get("api_token")
-    if not node_url:
-        await message.answer("❌ پنلِ این نود پیدا نشد.", reply_markup=admin_menu_keyboard())
-        return
-    status = await message.answer("⏳ در حال ساخت اکانت...")
-    try:
-        xui = XUIClient(node_url, api_token=node_tok or "")
-        email = name
-        if await xui.client_exists(email):
-            email = f"{name}_{int(datetime.now().timestamp())}"
-        await xui.add_client_full(
-            email=email, traffic_gb=traffic_gb, expire_days=days,
-            limit_ip=users, all_inbound_ids=[inbound_id],
-        )
-        link = ""
-        try:
-            links = await xui.get_client_links(email)
-            link = next((l for l in links if str(l).startswith("wireguard://")), links[0] if links else "")
-        except Exception:
-            pass
-        if name.isdigit():
-            target = await db.add_user(telegram_id=int(name))
-            note = f"\n👤 متصل به کاربر {name}"
-        else:
-            target = await db.get_or_create_unlinked_user()
-            note = "\n🗂 ذخیره شد (بدون کاربر تلگرام)"
-        expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
-        await db.create_config(
-            target["id"], None, plan_id, email, email, link,
-            traffic_gb, expire_date, server_id=None, tunnel_id=tunnel_id,
-        )
-        plan = await db.get_plan(plan_id) if plan_id else None
-        await account_view.deliver_wireguard(
-            bot, chat_id, link,
-            plan_name=(plan["name"] if plan else "دلخواه"),
-            days=days, traffic_gb=traffic_gb,
-            user_id=(target.get("telegram_id") if target and target.get("telegram_id") else None),
-        )
-        try:
-            await status.delete()
-        except Exception:
-            pass
-        await message.answer("منوی مدیریت:", reply_markup=admin_menu_keyboard())
-    except Exception as e:
-        logger.exception("location account creation failed")
-        await message.answer(f"❌ خطا: {str(e)[:200]}", reply_markup=admin_menu_keyboard())
-
-
 @router.message(CreateAccountStates.waiting_name)
 async def acc_name(message: Message, state: FSMContext, bot: Bot):
     if message.from_user.id not in ADMIN_IDS:
@@ -252,15 +154,6 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         return
 
     await state.update_data(name=name)
-    locations = await db.get_locations()
-    if locations:
-        await state.set_state(None)
-        await message.answer(
-            "📍 لوکیشن را انتخاب کنید:",
-            reply_markup=locations_keyboard(locations, prefix="acc_loc", back_cb="admin:back"),
-        )
-        return
-
     data = await state.get_data()
     traffic_gb = data.get("traffic_gb", 0)
     days = data.get("days", 0)
@@ -268,19 +161,23 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     plan_id = data.get("plan_id")
     await state.clear()
 
-    master = await db.get_server_for_plan(plan_id, "v2ray")
-    if not master:
-        await message.answer("❌ سرور فعالی یافت نشد!", reply_markup=admin_menu_keyboard())
+    target = await panel_sync.active_panel_inbound()
+    if not target:
+        await message.answer(
+            "❌ سرور فعال یا اینباند وایرگارد یافت نشد. اول یک سرور اضافه/فعال کنید.",
+            reply_markup=admin_menu_keyboard(),
+        )
         return
+    panel_url, panel_tok, inbound_id = target
+    active = await panel_sync.active_node()
+    node_id = active["id"] if active else None
+    node_name = active["name"] if active else "-"
+    sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
 
     status_msg = await message.answer("⏳ در حال ساخت اکانت...")
 
     try:
-        xui = XUIClient(master["url"], api_token=master["api_token"])
-
-        reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
-        if not reality_ids:
-            raise Exception("هیچ اینباندی تنظیم نشده. از «مدیریت سرور → اینباندها» اقدام کنید")
+        xui = XUIClient(panel_url, api_token=panel_tok)
 
         email = name
         if await xui.client_exists(email):
@@ -291,7 +188,7 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             email=email,
             traffic_gb=traffic_gb,
             expire_days=days,
-            all_inbound_ids=reality_ids,
+            all_inbound_ids=[inbound_id],
             limit_ip=users,
         )
 
@@ -299,10 +196,11 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if not sub_token:
             raise Exception("subId از پنل دریافت نشد")
 
-        link, kind = await account_view.resolve_delivery(
-            xui, email, sub_token, master,
-            panel_sub_base(master["url"], master["sub_port"], master["sub_domain"]),
+        link, _ = await account_view.fetch_delivery_link(
+            xui, email, sub_token, True, sub_base,
         )
+        if not link:
+            raise Exception("لینک اشتراک از پنل دریافت نشد")
 
         if name.isdigit():
             target_user = await db.add_user(telegram_id=int(name))
@@ -311,12 +209,14 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             target_user = await db.get_or_create_unlinked_user()
             linked_note = "\n🗂 در دیتابیس ذخیره شد (اکانت مستقل، بدون کاربر تلگرام)."
 
+        plan = await db.get_plan(plan_id) if plan_id else None
+
         expire_date = datetime.now() + timedelta(days=days) if days and days > 0 else None
         await db.create_config(
             user_id=target_user["id"], order_id=None, plan_id=plan_id,
-            client_email=email, sub_id=sub_token, sub_url=(link if kind == "sub" else ""),
+            client_email=email, sub_id=sub_token, sub_url=link,
             traffic_gb=traffic_gb, expire_date=expire_date,
-            server_id=master["id"],
+            server_id=None, node_id=node_id,
         )
 
         email_note = f"ℹ️ ایمیل پنل: {email}\n" if email != name else ""
@@ -324,23 +224,16 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             f"✅ اکانت ساخته شد!\n\n"
             f"📝 نام: {name}\n"
             f"{email_note}"
+            f"📦 پلن: {(plan['name'] if plan else 'دلخواه')}\n"
             f"📊 حجم: {'نامحدود' if traffic_gb == 0 else str(traffic_gb) + ' GB'}\n"
             f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
             f"👥 تعداد کاربر: {'نامحدود' if users == 0 else users}\n"
-            f"🌍 لوکیشن: {master['location']}\n"
+            f"🖥 سرور: {node_name}\n"
             f"{linked_note}"
         )
-        if kind == "wg":
-            await _retry(lambda: account_view.deliver_wireguard(
-                bot, message.from_user.id, link,
-                plan_name=(plan["name"] if plan else "دلخواه"),
-                days=days, traffic_gb=traffic_gb,
-                user_id=(name if name.isdigit() else None),
-            ))
-        else:
-            await _retry(lambda: account_view.deliver_account(
-                bot, message.from_user.id, link, (kind == "sub"), header=header
-            ))
+        await _retry(lambda: account_view.deliver_subscription(
+            bot, message.from_user.id, link, header=header
+        ))
 
         try:
             await status_msg.delete()

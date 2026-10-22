@@ -1,6 +1,5 @@
-﻿import bot.database.models as models
+import bot.database.models as models
 from datetime import datetime
-import ipaddress
 import secrets
 import uuid as uuidlib
 
@@ -429,22 +428,19 @@ def is_iran_location(location) -> bool:
 
 
 async def add_node(name: str, ip: str, ssh_port: int = 22, ssh_user: str = "root",
-                   ssh_pass: str = "", location: str = "", kind: str = "",
-                   panel_url: str = "", panel_token: str = "", wg_port: int = 0):
+                   ssh_pass: str = "", panel_url: str = "", panel_token: str = ""):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
             """INSERT INTO nodes
-                   (name, ip, ssh_port, ssh_user, ssh_pass, location, kind,
-                    panel_url, panel_token, wg_port)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
-            name, ip, ssh_port, ssh_user, ssh_pass, location, kind,
-            panel_url, panel_token, wg_port,
+                   (name, ip, ssh_port, ssh_user, ssh_pass, panel_url, panel_token)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            name, ip, ssh_port, ssh_user, ssh_pass, panel_url, panel_token,
         )
 
 
 async def get_all_nodes():
     async with models.pool.acquire() as conn:
-        return await conn.fetch("SELECT * FROM nodes ORDER BY location, id")
+        return await conn.fetch("SELECT * FROM nodes ORDER BY id")
 
 
 async def get_node(node_id: int):
@@ -453,27 +449,27 @@ async def get_node(node_id: int):
 
 
 async def get_iran_nodes():
-    return [n for n in await get_all_nodes() if is_iran_node(n)]
+    """Active entry servers (every node is an entry server now)."""
+    return [
+        n for n in await get_all_nodes()
+        if bool(n.get("is_active", True))
+    ]
 
 
 async def get_foreign_nodes():
-    return [n for n in await get_all_nodes() if not is_iran_node(n)]
+    return []
 
 
 def is_iran_node(node) -> bool:
-    """True when a node is an entry (Iran) node; ``kind`` wins over location."""
-    kind = (node.get("kind") or "").strip().lower()
-    if kind:
-        return kind == "iran"
-    return is_iran_location(node.get("location"))
+    return True
 
 
 async def update_node_field(node_id: int, field: str, value):
-    allowed = {"name", "ip", "ssh_port", "ssh_user", "ssh_pass", "location",
-               "panel_url", "panel_token", "kind", "wg_port"}
+    allowed = {"name", "ip", "ssh_port", "ssh_user", "ssh_pass",
+               "panel_url", "panel_token"}
     if field not in allowed:
         raise ValueError("invalid field")
-    value = int(value) if field in ("ssh_port", "wg_port") else str(value)
+    value = int(value) if field == "ssh_port" else str(value)
     async with models.pool.acquire() as conn:
         await conn.execute(f"UPDATE nodes SET {field}=$1 WHERE id=$2", value, node_id)
 
@@ -609,7 +605,8 @@ async def set_user_sub_token(user_id: int, sub_token: str):
 
 async def create_config(user_id: int, order_id: int, plan_id: int, client_email: str,
                         sub_id: str, sub_url: str, traffic_gb: int, expire_date,
-                        server_id: int = None, tunnel_id: int = None, client_emails: str = ""):
+                        server_id: int = None, tunnel_id: int = None, client_emails: str = "",
+                        node_id: int = None):
     if isinstance(expire_date, str):
         expire_date = datetime.fromisoformat(expire_date)
     async with models.pool.acquire() as conn:
@@ -617,11 +614,12 @@ async def create_config(user_id: int, order_id: int, plan_id: int, client_email:
             """INSERT INTO configs
                    (user_id, order_id, plan_id, client_email, sub_id, config_link,
                     traffic_limit_gb, expire_date, server_id, service_type, is_active,
-                    reminder_traffic_sent, reminder_time_sent, tunnel_id, client_emails)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10, $11)
+                    reminder_traffic_sent, reminder_time_sent, tunnel_id, client_emails,
+                    node_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10, $11, $12)
                RETURNING id""",
             user_id, order_id, plan_id, client_email, sub_id, sub_url,
-            traffic_gb, expire_date, server_id, tunnel_id, client_emails
+            traffic_gb, expire_date, server_id, tunnel_id, client_emails, node_id
         )
 
 

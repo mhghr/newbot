@@ -1,7 +1,6 @@
 from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramNetworkError
-from urllib.parse import quote
 from datetime import datetime, timedelta
 import asyncio
 import logging
@@ -45,101 +44,6 @@ async def _send_config_to_user(bot: Bot, chat_id: int, qr_url: str, caption: str
         ))
 
 
-async def _approve_location(bot: Bot, callback: CallbackQuery, order, base_caption: str):
-    """Approve an order that targets a location (WireGuard inbound on an Iran node)."""
-    order_id = order["id"]
-    try:
-        tunnel = await db.get_tunnel(order["tunnel_id"])
-        if not tunnel:
-            raise Exception("لوکیشن یافت نشد")
-
-        # Create the client on the ACTIVE Iran node (the entry domain points
-        # there), so the peer is reachable immediately.
-        active = await panel_sync.active_node()
-        node = active or (await db.get_node(tunnel["iran_node_id"]) if tunnel["iran_node_id"] else None)
-        if not node:
-            raise Exception("سرور فعال یافت نشد")
-
-        inbound_id = None
-        try:
-            mapping = await db.get_tunnel_inbound_on_node(node["id"], tunnel["id"])
-            if mapping:
-                inbound_id = mapping["inbound_id"]
-        except Exception:
-            inbound_id = None
-        if not inbound_id and tunnel["iran_node_id"] and node["id"] == tunnel["iran_node_id"]:
-            inbound_id = tunnel.get("inbound_id")
-        if not inbound_id:
-            raise Exception("اینباند این لوکیشن روی سرور فعال پیدا نشد")
-
-        from bot.services import tunnel as tunnel_svc
-        node_url, node_tok = await tunnel_svc._find_node_panel(node["ip"])
-        if not node_url:
-            panel = await db.get_master_server("v2ray")
-            if panel:
-                node_url = panel_sync.node_panel_url(panel["url"], node["ip"])
-                node_tok = panel.get("api_token")
-        if not node_url:
-            raise Exception("پنل این نود یافت نشد")
-
-        xui = XUIClient(node_url, api_token=node_tok or "")
-
-        email = f"{order['telegram_id']}-order{order_id}"
-        try:
-            await xui.delete_client(email)
-        except Exception:
-            pass
-        await xui.add_client_full(
-            email=email,
-            traffic_gb=order["traffic_gb"],
-            expire_days=order["duration_days"],
-            limit_ip=order["max_users"] or 0,
-            all_inbound_ids=[inbound_id],
-        )
-        link = ""
-        try:
-            ls = await xui.get_client_links(email)
-            link = next((l for l in ls if str(l).startswith("wireguard://")), ls[0] if ls else "")
-        except Exception:
-            pass
-
-        if order["duration_days"] and order["duration_days"] > 0:
-            expire_date = datetime.now() + timedelta(days=order["duration_days"])
-        else:
-            expire_date = None
-        await db.create_config(
-            order["user_id"], order_id, order["plan_id"], email, email, link,
-            order["traffic_gb"], expire_date, server_id=None, tunnel_id=tunnel["id"],
-        )
-
-        await account_view.deliver_wireguard(
-            bot, order["telegram_id"], link,
-            plan_name=order.get("plan_name") or "",
-            days=order.get("duration_days"),
-            traffic_gb=order.get("traffic_gb"),
-            user_id=order["telegram_id"],
-        )
-        await db.update_order_status(order_id, "approved", link)
-        try:
-            await callback.message.edit_caption(
-                caption=base_caption + "\n\n✅ تایید و ارسال شد", reply_markup=None
-            )
-        except Exception:
-            pass
-        await callback.answer("✅ ارسال شد!")
-    except Exception as e:
-        logger.exception("location order approval failed")
-        await db.update_order_status(order_id, "pending")
-        try:
-            await callback.message.edit_caption(
-                caption=base_caption + f"\n\n❌ خطا: {str(e)[:200]}",
-                reply_markup=order_approval_keyboard(order_id),
-            )
-        except Exception:
-            pass
-        await callback.answer("❌ خطا! دوباره تلاش کنید.", show_alert=True)
-
-
 @router.callback_query(F.data.startswith("approve_order:"))
 async def approve_order(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
@@ -168,10 +72,6 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
     await db.update_order_status(order_id, "processing")
     base_caption = admin_order_caption(order, service_type="v2ray")
 
-    if order.get("tunnel_id"):
-        await _approve_location(bot, callback, order, base_caption)
-        return
-
     try:
         try:
             await callback.message.edit_caption(
@@ -181,30 +81,30 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         except Exception:
             pass
 
-        master = await db.get_server_for_plan(order["plan_id"], "v2ray")
-        if not master:
-            raise Exception("سرور فعالی یافت نشد")
-
-        tg_id = order["telegram_id"]
-        location = master["location"]
-
-        xui = XUIClient(master["url"], api_token=master["api_token"])
-        sub_base = panel_sub_base(master["url"], master["sub_port"], master["sub_domain"])
-
-        reality_ids = await xui.resolve_inbound_ids(db.parse_inbound_ids(master["inbound_ids"]))
-        if not reality_ids:
-            raise Exception("سرور به‌درستی تنظیم نشده. از «مدیریت پنل» اقدام کنید")
-
         renew_config_id = order["renew_config_id"]
         plan_max_users = order["max_users"] or 0
+        node_id = None
+        node_name = "-"
 
         if renew_config_id:
             config = await db.get_config(renew_config_id)
             if not config:
                 raise Exception("کانفیگ برای تمدید یافت نشد")
 
+            cfg_url, cfg_tok = await account_view._panel_for_config(config)
+            if not cfg_url:
+                target = await panel_sync.active_panel_inbound()
+                if not target:
+                    raise Exception("پنل کانفیگ یا سرور فعال یافت نشد")
+                cfg_url, cfg_tok, _ = target
+            panel_url, panel_tok = cfg_url, cfg_tok or ""
+            active = await panel_sync.active_node()
+            node_id = active["id"] if active else config.get("node_id")
+            node_name = active["name"] if active else "-"
+            sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
+            xui = XUIClient(panel_url, api_token=panel_tok)
             email = config["client_email"]
-            sub_token = config["sub_id"]
+            sub_token = config["sub_id"] or await xui.get_client_sub_id(email)
 
             if order["duration_days"] and order["duration_days"] > 0:
                 now = datetime.now()
@@ -233,23 +133,36 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 logger.warning(f"failed to reset used traffic for {email}")
 
             # Some panel versions drop a client's inbound attachments on
-            # update; make sure the client is still attached to every inbound.
-            # Only the missing (and panel-existing) ids are re-attached, and a
-            # failure here no longer aborts the renewal: the client already has
-            # a valid quota/expiry, so the user keeps a working config.
+            # update. Re-attach the first WireGuard inbound when needed.
             current = set(await xui.get_client_inbounds(email))
-            missing = [i for i in reality_ids if i not in current]
-            if missing and not await xui.attach_client(email, missing):
-                logger.warning(f"failed to re-attach inbounds {missing} for {email} after renewal")
+            if not current:
+                try:
+                    for ib in await xui.get_inbounds():
+                        if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("enable", True):
+                            await xui.attach_client(email, [int(ib["id"])])
+                            break
+                except Exception as e:
+                    logger.warning(f"failed to re-attach inbound for {email}: {e}")
 
-            link, kind = await account_view.resolve_delivery(xui, email, sub_token, master, sub_base)
+            link, _ = await account_view.fetch_delivery_link(
+                xui, email, sub_token, True, sub_base,
+            )
             await db.renew_config(
                 renew_config_id, order_id, order["plan_id"],
                 order["traffic_gb"], new_expire
             )
             action_word = "تمدید"
         else:
-            email = f"{tg_id}-order{order_id}"
+            target = await panel_sync.active_panel_inbound()
+            if not target:
+                raise Exception("سرور فعال یا اینباند وایرگارد یافت نشد")
+            panel_url, panel_tok, active_inbound = target
+            active = await panel_sync.active_node()
+            node_id = active["id"] if active else None
+            node_name = active["name"] if active else "-"
+            sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
+            xui = XUIClient(panel_url, api_token=panel_tok)
+            email = f"{order['telegram_id']}-order{order_id}"
 
             try:
                 await xui.delete_client(email)
@@ -261,38 +174,34 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 traffic_gb=order["traffic_gb"],
                 expire_days=order["duration_days"],
                 limit_ip=plan_max_users,
-                all_inbound_ids=reality_ids,
+                all_inbound_ids=[active_inbound],
             )
 
             sub_token = await xui.get_client_sub_id(email)
             if not sub_token:
                 raise Exception("subId از پنل دریافت نشد")
 
-            link, kind = await account_view.resolve_delivery(xui, email, sub_token, master, sub_base)
+            link, _ = await account_view.fetch_delivery_link(
+                xui, email, sub_token, True, sub_base,
+            )
             if order["duration_days"] and order["duration_days"] > 0:
                 expire_date = datetime.now() + timedelta(days=order["duration_days"])
             else:
                 expire_date = None
             await db.create_config(
                 order["user_id"], order_id, order["plan_id"], email,
-                sub_token, (link if kind == "sub" else ""), order["traffic_gb"], expire_date,
-                server_id=master["id"]
+                sub_token, link, order["traffic_gb"], expire_date,
+                server_id=None, node_id=node_id,
             )
             action_word = "ساخت"
 
-        if kind == "wg":
-            await account_view.deliver_wireguard(
-                bot, order["telegram_id"], link,
-                plan_name=order.get("plan_name") or "",
-                days=order.get("duration_days"),
-                traffic_gb=order.get("traffic_gb"),
-                user_id=order["telegram_id"],
-            )
-        else:
-            await account_view.deliver_account(
-                bot, order["telegram_id"], link, (kind == "sub"),
-                header="✅ اشتراک شما آماده شد!",
-            )
+        if not link:
+            raise Exception("لینک اشتراک از پنل دریافت نشد")
+
+        await account_view.deliver_subscription(
+            bot, order["telegram_id"], link,
+            header=f"✅ {action_word} اشتراک شما انجام شد!\n🖥 سرور: {node_name}",
+        )
 
         await db.update_order_status(order_id, "approved", link)
 

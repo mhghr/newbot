@@ -169,20 +169,6 @@ def order_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
     ])
 
 
-def locations_keyboard(locations: list, prefix: str = "buy_loc",
-                       back_cb: str = "main:back") -> InlineKeyboardMarkup:
-    """Location picker for the buy / admin-create flows."""
-    buttons = []
-    for loc in locations:
-        label = loc.get("foreign_name") or loc.get("foreign_location") or f"#{loc['id']}"
-        buttons.append(InlineKeyboardButton(
-            text=f"📍 {label}", callback_data=f"{prefix}:{loc['id']}"
-        ))
-    rows = _rows(buttons)
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=back_cb)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
 def configs_keyboard(configs: list) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(
@@ -208,28 +194,12 @@ def my_configs_keyboard(configs: list) -> InlineKeyboardMarkup:
 
 
 def account_detail_keyboard(config_id: int, service_type: str,
-                            show_renew: bool = True,
-                            show_change_location: bool = False) -> InlineKeyboardMarkup:
+                            show_renew: bool = True) -> InlineKeyboardMarkup:
     """Action buttons for an account (protocol aware). Account info lives in the message text."""
-    rows = [[InlineKeyboardButton(text="📄 نمایش کانفیگ", callback_data=f"showconfig:{config_id}")]]
-    if show_change_location:
-        rows.append([InlineKeyboardButton(text="📍 تغییر لوکیشن", callback_data=f"changeloc:{config_id}")])
+    rows = [[InlineKeyboardButton(text="🔗 دریافت لینک", callback_data=f"showconfig:{config_id}")]]
     if show_renew:
         rows.append([InlineKeyboardButton(text="🔄 تمدید", callback_data=f"renew:{config_id}")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:my_configs")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def change_location_keyboard(config_id: int, locations: list) -> InlineKeyboardMarkup:
-    """Pick a new location for an existing account."""
-    buttons = []
-    for loc in locations:
-        label = loc.get("foreign_name") or loc.get("location") or f"#{loc['id']}"
-        buttons.append(InlineKeyboardButton(
-            text=f"📍 {label}", callback_data=f"setloc:{config_id}:{loc['id']}"
-        ))
-    rows = _rows(buttons)
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"cfg:{config_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -305,7 +275,6 @@ def admin_tutorial_app_keyboard(platform: str, slug: str, has_video: bool) -> In
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
     rows = _rows([
         InlineKeyboardButton(text="🖥 مدیریت سرورها", callback_data="admin:nodes"),
-        InlineKeyboardButton(text="🚇 تانل‌ها", callback_data="admin:tunnels"),
         InlineKeyboardButton(text="📦 مدیریت پلن‌ها", callback_data="admin:plans"),
         InlineKeyboardButton(text="🛠 ساخت اکانت", callback_data="admin:create_account"),
         InlineKeyboardButton(text="💳 شماره کارت", callback_data="admin:card"),
@@ -418,9 +387,8 @@ def nodes_list_keyboard(nodes: list) -> InlineKeyboardMarkup:
     rows = []
     for n in nodes:
         status = "🟢" if n["is_active"] else "🔴"
-        loc = n.get("location") or "-"
         rows.append([InlineKeyboardButton(
-            text=f"{status} [{loc}] {n['name']} - {n['ip']}",
+            text=f"{status} {n['name']} - {n['ip']}",
             callback_data=f"admin:node_detail:{n['id']}",
         )])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_node")])
@@ -436,14 +404,8 @@ def node_actions_keyboard(node) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=f"📛 نام : {node['name']}", callback_data=f"admin:edit_node:{nid}:name")],
         [InlineKeyboardButton(text=f"🌐 IP : {node['ip']}", callback_data=f"admin:edit_node:{nid}:ip")],
-        [InlineKeyboardButton(text=f"🔢 پورت SSH : {node.get('ssh_port') or 22}", callback_data=f"admin:edit_node:{nid}:ssh_port")],
-        [InlineKeyboardButton(text=f"👤 یوزر SSH : {node.get('ssh_user') or 'root'}", callback_data=f"admin:edit_node:{nid}:ssh_user")],
-        [InlineKeyboardButton(text=f"🔑 پسورد SSH : {node.get('ssh_pass') or '-'}", callback_data=f"admin:edit_node:{nid}:ssh_pass")],
-        [InlineKeyboardButton(text=f"📍 لوکیشن : {node.get('location') or '-'}", callback_data=f"admin:edit_node:{nid}:location")],
-        [InlineKeyboardButton(text=f"🧩 نوع : {node.get('kind') or '-'}", callback_data=f"admin:edit_node:{nid}:kind")],
         [InlineKeyboardButton(text=f"🌐 پنل : {_trunc(node.get('panel_url') or '-')}", callback_data=f"admin:edit_node:{nid}:panel_url")],
         [InlineKeyboardButton(text=f"🔑 توکن پنل : {_trunc(node.get('panel_token') or '-')}", callback_data=f"admin:edit_node:{nid}:panel_token")],
-        [InlineKeyboardButton(text=f"🔌 پورت لوکیشن : {node.get('wg_port') or '-'}", callback_data=f"admin:edit_node:{nid}:wg_port")],
         [
             InlineKeyboardButton(text=toggle, callback_data=f"admin:toggle_node:{nid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_node:{nid}"),

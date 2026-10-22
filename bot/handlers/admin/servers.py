@@ -534,11 +534,14 @@ async def set_active_server(callback: CallbackQuery):
         return
     await callback.message.edit_text(f"⏳ تغییر سرور فعال به «{node['name']}» (سینک + آروان)...")
     res = await panel_sync.switch_active(node)
+    dns_ok = res.get("dns") == node["ip"]
     await callback.message.edit_text(
         "🟢 سرور فعال تنظیم شد\n"
         f"سرور: {node['name']} ({node['ip']})\n"
         f"آروان (تغییر DNS): {'✅' if res['arvan'] else '❌'}\n"
-        f"ایمپورت کلاینت‌ها: {'✅' if res['sync'] else '❌'} ({res.get('count', 0)} کلاینت)\n"
+        f"تأیید DNS: {'✅ ' + node['ip'] if dns_ok else '⏳ هنوز منتشر نشده'}\n"
+        f"انتقال کلاینت‌ها (attach): {'✅' if res['sync'] else '❌'} "
+        f"({res.get('moved', res.get('count', 0))} کلاینت)\n"
         f"{res['error']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")],

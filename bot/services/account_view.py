@@ -12,7 +12,7 @@ from urllib.parse import quote, urlparse, parse_qs, unquote
 from aiogram.types import BufferedInputFile
 
 from bot.database import db
-from bot.services.xui import XUIClient
+from bot.services.xui import XUIClient, panel_sub_base
 from bot.utils.jalali import to_jalali
 from bot.utils.helpers import format_gb
 
@@ -49,6 +49,17 @@ def _fmt_dt(value) -> str:
 
 async def _panel_for_config(config):
     """Resolve (url, token) of the panel that hosts this config's clients."""
+    node_id = config.get("node_id")
+    if node_id:
+        try:
+            node = await db.get_node(int(node_id))
+            if node:
+                from bot.services import panel_sync
+                url, tok = await panel_sync._node_panel(node)
+                if url:
+                    return url, tok
+        except Exception:
+            pass
     tunnel_id = config.get("tunnel_id")
     if tunnel_id:
         try:
@@ -127,7 +138,7 @@ async def move_config_location(config, target_tunnel) -> str:
     link = ""
     try:
         ls = await XUIClient(new_url, api_token=new_tok or "").get_client_links(email)
-        link = next((l for l in ls if str(l).startswith("wireguard://")), ls[0] if ls else "")
+        link = next((lnk for lnk in ls if str(lnk).startswith("wireguard://")), ls[0] if ls else "")
     except Exception as e:
         logger.warning("fetch new location link failed for %s: %s", email, e)
     return link
@@ -204,55 +215,71 @@ async def build_account_text(config) -> str:
     return "\n".join(lines)
 
 
-async def send_account_config(bot, chat_id: int, config):
-    """Deliver the config: WireGuard device config, or the subscription link + QR."""
-    emails = [e for e in (config.get("client_emails") or "").split(",") if e]
-    if config.get("tunnel_id") or emails:
-        em = emails[0] if emails else config.get("client_email")
-        url, tok = await _panel_for_config(config)
-        link = ""
-        if url and em:
-            try:
-                xui = XUIClient(url, api_token=tok or "")
-                ls = await xui.get_client_links(em)
-                link = next((l for l in ls if str(l).startswith("wireguard://")), ls[0] if ls else "")
-            except Exception:
-                pass
-        if not link:
-            link = config.get("sub_url") or config.get("config_link") or ""
-        days_left = None
-        try:
-            if config.get("expire_date"):
-                days_left = max(0, (config["expire_date"] - datetime.now()).days)
-        except Exception:
-            days_left = None
-        await deliver_wireguard(
-            bot, chat_id, link,
-            title="✅ کانفیگ شما",
-            plan_name=config.get("plan_name") or "",
-            days=days_left,
-            traffic_gb=config.get("traffic_gb"),
-        )
-        return
-
-    sub_link = config.get("sub_url") or config.get("config_link")
-    if not sub_link:
+async def deliver_subscription(bot, chat_id: int, link: str,
+                               header: str = "✅ لینک اشتراک شما"):
+    """Send the subscription link (as text) together with its QR code."""
+    if not link:
         await bot.send_message(chat_id=chat_id, text="❌ لینک اشتراک یافت نشد.")
         return
-
     await bot.send_message(
         chat_id=chat_id,
-        text=f"{RTM}🔗 <b>لینک اشتراک:</b>\n{RTM}<code>{_esc(sub_link)}</code>",
+        text=f"{header}\n\n{RTM}🔗 <b>لینک اشتراک:</b>\n{RTM}<code>{_esc(link)}</code>",
         parse_mode="HTML",
+        disable_web_page_preview=True,
     )
     qr_url = (
         "https://api.qrserver.com/v1/create-qr-code/"
-        f"?size=500x500&qzone=2&margin=10&data={quote(sub_link, safe='')}"
+        f"?size=500x500&qzone=2&margin=10&data={quote(link, safe='')}"
     )
     try:
-        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR کد اشتراک")
+        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR لینک اشتراک")
     except Exception as e:
-        logger.warning("V2Ray QR send failed: %s", e)
+        logger.warning("Subscription QR send failed: %s", e)
+
+
+async def _sub_base_for_config(config):
+    node_id = config.get("node_id")
+    if not node_id and config.get("tunnel_id"):
+        try:
+            t = await db.get_tunnel(config["tunnel_id"])
+            node_id = t["iran_node_id"] if t else None
+        except Exception:
+            node_id = None
+    if node_id:
+        try:
+            node = await db.get_node(int(node_id))
+            if node:
+                from bot.services import panel_sync
+                return await panel_sync.sub_base_for_node(node)
+        except Exception:
+            pass
+    url, _ = await _panel_for_config(config)
+    return panel_sub_base(url) if url else ""
+
+
+async def send_account_config(bot, chat_id: int, config):
+    """Deliver the subscription link (never the raw WireGuard config)."""
+    sub_link = config.get("sub_url") or ""
+    if sub_link and not sub_link.startswith(("http://", "https://")):
+        sub_link = ""
+    if not sub_link:
+        emails = [e for e in (config.get("client_emails") or "").split(",") if e]
+        em = emails[0] if emails else config.get("client_email")
+        url, tok = await _panel_for_config(config)
+        if url and em:
+            try:
+                xui = XUIClient(url, api_token=tok or "")
+                sub_id = config.get("sub_id") or em
+                sub_base = await _sub_base_for_config(config)
+                sub_link, _ = await fetch_delivery_link(
+                    xui, em, sub_id, True, sub_base,
+                )
+            except Exception as e:
+                logger.warning("subscription link fetch failed for %s: %s", em, e)
+    if not sub_link:
+        await bot.send_message(chat_id=chat_id, text="❌ لینک اشتراک یافت نشد.")
+        return
+    await deliver_subscription(bot, chat_id, sub_link, header="✅ لینک اشتراک شما")
 
 
 def rec_get(rec, key, default=None):
@@ -283,7 +310,11 @@ async def fetch_delivery_link(xui, email: str, sub_id: str, sub_enabled: bool,
             logger.warning("subLinks fetch failed for %s: %s", email, e)
         if not link:
             try:
-                link = await xui.get_sub_link(email)
+                links = await xui.get_client_links(email)
+                link = next(
+                    (lnk for lnk in links if str(lnk).startswith(("http://", "https://"))),
+                    "",
+                )
             except Exception:
                 link = ""
         if not link and fallback_base:
@@ -431,24 +462,6 @@ async def deliver_wireguard(bot, chat_id: int, link: str, header: str = None,
 
 
 async def resolve_delivery(xui, email: str, sub_id: str, server, sub_base: str = ""):
-    """Return ``(link, kind)`` for a fresh account.
-
-    kind is ``"wg"`` when the server is a WireGuard server, otherwise ``"sub"``
-    or ``"direct"`` (subscription vs. plain config link) depending on the
-    server's subscription toggle.
-    """
-    if rec_get(server, "wireguard", True):
-        try:
-            links = await xui.get_client_links(email)
-            link = next((l for l in links if str(l).startswith("wireguard://")), "")
-            if not link and links:
-                link = links[0]
-        except Exception as e:
-            logger.warning("WireGuard link fetch failed for %s: %s", email, e)
-            link = ""
-        if link:
-            return link, "wg"
-
-    sub_enabled = bool(rec_get(server, "sub_enabled", False))
-    link, is_sub = await fetch_delivery_link(xui, email, sub_id, sub_enabled, sub_base)
-    return link, ("sub" if is_sub else "direct")
+    """Return the subscription ``(link, "sub")`` for a fresh account."""
+    link, _ = await fetch_delivery_link(xui, email, sub_id, True, sub_base)
+    return link, "sub"
