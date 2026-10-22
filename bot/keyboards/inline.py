@@ -342,7 +342,8 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
     rows += [
         [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
         [InlineKeyboardButton(text=f"🔑 کلید اتصال : {_trunc(server['api_token'])}", callback_data=f"admin:edit_server:{sid}:api_token")],
-        [InlineKeyboardButton(text=f"📡 اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
+        [InlineKeyboardButton(text=f"📋 لیست اینباندها : {_trunc(server.get('inbound_ids') or '-')}", callback_data=f"admin:inbounds:{sid}")],
+        [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
     ]
     rows += [
         [InlineKeyboardButton(text="🌐 دامنه اندپوینت (هاست)", callback_data="admin:endpoint_domain")],
@@ -441,6 +442,7 @@ def server_inbounds_keyboard(server_id: int, inbound_ids: list) -> InlineKeyboar
         InlineKeyboardButton(text="➕ افزودن اینباند", callback_data=f"admin:inbound_add:{server_id}"),
         InlineKeyboardButton(text="✏️ ویرایش لیست", callback_data=f"admin:set_inbounds:{server_id}"),
     ])
+    rows.append([InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{server_id}")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:server_detail:{server_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

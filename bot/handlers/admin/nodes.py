@@ -2,11 +2,13 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from urllib.parse import urlparse
 import logging
 
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.services import tunnel as tunnel_svc
+from bot.services.xui import XUIClient
 from bot.keyboards.inline import (
     admin_menu_keyboard, nodes_list_keyboard, node_actions_keyboard,
     node_delete_confirm_keyboard, cancel_keyboard,
@@ -25,7 +27,6 @@ FIELD_LABELS = {
 
 class AddNodeStates(StatesGroup):
     waiting_name = State()
-    waiting_ip = State()
     waiting_panel_url = State()
     waiting_panel_token = State()
 
@@ -88,15 +89,6 @@ async def add_node_name(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
     await state.update_data(name=message.text.strip())
-    await message.answer("🌐 آی‌پی سرور را وارد کنید:", reply_markup=cancel_keyboard())
-    await state.set_state(AddNodeStates.waiting_ip)
-
-
-@router.message(AddNodeStates.waiting_ip)
-async def add_node_ip(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    await state.update_data(ip=message.text.strip())
     await message.answer(
         "🌐 آدرس پنل x-ui را وارد کنید:\n(مثال: https://irancell.manointernet.ir:9999/janan)",
         reply_markup=cancel_keyboard(),
@@ -128,17 +120,36 @@ async def add_node_panel_token(message: Message, state: FSMContext):
 async def _finish_add_node(message: Message, state: FSMContext):
     data = await state.get_data()
     name = (data.get("name") or "").strip()
-    ip = (data.get("ip") or "").strip()
-    if not name or not ip:
+    panel_url = (data.get("panel_url") or "").strip()
+    if not name:
         await state.clear()
-        await message.answer("⚠️ نام یا آی‌پی خالی است؛ دوباره تلاش کنید.",
+        await message.answer("⚠️ نام سرور نامعتبر است. دوباره از منو تلاش کنید.",
                              reply_markup=admin_menu_keyboard())
         return
 
+    # Do not save a server we cannot reach: verify the panel URL + token first.
+    panel_token = (data.get("panel_token") or "").strip()
+    xui = XUIClient(panel_url, api_token=panel_token)
+    ok, err = await xui.check_connection()
+    if not ok:
+        await message.answer(
+            f"❌ اتصال به پنل برقرار نشد؛ سرور ذخیره نشد.\n{err}\n\n"
+            "دوباره توکن API را وارد کنید یا انصراف بزنید:",
+            reply_markup=cancel_keyboard(),
+        )
+        await state.set_state(AddNodeStates.waiting_panel_token)
+        return
+
+    # The IP is no longer asked for; derive the host from the panel address.
+    try:
+        ip = urlparse(panel_url).hostname or ""
+    except Exception:
+        ip = ""
+
     await db.add_node(
         name=name, ip=ip, ssh_port=22, ssh_user="root", ssh_pass="",
-        panel_url=(data.get("panel_url") or ""),
-        panel_token=(data.get("panel_token") or ""),
+        panel_url=panel_url,
+        panel_token=panel_token,
     )
     await state.clear()
     nodes = await db.get_all_nodes()

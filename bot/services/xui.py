@@ -94,6 +94,23 @@ class XUIClient:
                 )
             return resp.json()
 
+    async def check_connection(self) -> tuple:
+        """Verify the panel is reachable and the credentials are accepted."""
+        try:
+            data = await self._request("GET", "/panel/api/inbounds/list")
+        except httpx.TimeoutException:
+            return False, "تایم‌اوت؛ پنل پاسخ نداد."
+        except httpx.HTTPError as e:
+            return False, f"خطای شبکه: {e}"
+        except Exception:
+            # A non-JSON body usually means 401/403 (wrong token) or wrong URL.
+            return False, "پاسخ نامعتبر از پنل (آدرس یا توکن اشتباه است)."
+        if not isinstance(data, dict):
+            return False, "پاسخ نامعتبر از پنل."
+        if data.get("success") is False:
+            return False, str(data.get("msg") or "پنل درخواست را رد کرد.")
+        return True, ""
+
     async def get_inbounds(self) -> list:
         try:
             data = await self._request("GET", "/panel/api/inbounds/list")

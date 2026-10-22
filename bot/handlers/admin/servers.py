@@ -1,4 +1,4 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -47,51 +47,71 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
                 await bot.send_message(admin_chat_id, msg)
             return
 
+        # An account may have several device clients; sync every one of them.
+        emails = []
+        for cfg in configs:
+            for em in (cfg.get("client_emails") or "").split(","):
+                em = em.strip()
+                if em and em not in emails:
+                    emails.append(em)
+            single = (cfg.get("client_email") or "").strip()
+            if single and single not in emails:
+                emails.append(single)
+
+        if not emails:
+            msg = "هیچ کلاینتی برای این سرور یافت نشد."
+            if status_message:
+                await status_message.edit_text(msg)
+            else:
+                await bot.send_message(admin_chat_id, msg)
+            return
+
         if status_message:
-            await status_message.edit_text(f"⏳ در حال بررسی {len(configs)} کانفیگ...")
+            await status_message.edit_text(
+                f"⏳ سینک {len(emails)} کلاینت روی اینباندهای "
+                f"{', '.join(str(i) for i in desired_ids)}..."
+            )
 
         fixed = 0
         already_ok = 0
         failed = 0
         desired_set = set(desired_ids)
 
-        for cfg in configs:
+        for email in emails:
             try:
-                current = await xui.get_client_inbounds(cfg["client_email"])
-                current_set = set(current)
+                current_set = set(await xui.get_client_inbounds(email))
                 if current_set == desired_set:
                     already_ok += 1
-                else:
-                    # Apply only the delta. Attach first so a client is never
-                    # left temporarily without an inbound during the sync.
-                    to_add = sorted(desired_set - current_set)
-                    to_remove = sorted(current_set - desired_set)
-                    attached = not to_add or await xui.attach_client(cfg["client_email"], to_add)
-                    # Removal is independent from attachment: an attach error
-                    # must not leave obsolete inbounds connected to the client.
-                    detached = not to_remove or await xui.detach_client(cfg["client_email"], to_remove)
+                    continue
 
-                    # Never report success only because the API returned 200;
-                    # read the panel again and verify the final attachments.
-                    actual = set(await xui.get_client_inbounds(cfg["client_email"]))
-                    if attached and detached and actual == desired_set:
-                        fixed += 1
-                    else:
-                        failed += 1
-                        logger.error(
-                            "Inbound sync verification failed for %s: desired=%s actual=%s add=%s remove=%s",
-                            cfg["client_email"], sorted(desired_set), sorted(actual), to_add, to_remove,
-                        )
+                # Remove the old attachments first, then attach the new
+                # inbounds one by one, and verify the final state.
+                to_remove = sorted(current_set - desired_set)
+                if to_remove:
+                    await xui.detach_client(email, to_remove)
+                for iid in desired_ids:
+                    await xui.attach_client(email, [iid])
+
+                actual = set(await xui.get_client_inbounds(email))
+                if actual == desired_set:
+                    fixed += 1
+                else:
+                    failed += 1
+                    logger.error(
+                        "Inbound sync verification failed for %s: desired=%s actual=%s",
+                        email, sorted(desired_set), sorted(actual),
+                    )
             except Exception:
                 failed += 1
-                logger.exception(f"Sync failed for client {cfg['client_email']}")
+                logger.exception(f"Sync failed for client {email}")
 
         msg = (
-            f"گزارش همگام‌سازی «{server['name']}»\n\n"
+            f"گزارش سینک اینباندهای «{server['name']}»\n\n"
+            f"اینباندهای هدف: {', '.join(str(i) for i in desired_ids)}\n"
             f"از قبل درست: {already_ok}\n"
-            f"اصلاح شد: {fixed}\n"
+            f"سینک شد: {fixed}\n"
             f"خطا: {failed}\n"
-            f"مجموع: {len(configs)}"
+            f"مجموع کلاینت‌ها: {len(emails)}"
         )
         if status_message:
             await status_message.edit_text(msg)
@@ -106,6 +126,19 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
             )
         except Exception:
             logger.exception("Failed to send sync error notification to admin")
+
+async def _panel_inbounds(server) -> list:
+    """Fetch the live inbound list from the server's 3x-ui panel."""
+    xui = XUIClient(
+        server["url"], server.get("username") or "",
+        server.get("password") or "", server.get("api_token") or "",
+    )
+    try:
+        return await xui.get_inbounds()
+    except Exception as e:
+        logger.warning("Panel inbound list failed for %s: %s", server.get("url"), e)
+        return []
+
 
 FIELD_LABELS = {
     "name": "نام", "url": "آدرس", "api_token": "توکن",
@@ -236,13 +269,18 @@ async def add_server_location(message: Message, state: FSMContext):
     data = await state.get_data()
     await message.answer("⏳ در حال تست اتصال به پنل...")
     xui = XUIClient(data["url"], api_token=data["api_token"])
-    try:
-        inbounds = await xui.get_inbounds()
-        inbound_id = inbounds[0].get("id", 0) if inbounds else 0
-    except Exception as e:
-        await message.answer(f"❌ اتصال به پنل ناموفق بود!\n{str(e)}", reply_markup=cancel_keyboard())
-        await state.clear()
+    ok, err = await xui.check_connection()
+    if not ok:
+        await message.answer(
+            f"❌ اتصال به پنل ناموفق بود؛ سرور ذخیره نشد.\n{err}\n\n"
+            "دوباره توکن API را وارد کنید یا انصراف بزنید:",
+            reply_markup=cancel_keyboard(),
+        )
+        await state.set_state(AddServerStates.waiting_token)
         return
+
+    inbounds = await xui.get_inbounds()
+    inbound_id = inbounds[0].get("id", 0) if inbounds else 0
     await state.update_data(inbound_id=inbound_id)
     await message.answer(
         "✅ اتصال برقرار شد!\n\n📡 لیست آیدی اینباندهای یوزر را وارد کنید:\n"
@@ -341,15 +379,88 @@ async def inbounds_menu(callback: CallbackQuery):
     if not server: await callback.answer("❌", show_alert=True); return
     ids = db.parse_inbound_ids(server["inbound_ids"])
     await callback.message.edit_text(
-        f"📡 اینباندهای «{server['name']}»\n\n"
-        f"فعلی: {', '.join(str(i) for i in ids) if ids else 'خالی'}\n\n"
-        "برای حذف روی هرکدام بزنید:",
+        f"📋 لیست اینباندهای «{server['name']}»\n\n"
+        f"ثبت‌شده: {', '.join(str(i) for i in ids) if ids else 'خالی'}\n\n"
+        "برای حذف روی شماره اینباند بزنید،\n"
+        "یا با «➕ افزودن اینباند» شماره جدید اضافه کنید:",
         reply_markup=server_inbounds_keyboard(server_id, ids)
     )
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("admin:sync_inbounds:"))
+async def sync_inbounds(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id not in ADMIN_IDS: return
+    server_id = int(callback.data.split(":")[2])
+    server = await db.get_server(server_id)
+    if not server:
+        await callback.answer("❌ سرور یافت نشد!", show_alert=True); return
+
+    # Attach the ids the admin has chosen. Only when none are saved yet, fall
+    # back to the panel's enabled VLESS inbounds.
+    cleaned = ",".join(str(i) for i in db.parse_inbound_ids(server.get("inbound_ids")))
+    if not cleaned:
+        await callback.message.edit_text("⏳ در حال دریافت اینباندها از پنل...")
+        inbounds = await _panel_inbounds(server)
+        ids = [
+            int(ib["id"]) for ib in inbounds
+            if ib.get("id") is not None
+            and ib.get("enable", True)
+            and (ib.get("protocol") or "") == "vless"
+        ]
+        if ids:
+            cleaned = ",".join(str(i) for i in ids)
+            await db.set_server_inbound_ids(server_id, cleaned)
+            server = await db.get_server(server_id)
+
+    if not cleaned:
+        await callback.message.edit_text(
+            "❌ هیچ اینباندی برای سینک پیدا نشد (نه روی پنل و نه ذخیره‌شده).\n"
+            "ابتدا از «📋 لیست اینباندها» اینباند اضافه کنید.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="🔙 بازگشت",
+                    callback_data=f"admin:server_detail:{server_id}",
+                )],
+            ]),
+        )
+        await callback.answer()
+        return
+
+    await callback.answer("🔄 سینک شروع شد")
+    await callback.message.edit_text(
+        f"🔄 سینک اینباندها: {cleaned}\n⏳ در حال اتچ کردن کلاینت‌ها..."
+    )
+    await _sync_clients_to_inbounds(
+        server, callback.from_user.id, bot, status_message=callback.message
+    )
+
+
 @router.callback_query(F.data.startswith("admin:inbound_del:"))
+async def inbound_delete_confirm(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    parts = callback.data.split(":")
+    server_id = int(parts[2]); inbound_id = int(parts[3])
+    server = await db.get_server(server_id)
+    if not server:
+        await callback.answer("❌", show_alert=True); return
+    await callback.message.edit_text(
+        f"🗑 حذف اینباند {inbound_id} از «{server['name']}»؟",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="✅ بله، حذف",
+                callback_data=f"admin:inbound_del_ok:{server_id}:{inbound_id}",
+            )],
+            [InlineKeyboardButton(
+                text="🔙 بازگشت",
+                callback_data=f"admin:inbounds:{server_id}",
+            )],
+        ]),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:inbound_del_ok:"))
 async def inbound_delete(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS: return
     parts = callback.data.split(":")
@@ -362,7 +473,7 @@ async def inbound_delete(callback: CallbackQuery):
         f"فعلی: {', '.join(str(i) for i in ids) if ids else 'خالی'}",
         reply_markup=server_inbounds_keyboard(server_id, ids)
     )
-    await callback.answer(f"✅ {inbound_id} حذف شد!")
+    await callback.answer(f"✅ {inbound_id} حذف شد!", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("admin:inbound_add:"))
@@ -370,7 +481,10 @@ async def inbound_add_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS: return
     server_id = int(callback.data.split(":")[2])
     await state.update_data(inbounds_server_id=server_id)
-    await callback.message.edit_text("➕ آیدی اینباند را وارد کنید (مثال: 10):", reply_markup=cancel_keyboard())
+    await callback.message.edit_text(
+        "➕ شماره اینباند مورد نظر را وارد کنید (مثال: 10):",
+        reply_markup=cancel_keyboard(),
+    )
     await state.set_state(InboundStates.waiting_add_inbound)
     await callback.answer()
 
