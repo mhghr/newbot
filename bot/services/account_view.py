@@ -227,14 +227,29 @@ async def deliver_subscription(bot, chat_id: int, link: str,
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
-    qr_url = (
-        "https://api.qrserver.com/v1/create-qr-code/"
-        f"?size=500x500&qzone=2&margin=10&data={quote(link, safe='')}"
-    )
     try:
-        await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR لینک اشتراک")
+        # Generate the QR locally so delivery never depends on an external
+        # image service.
+        import qrcode
+        from io import BytesIO
+
+        buf = BytesIO()
+        qrcode.make(link).save(buf, format="PNG")
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=BufferedInputFile(buf.getvalue(), filename="qrcode.png"),
+            caption="📷 QR لینک اشتراک",
+        )
     except Exception as e:
-        logger.warning("Subscription QR send failed: %s", e)
+        logger.warning("Local QR generation failed (%s); using QR service", e)
+        qr_url = (
+            "https://api.qrserver.com/v1/create-qr-code/"
+            f"?size=500x500&qzone=2&margin=10&data={quote(link, safe='')}"
+        )
+        try:
+            await bot.send_photo(chat_id=chat_id, photo=qr_url, caption="📷 QR لینک اشتراک")
+        except Exception as e2:
+            logger.warning("Subscription QR send failed: %s", e2)
 
 
 async def _sub_base_for_config(config):

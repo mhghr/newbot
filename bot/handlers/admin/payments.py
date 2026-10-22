@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramNetworkError
 from datetime import datetime, timedelta
 import asyncio
+import httpx
 import logging
 
 from bot.config import ADMIN_IDS
@@ -93,10 +94,10 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
 
             cfg_url, cfg_tok = await account_view._panel_for_config(config)
             if not cfg_url:
-                target = await panel_sync.active_panel_inbound()
+                target = await panel_sync.active_panel_target()
                 if not target:
                     raise Exception("پنل کانفیگ یا سرور فعال یافت نشد")
-                cfg_url, cfg_tok, _ = target
+                cfg_url, cfg_tok, _, _ = target
             panel_url, panel_tok = cfg_url, cfg_tok or ""
             active = await panel_sync.active_node()
             node_id = active["id"] if active else config.get("node_id")
@@ -137,12 +138,11 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             current = set(await xui.get_client_inbounds(email))
             if not current:
                 try:
-                    for ib in await xui.get_inbounds():
-                        if (ib.get("protocol") or "").lower() == "wireguard" and ib.get("enable", True):
-                            await xui.attach_client(email, [int(ib["id"])])
-                            break
+                    ids = await xui.resolve_inbound_ids([])
+                    if ids:
+                        await xui.attach_client(email, ids)
                 except Exception as e:
-                    logger.warning(f"failed to re-attach inbound for {email}: {e}")
+                    logger.warning(f"failed to re-attach inbounds for {email}: {e}")
 
             link, _ = await account_view.fetch_delivery_link(
                 xui, email, sub_token, True, sub_base,
@@ -153,11 +153,10 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             )
             action_word = "تمدید"
         else:
-            target = await panel_sync.active_panel_inbound()
+            target = await panel_sync.active_panel_target()
             if not target:
-                raise Exception("سرور فعال یا اینباند وایرگارد یافت نشد")
-            panel_url, panel_tok, active_inbound = target
-            active = await panel_sync.active_node()
+                raise Exception("سرور فعال یا اینباند معتبری یافت نشد")
+            panel_url, panel_tok, active, inbound_ids = target
             node_id = active["id"] if active else None
             node_name = active["name"] if active else "-"
             sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
@@ -169,13 +168,19 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             except Exception:
                 pass
 
-            await xui.add_client_full(
-                email=email,
-                traffic_gb=order["traffic_gb"],
-                expire_days=order["duration_days"],
-                limit_ip=plan_max_users,
-                all_inbound_ids=[active_inbound],
-            )
+            try:
+                await xui.add_client_full(
+                    email=email,
+                    traffic_gb=order["traffic_gb"],
+                    expire_days=order["duration_days"],
+                    limit_ip=plan_max_users,
+                    all_inbound_ids=inbound_ids,
+                    timeout=75,
+                )
+            except httpx.ReadTimeout:
+                if not await xui.client_exists(email):
+                    raise
+                logger.warning("add timed out but client %s exists; continuing", email)
 
             sub_token = await xui.get_client_sub_id(email)
             if not sub_token:

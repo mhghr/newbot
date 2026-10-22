@@ -94,6 +94,48 @@ async def active_panel_inbound():
     return url, tok or "", inbound_id
 
 
+async def active_panel_target():
+    """``(url, token, node, inbound_ids)`` used to create a new client.
+
+    Uses the active node's saved inbounds (``nodes.inbound_ids``), resolved
+    against its panel. Falls back to the master server's saved inbounds and,
+    as a last resort, to the old single-inbound behaviour.
+    """
+    node = await active_node()
+    if node:
+        url, tok = await _node_panel(node)
+        if url:
+            configured = db.parse_inbound_ids(node.get("inbound_ids") or "")
+            xui = XUIClient(url, api_token=tok or "")
+            try:
+                ids = await xui.resolve_inbound_ids(configured)
+            except Exception as e:
+                logger.warning("active node inbound resolve failed: %s", e)
+                ids = configured
+            if ids:
+                return url, tok or "", node, ids
+
+    master = await db.get_master_server("v2ray")
+    if master:
+        url = master["url"]
+        tok = master.get("api_token") or ""
+        configured = db.parse_inbound_ids(master.get("inbound_ids") or "")
+        xui = XUIClient(url, api_token=tok)
+        try:
+            ids = await xui.resolve_inbound_ids(configured)
+        except Exception as e:
+            logger.warning("master inbound resolve failed: %s", e)
+            ids = configured
+        if ids:
+            return url, tok, None, ids
+
+    single = await active_panel_inbound()
+    if single:
+        url, tok, inbound_id = single
+        return url, tok, node, [inbound_id]
+    return None
+
+
 async def sub_base_for_node(node):
     """Subscription base URL for a server (old-style ``.../sub/<subId>``)."""
     url = (node.get("panel_url") or "").strip()

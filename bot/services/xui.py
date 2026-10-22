@@ -1,4 +1,4 @@
-import httpx
+﻿import httpx
 import uuid
 import json
 import logging
@@ -57,6 +57,7 @@ class XUIClient:
                 return False
 
     async def _request(self, method: str, path: str, **kwargs) -> dict:
+        timeout = kwargs.pop("timeout", 15)
         headers = {"accept": "application/json"}
 
         if self.api_token:
@@ -76,7 +77,7 @@ class XUIClient:
                 f"{self.base_url}{path}",
                 cookies=cookies,
                 headers=headers,
-                timeout=15,
+                timeout=timeout,
                 **kwargs
             )
             logger.info(f"API {method} {path}: {resp.status_code}")
@@ -89,7 +90,7 @@ class XUIClient:
                     f"{self.base_url}{path}",
                     cookies=cookies,
                     headers=headers,
-                    timeout=15,
+                    timeout=timeout,
                     **kwargs
                 )
             return resp.json()
@@ -99,16 +100,16 @@ class XUIClient:
         try:
             data = await self._request("GET", "/panel/api/inbounds/list")
         except httpx.TimeoutException:
-            return False, "تایم‌اوت؛ پنل پاسخ نداد."
+            return False, "ØªØ§ÛŒÙ…â€ŒØ§ÙˆØªØ› Ù¾Ù†Ù„ Ù¾Ø§Ø³Ø® Ù†Ø¯Ø§Ø¯."
         except httpx.HTTPError as e:
-            return False, f"خطای شبکه: {e}"
+            return False, f"Ø®Ø·Ø§ÛŒ Ø´Ø¨Ú©Ù‡: {e}"
         except Exception:
             # A non-JSON body usually means 401/403 (wrong token) or wrong URL.
-            return False, "پاسخ نامعتبر از پنل (آدرس یا توکن اشتباه است)."
+            return False, "Ù¾Ø§Ø³Ø® Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø² Ù¾Ù†Ù„ (Ø¢Ø¯Ø±Ø³ ÛŒØ§ ØªÙˆÚ©Ù† Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª)."
         if not isinstance(data, dict):
-            return False, "پاسخ نامعتبر از پنل."
+            return False, "Ù¾Ø§Ø³Ø® Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø² Ù¾Ù†Ù„."
         if data.get("success") is False:
-            return False, str(data.get("msg") or "پنل درخواست را رد کرد.")
+            return False, str(data.get("msg") or "Ù¾Ù†Ù„ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø±Ø§ Ø±Ø¯ Ú©Ø±Ø¯.")
         return True, ""
 
     async def get_inbounds(self) -> list:
@@ -167,7 +168,7 @@ class XUIClient:
                               traffic_gb: int = 0, expire_days: int = 0,
                               flow: str = "", tg_id=0, comment: str = "",
                               all_inbound_ids: list = None, inbound_id: int = 0,
-                              limit_ip: int = 0) -> bool:
+                              limit_ip: int = 0, timeout: float = 15) -> bool:
         if expire_days and expire_days > 0:
             expire_ms = int((datetime.now() + timedelta(days=expire_days)).timestamp() * 1000)
         else:
@@ -200,7 +201,8 @@ class XUIClient:
             json={
                 "client": client,
                 "inboundIds": inbound_ids,
-            }
+            },
+            timeout=timeout,
         )
         if not data.get("success"):
             raise Exception(f"Failed to add client: {data}")

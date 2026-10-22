@@ -132,6 +132,7 @@ async def init_db():
                 ssh_pass TEXT DEFAULT '',
                 panel_url TEXT DEFAULT '',
                 panel_token TEXT DEFAULT '',
+                inbound_ids TEXT DEFAULT '',
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT NOW()
             )
@@ -264,6 +265,7 @@ async def init_db():
             # the bot can create the location inbound / routing and clients.
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_url TEXT DEFAULT ''",
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_token TEXT DEFAULT ''",
+            "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS inbound_ids TEXT DEFAULT ''",
             "ALTER TABLE nodes DROP COLUMN IF EXISTS kind",
             "ALTER TABLE nodes DROP COLUMN IF EXISTS wg_port",
             "ALTER TABLE nodes DROP COLUMN IF EXISTS location",

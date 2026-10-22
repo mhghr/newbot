@@ -21,7 +21,16 @@ logger = logging.getLogger(__name__)
 class EndpointDomainStates(StatesGroup):
     waiting_domain = State()
 
-async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, status_message=None):
+def _rec_get(rec, key, default=None):
+    try:
+        value = rec[key]
+        return default if value is None else value
+    except (KeyError, IndexError):
+        return default
+
+
+async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot,
+                                    status_message=None, emails=None):
     try:
         xui = XUIClient(server["url"], server["username"], server["password"], server["api_token"])
 
@@ -38,25 +47,28 @@ async def _sync_clients_to_inbounds(server: dict, admin_chat_id: int, bot, statu
                 await bot.send_message(admin_chat_id, msg)
             return
 
-        configs = await db.get_configs_by_server_id(server["id"])
-        if not configs:
-            msg = "هیچ کانفیگ فعالی برای این سرور یافت نشد."
-            if status_message:
-                await status_message.edit_text(msg)
-            else:
-                await bot.send_message(admin_chat_id, msg)
-            return
+        if emails is None:
+            configs = await db.get_configs_by_server_id(server["id"])
+            if not configs:
+                msg = "هیچ کانفیگ فعالی برای این سرور یافت نشد."
+                if status_message:
+                    await status_message.edit_text(msg)
+                else:
+                    await bot.send_message(admin_chat_id, msg)
+                return
 
-        # An account may have several device clients; sync every one of them.
-        emails = []
-        for cfg in configs:
-            for em in (cfg.get("client_emails") or "").split(","):
-                em = em.strip()
-                if em and em not in emails:
-                    emails.append(em)
-            single = (cfg.get("client_email") or "").strip()
-            if single and single not in emails:
-                emails.append(single)
+            # An account may have several device clients; sync every one.
+            emails = []
+            for cfg in configs:
+                for em in (_rec_get(cfg, "client_emails", "") or "").split(","):
+                    em = em.strip()
+                    if em and em not in emails:
+                        emails.append(em)
+                single = (_rec_get(cfg, "client_email", "") or "").strip()
+                if single and single not in emails:
+                    emails.append(single)
+        else:
+            emails = list(dict.fromkeys(e for e in emails if e))
 
         if not emails:
             msg = "هیچ کلاینتی برای این سرور یافت نشد."

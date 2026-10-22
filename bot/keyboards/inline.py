@@ -404,15 +404,30 @@ def node_actions_keyboard(node) -> InlineKeyboardMarkup:
     toggle = "🔴 غیرفعال کردن" if node["is_active"] else "🟢 فعال کردن"
     rows = [
         [InlineKeyboardButton(text=f"📛 نام : {node['name']}", callback_data=f"admin:edit_node:{nid}:name")],
-        [InlineKeyboardButton(text=f"🌐 IP : {node['ip']}", callback_data=f"admin:edit_node:{nid}:ip")],
         [InlineKeyboardButton(text=f"🌐 پنل : {_trunc(node.get('panel_url') or '-')}", callback_data=f"admin:edit_node:{nid}:panel_url")],
         [InlineKeyboardButton(text=f"🔑 توکن پنل : {_trunc(node.get('panel_token') or '-')}", callback_data=f"admin:edit_node:{nid}:panel_token")],
+        [InlineKeyboardButton(text=f"📋 لیست اینباندها : {_trunc(node.get('inbound_ids') or '-')}", callback_data=f"admin:node_inbounds:{nid}")],
+        [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:node_sync_inbounds:{nid}")],
         [
             InlineKeyboardButton(text=toggle, callback_data=f"admin:toggle_node:{nid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_node:{nid}"),
         ],
         [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")],
     ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def node_inbounds_keyboard(node_id: int, inbound_ids: list) -> InlineKeyboardMarkup:
+    del_buttons = [
+        InlineKeyboardButton(text=f"🗑 {iid}", callback_data=f"admin:node_inbound_del:{node_id}:{iid}")
+        for iid in inbound_ids
+    ]
+    rows = _rows(del_buttons)
+    rows.append([
+        InlineKeyboardButton(text="➕ افزودن اینباند", callback_data=f"admin:node_inbound_add:{node_id}"),
+        InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:node_sync_inbounds:{node_id}"),
+    ])
+    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:node_detail:{node_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

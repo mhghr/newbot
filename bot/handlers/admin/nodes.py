@@ -1,8 +1,9 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from urllib.parse import urlparse
+import json
 import logging
 
 from bot.config import ADMIN_IDS
@@ -11,15 +12,15 @@ from bot.services import tunnel as tunnel_svc
 from bot.services.xui import XUIClient
 from bot.keyboards.inline import (
     admin_menu_keyboard, nodes_list_keyboard, node_actions_keyboard,
-    node_delete_confirm_keyboard, cancel_keyboard,
+    node_delete_confirm_keyboard, node_inbounds_keyboard, cancel_keyboard,
 )
+from bot.handlers.admin.servers import _sync_clients_to_inbounds
 
 router = Router()
 logger = logging.getLogger(__name__)
 
 FIELD_LABELS = {
     "name": "نام",
-    "ip": "آی‌پی",
     "panel_url": "آدرس پنل",
     "panel_token": "توکن پنل",
 }
@@ -39,7 +40,6 @@ def _node_header(node) -> str:
     status = "فعال 🟢" if node["is_active"] else "غیرفعال 🔴"
     return (
         f"🖥 {node['name']} — {status}\n"
-        f"🌐 {node['ip']}\n"
         f"🔗 {node.get('panel_url') or '-'}\n"
         "روی هر مورد بزنید تا ویرایش شود:"
     )
@@ -159,6 +159,197 @@ async def _finish_add_node(message: Message, state: FSMContext):
     )
 
 
+# ---------------- Node inbounds ----------------
+
+class NodeInboundStates(StatesGroup):
+    waiting_add = State()
+
+
+def _node_inbounds_screen(node):
+    ids = db.parse_inbound_ids(node.get("inbound_ids") or "")
+    text = (
+        f"📋 لیست اینباندهای «{node['name']}»\n\n"
+        f"ثبت‌شده: {', '.join(str(i) for i in ids) if ids else 'خالی'}\n\n"
+        "برای حذف روی شماره اینباند بزنید،\n"
+        "یا با «➕ افزودن اینباند» شماره جدید اضافه کنید:"
+    )
+    return text, node_inbounds_keyboard(node["id"], ids)
+
+
+@router.callback_query(F.data.startswith("admin:node_inbounds:"))
+async def node_inbounds_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    nid = int(callback.data.split(":")[2])
+    node = await db.get_node(nid)
+    if not node:
+        await callback.answer("❌ سرور یافت نشد!", show_alert=True)
+        return
+    text, kb = _node_inbounds_screen(node)
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:node_inbound_add:"))
+async def node_inbound_add_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    nid = int(callback.data.split(":")[2])
+    await state.update_data(node_inbound_id=nid)
+    await callback.message.edit_text(
+        "➕ شماره اینباند مورد نظر را وارد کنید (مثال: 3):",
+        reply_markup=cancel_keyboard(),
+    )
+    await state.set_state(NodeInboundStates.waiting_add)
+    await callback.answer()
+
+
+@router.message(NodeInboundStates.waiting_add)
+async def node_inbound_add_save(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    data = await state.get_data()
+    nid = data["node_inbound_id"]
+    ids = db.parse_inbound_ids(message.text)
+    if not ids:
+        await message.answer("⚠️ ورودی نامعتبر.", reply_markup=cancel_keyboard())
+        return
+    for iid in ids:
+        await db.add_node_inbound_id(nid, iid)
+    await state.clear()
+    node = await db.get_node(nid)
+    text, kb = _node_inbounds_screen(node)
+    await message.answer("✅ اضافه شد.\n\n" + text, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("admin:node_inbound_del:"))
+async def node_inbound_del_confirm(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    nid = int(parts[2]); iid = int(parts[3])
+    node = await db.get_node(nid)
+    if not node:
+        await callback.answer("❌", show_alert=True); return
+    await callback.message.edit_text(
+        f"🗑 حذف اینباند {iid} از «{node['name']}»؟",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="✅ بله، حذف",
+                callback_data=f"admin:node_inbound_del_ok:{nid}:{iid}",
+            )],
+            [InlineKeyboardButton(
+                text="🔙 بازگشت",
+                callback_data=f"admin:node_inbounds:{nid}",
+            )],
+        ]),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:node_inbound_del_ok:"))
+async def node_inbound_del(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    parts = callback.data.split(":")
+    nid = int(parts[2]); iid = int(parts[3])
+    await db.remove_node_inbound_id(nid, iid)
+    node = await db.get_node(nid)
+    text, kb = _node_inbounds_screen(node)
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer(f"✅ اینباند {iid} حذف شد", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("admin:node_sync_inbounds:"))
+async def node_sync_inbounds(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    nid = int(callback.data.split(":")[2])
+    node = await db.get_node(nid)
+    if not node:
+        await callback.answer("❌ سرور یافت نشد!", show_alert=True); return
+
+    panel_url = (node.get("panel_url") or "").strip()
+    panel_token = (node.get("panel_token") or "").strip()
+    if not panel_url:
+        await callback.answer("❌ آدرس پنل برای این سرور ثبت نشده.", show_alert=True)
+        return
+
+    await callback.message.edit_text("⏳ در حال دریافت اینباندها از پنل...")
+    xui = XUIClient(panel_url, api_token=panel_token)
+    ok, err = await xui.check_connection()
+    if not ok:
+        await callback.message.edit_text(
+            f"❌ اتصال به پنل ناموفق بود.\n{err}",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:node_detail:{nid}")],
+            ]),
+        )
+        await callback.answer()
+        return
+
+    inbounds = await xui.get_inbounds()
+    ids = db.parse_inbound_ids(node.get("inbound_ids") or "")
+    if not ids:
+        ids = [
+            int(ib["id"]) for ib in inbounds
+            if ib.get("id") is not None
+            and ib.get("enable", True)
+            and (ib.get("protocol") or "") == "vless"
+        ]
+        if ids:
+            await db.set_node_inbound_ids(nid, ",".join(str(i) for i in ids))
+
+    if not ids:
+        await callback.message.edit_text(
+            "❌ هیچ اینباندی برای سینک پیدا نشد.\n"
+            "ابتدا از «📋 لیست اینباندها» اینباند اضافه کنید.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:node_detail:{nid}")],
+            ]),
+        )
+        await callback.answer()
+        return
+
+    # Every client that lives on this node's panel.
+    emails = []
+    for ib in inbounds:
+        for cs in (ib.get("clientStats") or []):
+            em = (cs.get("email") or "").strip()
+            if em and em not in emails:
+                emails.append(em)
+        settings = ib.get("settings")
+        if isinstance(settings, str):
+            try:
+                settings = json.loads(settings)
+            except Exception:
+                settings = {}
+        if isinstance(settings, dict):
+            for c in (settings.get("clients") or []):
+                em = (c.get("email") or "").strip()
+                if em and em not in emails:
+                    emails.append(em)
+
+    panel = {
+        "id": nid,
+        "name": node["name"],
+        "url": panel_url,
+        "username": "",
+        "password": "",
+        "api_token": panel_token,
+        "inbound_ids": ",".join(str(i) for i in ids),
+    }
+    await callback.answer("🔄 سینک شروع شد")
+    await callback.message.edit_text(
+        f"🔄 سینک اینباندها: {', '.join(str(i) for i in ids)}\n"
+        "⏳ در حال اتچ کردن کلاینت‌ها..."
+    )
+    await _sync_clients_to_inbounds(
+        panel, callback.from_user.id, bot,
+        status_message=callback.message, emails=emails,
+    )
+
+
 # ---------------- Detail / edit / toggle / delete ----------------
 
 async def _render_node(node, **kwargs):
@@ -247,7 +438,7 @@ async def delete_node_confirm(callback: CallbackQuery):
         await callback.answer("❌", show_alert=True)
         return
     await callback.message.edit_text(
-        f"⚠️ حذف «{node['name']}» ({node['ip']})؟\nاین عمل قابل بازگشت نیست.",
+        f"⚠️ حذف «{node['name']}»؟\nاین عمل قابل بازگشت نیست.",
         reply_markup=node_delete_confirm_keyboard(nid),
     )
     await callback.answer()

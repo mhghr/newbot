@@ -483,6 +483,31 @@ async def set_node_panel(node_id: int, panel_url: str, panel_token: str):
         )
 
 
+async def set_node_inbound_ids(node_id: int, inbound_ids: str):
+    async with models.pool.acquire() as conn:
+        await conn.execute("UPDATE nodes SET inbound_ids=$1 WHERE id=$2", inbound_ids, node_id)
+
+
+async def add_node_inbound_id(node_id: int, inbound_id: int) -> str:
+    node = await get_node(node_id)
+    value = node["inbound_ids"] if node and "inbound_ids" in node else ""
+    ids = parse_inbound_ids(value)
+    if inbound_id not in ids:
+        ids.append(inbound_id)
+    cleaned = ",".join(str(i) for i in ids)
+    await set_node_inbound_ids(node_id, cleaned)
+    return cleaned
+
+
+async def remove_node_inbound_id(node_id: int, inbound_id: int) -> str:
+    node = await get_node(node_id)
+    value = node["inbound_ids"] if node and "inbound_ids" in node else ""
+    ids = [i for i in parse_inbound_ids(value) if i != inbound_id]
+    cleaned = ",".join(str(i) for i in ids)
+    await set_node_inbound_ids(node_id, cleaned)
+    return cleaned
+
+
 async def toggle_node(node_id: int):
     async with models.pool.acquire() as conn:
         await conn.execute("UPDATE nodes SET is_active = NOT is_active WHERE id=$1", node_id)

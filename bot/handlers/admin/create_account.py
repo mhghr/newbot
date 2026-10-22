@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramNetworkError
 from datetime import datetime, timedelta
 import asyncio
+import httpx
 import logging
 
 from bot.config import ADMIN_IDS
@@ -161,15 +162,14 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
     plan_id = data.get("plan_id")
     await state.clear()
 
-    target = await panel_sync.active_panel_inbound()
+    target = await panel_sync.active_panel_target()
     if not target:
         await message.answer(
-            "❌ سرور فعال یا اینباند وایرگارد یافت نشد. اول یک سرور اضافه/فعال کنید.",
+            "❌ سرور فعال یا اینباند معتبری یافت نشد. اول یک سرور اضافه/فعال کنید.",
             reply_markup=admin_menu_keyboard(),
         )
         return
-    panel_url, panel_tok, inbound_id = target
-    active = await panel_sync.active_node()
+    panel_url, panel_tok, active, inbound_ids = target
     node_id = active["id"] if active else None
     node_name = active["name"] if active else "-"
     sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
@@ -184,13 +184,21 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             email = f"{name}_{int(datetime.now().timestamp())}"
             logger.info("Client email %r already exists in panel; using %r", name, email)
 
-        await xui.add_client_full(
-            email=email,
-            traffic_gb=traffic_gb,
-            expire_days=days,
-            all_inbound_ids=[inbound_id],
-            limit_ip=users,
-        )
+        try:
+            await xui.add_client_full(
+                email=email,
+                traffic_gb=traffic_gb,
+                expire_days=days,
+                all_inbound_ids=inbound_ids,
+                limit_ip=users,
+                timeout=75,
+            )
+        except httpx.ReadTimeout:
+            # Attaching a client to many inbounds can be slow; the panel may
+            # still have created it even though the HTTP read timed out.
+            if not await xui.client_exists(email):
+                raise
+            logger.warning("add timed out but client %s exists; continuing", email)
 
         sub_token = await xui.get_client_sub_id(email)
         if not sub_token:
