@@ -86,7 +86,6 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         renew_config_id = order["renew_config_id"]
         plan_max_users = order["max_users"] or 0
         node_id = None
-        node_name = "-"
 
         if renew_config_id:
             config = await db.get_config(renew_config_id)
@@ -102,7 +101,6 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             panel_url, panel_tok = cfg_url, cfg_tok or ""
             active = await panel_sync.active_node()
             node_id = active["id"] if active else config.get("node_id")
-            node_name = active["name"] if active else "-"
             sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
             xui = XUIClient(panel_url, api_token=panel_tok)
             email = config["client_email"]
@@ -165,7 +163,6 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 raise Exception("سرور فعال یا اینباند معتبری یافت نشد")
             panel_url, panel_tok, active, inbound_ids = target
             node_id = active["id"] if active else None
-            node_name = active["name"] if active else "-"
             sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
             xui = XUIClient(panel_url, api_token=panel_tok)
             email = f"{order['telegram_id']}-order{order_id}"
@@ -216,7 +213,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         try:
             await account_view.deliver_subscription(
                 bot, order["telegram_id"], link,
-                header=f"✅ {action_word} اشتراک شما انجام شد!\n🖥 سرور: {node_name}",
+                header=f"✅ {action_word} اشتراک شما انجام شد!",
             )
         except Exception as e:
             delivered = False

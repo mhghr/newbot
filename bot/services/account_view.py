@@ -236,7 +236,11 @@ async def fetch_delivery_link(xui, email: str, sub_id: str, sub_enabled: bool,
         link = ""
         try:
             links = await xui.get_sub_links(sub_id or email)
-            link = links[0] if links else ""
+            link = next(
+                (lnk for lnk in (links or [])
+                 if str(lnk).startswith(("http://", "https://"))),
+                "",
+            )
         except Exception as e:
             logger.warning("subLinks fetch failed for %s: %s", email, e)
         if not link:

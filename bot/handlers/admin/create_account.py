@@ -40,7 +40,18 @@ async def _retry(coro_factory, attempts: int = 6, delay: float = 3.0):
 class CreateAccountStates(StatesGroup):
     waiting_traffic = State()
     waiting_days = State()
+    waiting_users = State()
     waiting_name = State()
+
+
+async def _ask_users(message: Message, state: FSMContext, default: int = 0):
+    hint = f" — پیش‌فرض پلن: {default}" if default else ""
+    await message.answer(
+        "👥 تعداد کاربر را وارد کنید:\n"
+        f"(عدد، برای نامحدود 0{hint})",
+        reply_markup=cancel_keyboard(),
+    )
+    await state.set_state(CreateAccountStates.waiting_users)
 
 
 async def _ask_name(message: Message, state: FSMContext):
@@ -109,7 +120,7 @@ async def acc_preset(callback: CallbackQuery, state: FSMContext):
         users=plan["max_users"] or 0,
         service_type="v2ray",
     )
-    await _ask_name(callback.message, state)
+    await _ask_users(callback.message, state, plan["max_users"] or 0)
     await callback.answer()
 
 
@@ -139,10 +150,22 @@ async def acc_days(message: Message, state: FSMContext):
             await message.answer("⚠️ فقط عدد وارد کنید. مثال: 30", reply_markup=cancel_keyboard())
             return
         await state.update_data(days=int(text))
-        await _ask_name(message, state)
+        await _ask_users(message, state)
     except Exception as e:
         logger.exception(f"acc_days failed: {e}")
         await message.answer(f"❌ خطا: {str(e)[:200]}", reply_markup=cancel_keyboard())
+
+
+@router.message(CreateAccountStates.waiting_users)
+async def acc_users(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    text = (message.text or "").strip()
+    if not text.isdigit():
+        await message.answer("⚠️ فقط عدد وارد کنید. مثال: 2", reply_markup=cancel_keyboard())
+        return
+    await state.update_data(users=int(text))
+    await _ask_name(message, state)
 
 
 @router.message(CreateAccountStates.waiting_name)
@@ -172,7 +195,6 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         return
     panel_url, panel_tok, active, inbound_ids = target
     node_id = active["id"] if active else None
-    node_name = active["name"] if active else "-"
     sub_base = await panel_sync.sub_base_for_node(active) if active else panel_sub_base(panel_url)
 
     status_msg = await message.answer("⏳ در حال ساخت اکانت...")
@@ -216,11 +238,9 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
         if name.isdigit():
             deliver_chat_id = int(name)
             target_user = await db.add_user(telegram_id=deliver_chat_id)
-            linked_note = f"\n👤 به کاربر {name} متصل شد (در «کانفیگ‌های من» او دیده می‌شود)."
         else:
             deliver_chat_id = message.from_user.id
             target_user = await db.get_or_create_unlinked_user()
-            linked_note = "\n🗂 در دیتابیس ذخیره شد (اکانت مستقل، بدون کاربر تلگرام)."
 
         plan = await db.get_plan(plan_id) if plan_id else None
 
@@ -241,8 +261,6 @@ async def acc_name(message: Message, state: FSMContext, bot: Bot):
             f"📊 حجم: {'نامحدود' if traffic_gb == 0 else str(traffic_gb) + ' GB'}\n"
             f"📅 مدت: {'نامحدود' if days == 0 else str(days) + ' روز'}\n"
             f"👥 تعداد کاربر: {'نامحدود' if users == 0 else users}\n"
-            f"🖥 سرور: {node_name}\n"
-            f"{linked_note}"
         )
         try:
             await _retry(lambda: account_view.deliver_subscription(
