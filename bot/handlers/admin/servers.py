@@ -2,24 +2,19 @@ from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-import asyncio
 import logging
 
 from bot.config import ADMIN_IDS
 from bot.database import db
 from bot.keyboards.inline import (
     servers_list_keyboard, server_actions_keyboard, server_inbounds_keyboard,
-    server_delete_confirm_keyboard, cancel_keyboard, admin_menu_keyboard,
+    server_delete_confirm_keyboard, cancel_keyboard,
 )
 from bot.services.xui import XUIClient
-from bot.services import panel_sync
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-
-class EndpointDomainStates(StatesGroup):
-    waiting_domain = State()
 
 def _rec_get(rec, key, default=None):
     try:
@@ -154,7 +149,7 @@ async def _panel_inbounds(server) -> list:
 
 FIELD_LABELS = {
     "name": "نام", "url": "آدرس", "api_token": "توکن",
-    "location": "لوکیشن", "sub_domain": "آدرس ساب", "sub_port": "پورت ساب",
+    "sub_domain": "آدرس ساب", "sub_port": "پورت ساب",
     "username": "یوزر SSH/API", "password": "پسورد SSH/API", "api_port": "پورت SSH/API",
 }
 
@@ -164,7 +159,6 @@ class AddServerStates(StatesGroup):
     waiting_url = State()
     waiting_token = State()
     waiting_name = State()
-    waiting_location = State()
     waiting_inbounds = State()
 
 
@@ -180,7 +174,7 @@ class ServerEditStates(StatesGroup):
 def _server_header(server, role: str = "") -> str:
     status = "فعال 🟢" if server["is_active"] else "غیرفعال 🔴"
     lines = [
-        f"🖥 {server['name']} — {server['location']}  ({status})",
+        f"🖥 {server['name']}  ({status})",
     ]
     if role:
         lines.append(f"📍 وضعیت: {role}")
@@ -207,15 +201,8 @@ async def servers_menu(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
     panel = servers[0]
-    nodes = await db.get_iran_nodes()
-    active_id = await db.get_setting("active_node_id", "")
-    active_node = next((n for n in nodes if str(n["id"]) == str(active_id)), None)
-    if active_node:
-        active_line = f"🌐 آی‌پی فعال الان: {active_node['ip']}  ({active_node['name']})\n"
-    else:
-        active_line = "🟠 آی‌پی فعال تنظیم نشده است.\n"
     await callback.message.edit_text(
-        "🗄 مدیریت پنل\n" + active_line + "\n" + _server_header(panel),
+        "🗄 مدیریت پنل\n\n" + _server_header(panel),
         reply_markup=server_actions_keyboard(panel),
     )
     await callback.answer()
@@ -238,7 +225,7 @@ async def add_server_start(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "new_server_type:v2ray")
 async def add_server_v2ray_compat(callback: CallbackQuery, state: FSMContext):
-    """Compatibility for keyboards sent before WireGuard was removed."""
+    """Compatibility for keyboards sent before service types were simplified."""
     if callback.from_user.id not in ADMIN_IDS:
         return
     await state.clear()
@@ -270,14 +257,6 @@ async def add_server_token(message: Message, state: FSMContext):
 async def add_server_name(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS: return
     await state.update_data(name=message.text.strip())
-    await message.answer("📍 لوکیشن سرور را وارد کنید:", reply_markup=cancel_keyboard())
-    await state.set_state(AddServerStates.waiting_location)
-
-
-@router.message(AddServerStates.waiting_location)
-async def add_server_location(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    await state.update_data(location=message.text.strip())
     data = await state.get_data()
     await message.answer("⏳ در حال تست اتصال به پنل...")
     xui = XUIClient(data["url"], api_token=data["api_token"])
@@ -295,7 +274,7 @@ async def add_server_location(message: Message, state: FSMContext):
     inbound_id = inbounds[0].get("id", 0) if inbounds else 0
     await state.update_data(inbound_id=inbound_id)
     await message.answer(
-        "✅ اتصال برقرار شد!\n\n📡 لیست آیدی اینباندهای یوزر را وارد کنید:\n"
+        "✅ اتصال برقرار شد!\n\n📡 لیست آیدی اینباندها را وارد کنید:\n"
         "با فرمت کاما جدا: `10,2,3,7`",
         parse_mode="Markdown", reply_markup=cancel_keyboard()
     )
@@ -312,7 +291,7 @@ async def add_server_inbounds(message: Message, state: FSMContext):
     data = await state.get_data()
     cleaned = ",".join(str(i) for i in ids)
     server_id = await db.add_server(
-        name=data["name"], url=data["url"], location=data["location"],
+        name=data["name"], url=data["url"],
         api_token=data["api_token"], inbound_id=data.get("inbound_id", 0),
     )
     await db.set_server_inbound_ids(server_id, cleaned)
@@ -566,7 +545,7 @@ async def delete_server_confirm(callback: CallbackQuery):
     server = await db.get_server(server_id)
     if not server: await callback.answer("❌", show_alert=True); return
     await callback.message.edit_text(
-        f"⚠️ حذف «{server['name']}» ({server['location']})؟\nاین عمل قابل بازگشت نیست.",
+        f"⚠️ حذف «{server['name']}»؟\nاین عمل قابل بازگشت نیست.",
         reply_markup=server_delete_confirm_keyboard(server_id)
     )
     await callback.answer()
@@ -582,95 +561,3 @@ async def delete_server(callback: CallbackQuery):
     await callback.message.edit_text(
         "🖥 مدیریت سرورها", reply_markup=servers_list_keyboard(servers)
     )
-
-
-# ---------------- Endpoint domain (panel host) ----------------
-
-@router.callback_query(F.data == "admin:endpoint_domain")
-async def endpoint_domain_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    current = await db.get_setting("endpoint_domain", "")
-    await callback.message.edit_text(
-        "🌐 دامنه اندپوینت (هاست)\n\n"
-        f"مقدار فعلی: {current or '(تنظیم نشده)'}\n\n"
-        "دامنه‌ی جدید را وارد کنید (مثال: res.manointernet.ir):",
-        reply_markup=cancel_keyboard(),
-    )
-    await state.set_state(EndpointDomainStates.waiting_domain)
-    await callback.answer()
-
-
-@router.message(EndpointDomainStates.waiting_domain)
-async def endpoint_domain_save(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    raw = (message.text or "").strip()
-    domain = raw.replace("https://", "").replace("http://", "").split("/")[0]
-    if not domain:
-        await message.answer("⚠️ دامنه نامعتبر است. دوباره وارد کنید:", reply_markup=cancel_keyboard())
-        return
-    await db.set_setting("endpoint_domain", domain)
-    await state.clear()
-    await message.answer(
-        f"✅ دامنه اندپوینت روی «{domain}» تنظیم شد.\n\n"
-        "برای اعمال، «🔄 ساخت/سینک لوکیشن» هر تانل را بزن تا هاست با این دامنه ساخته/به‌روز شود.",
-        reply_markup=admin_menu_keyboard(),
-    )
-
-
-# ---------------- Active server (Arvan DNS + sync) ----------------
-
-@router.callback_query(F.data == "admin:active_server")
-async def active_server_menu(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    nodes = await db.get_iran_nodes()
-    if not nodes:
-        await callback.answer("❌ هیچ سرور ایرانی ثبت نشده (لوکیشن iran).", show_alert=True)
-        return
-    active_id = await db.get_setting("active_node_id", "")
-    active_ip = ""
-    rows = []
-    for n in nodes:
-        if str(n["id"]) == str(active_id):
-            active_ip = n["ip"]
-        mark = "✅ " if str(n["id"]) == str(active_id) else ""
-        rows.append([InlineKeyboardButton(
-            text=f"{mark}{n['ip']}  —  {n['name']}", callback_data=f"admin:set_active:{n['id']}"
-        )])
-    rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")])
-    await callback.message.edit_text(
-        "🌐 آی‌پی فعال\n"
-        f"آی‌پی فعلی: {active_ip or 'تعیین نشده'}\n\n"
-        "آی‌پی سرور ایران را انتخاب کنید (رکورد DNS آروان روی این IP ست می‌شود):",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("admin:set_active:"))
-async def set_active_server(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-    node_id = int(callback.data.split(":")[2])
-    node = await db.get_node(node_id)
-    if not node:
-        await callback.answer("❌ سرور یافت نشد.", show_alert=True)
-        return
-    await callback.message.edit_text(f"⏳ تغییر سرور فعال به «{node['name']}» (سینک + آروان)...")
-    res = await panel_sync.switch_active(node)
-    dns_ok = res.get("dns") == node["ip"]
-    await callback.message.edit_text(
-        "🟢 سرور فعال تنظیم شد\n"
-        f"سرور: {node['name']} ({node['ip']})\n"
-        f"آروان (تغییر DNS): {'✅' if res['arvan'] else '❌'}\n"
-        f"تأیید DNS: {'✅ ' + node['ip'] if dns_ok else '⏳ هنوز منتشر نشده'}\n"
-        f"انتقال کلاینت‌ها (attach): {'✅' if res['sync'] else '❌'} "
-        f"({res.get('moved', res.get('count', 0))} کلاینت)\n"
-        f"{res['error']}",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:nodes")],
-        ]),
-    )
-    await callback.answer("✅ انجام شد")

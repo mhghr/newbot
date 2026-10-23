@@ -8,7 +8,7 @@ import logging
 
 from bot.config import ADMIN_IDS
 from bot.database import db
-from bot.services import tunnel as tunnel_svc
+from bot.services import panel_sync
 from bot.services.xui import XUIClient
 from bot.keyboards.inline import (
     admin_menu_keyboard, nodes_list_keyboard, node_actions_keyboard,
@@ -104,7 +104,7 @@ async def add_node_panel_url(message: Message, state: FSMContext):
     if not url:
         await message.answer("⚠️ آدرس نامعتبر است. دوباره وارد کنید:", reply_markup=cancel_keyboard())
         return
-    await state.update_data(panel_url=await tunnel_svc.normalize_panel_url(url))
+    await state.update_data(panel_url=await panel_sync.normalize_panel_url(url))
     await message.answer("🔑 توکن API پنل:", reply_markup=cancel_keyboard())
     await state.set_state(AddNodeStates.waiting_panel_token)
 

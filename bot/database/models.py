@@ -29,7 +29,6 @@ async def init_db():
                 username TEXT DEFAULT '',
                 password TEXT DEFAULT '',
                 api_token TEXT DEFAULT '',
-                location TEXT NOT NULL,
                 inbound_id INTEGER DEFAULT 0,
                 inbound_ids TEXT DEFAULT '',
                 sub_domain TEXT DEFAULT '',
@@ -77,7 +76,6 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-        # Per-router counters are no longer used (WireGuard was removed).
 
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
@@ -120,8 +118,7 @@ async def init_db():
             )
         """)
 
-        # Physical servers (Iran entry nodes and foreign exit servers). A node
-        # with location 'iran' is an entry server; any other location is an exit.
+        # Physical servers (the x-ui panels where accounts are created).
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS nodes (
                 id SERIAL PRIMARY KEY,
@@ -137,44 +134,6 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-
-        # A tunnel links an Iran entry node to a foreign exit node and carries
-        # one location (a WireGuard inbound + xray outbound/routing on the panel).
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tunnels (
-                id SERIAL PRIMARY KEY,
-                iran_node_id INTEGER,
-                foreign_node_id INTEGER,
-                panel_id INTEGER,
-                inbound_id INTEGER,
-                location TEXT DEFAULT '',
-                status TEXT DEFAULT 'pending',
-                detail TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-
-        # Per-node inbound ids: the same location (tunnel) gets a different
-        # inbound id on every Iran node, so the mapping is stored here and used
-        # to remap client inboundIds when importing them into another node.
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS node_inbounds (
-                id SERIAL PRIMARY KEY,
-                node_id INTEGER NOT NULL,
-                tunnel_id INTEGER NOT NULL,
-                inbound_id INTEGER NOT NULL,
-                tag TEXT DEFAULT '',
-                location TEXT DEFAULT '',
-                updated_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        try:
-            await conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS node_inbounds_node_tunnel "
-                "ON node_inbounds (node_id, tunnel_id)"
-            )
-        except Exception:
-            pass
 
         try:
             await conn.execute("ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_token TEXT DEFAULT ''")
@@ -246,23 +205,16 @@ async def init_db():
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS api_port INTEGER DEFAULT 8728",
             "ALTER TABLE servers ADD COLUMN IF NOT EXISTS sub_enabled BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS wireguard BOOLEAN DEFAULT TRUE",
             "ALTER TABLE servers ALTER COLUMN sub_enabled SET DEFAULT FALSE",
-            "ALTER TABLE servers ALTER COLUMN wireguard SET DEFAULT TRUE",
-            "ALTER TABLE servers ADD COLUMN IF NOT EXISTS active_server_id INTEGER",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS server_id INTEGER",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
-            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tunnel_id INTEGER",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS device_count INTEGER DEFAULT 1",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT 'v2ray'",
-            "ALTER TABLE configs ADD COLUMN IF NOT EXISTS tunnel_id INTEGER",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS used_bytes BIGINT DEFAULT 0",
-            # A single account may have several WireGuard clients (devices); their
-            # panel emails are stored here (comma separated) so traffic can be summed.
+            # A single account may have several device clients; their panel
+            # emails are stored here (comma separated) so traffic can be summed.
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS client_emails TEXT DEFAULT ''",
-            # x-ui panel of a node, provided by the admin in the tunnel wizard so
-            # the bot can create the location inbound / routing and clients.
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_url TEXT DEFAULT ''",
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS panel_token TEXT DEFAULT ''",
             "ALTER TABLE nodes ADD COLUMN IF NOT EXISTS inbound_ids TEXT DEFAULT ''",
@@ -270,6 +222,7 @@ async def init_db():
             "ALTER TABLE nodes DROP COLUMN IF EXISTS wg_port",
             "ALTER TABLE nodes DROP COLUMN IF EXISTS location",
             "ALTER TABLE configs ADD COLUMN IF NOT EXISTS node_id INTEGER",
+            "ALTER TABLE servers DROP COLUMN IF EXISTS location",
             # Allow deleting a plan that still has orders linked to it.
             "ALTER TABLE orders ALTER COLUMN plan_id DROP NOT NULL",
             "UPDATE servers SET service_type='v2ray' WHERE service_type IS NULL",

@@ -1,4 +1,4 @@
-﻿import httpx
+import httpx
 import asyncio
 import uuid
 import json
@@ -134,16 +134,16 @@ class XUIClient:
         try:
             data = await self._request("GET", "/panel/api/inbounds/list")
         except httpx.TimeoutException:
-            return False, "ØªØ§ÛŒÙ…â€ŒØ§ÙˆØªØ› Ù¾Ù†Ù„ Ù¾Ø§Ø³Ø® Ù†Ø¯Ø§Ø¯."
+            return False, "تایم‌اوت؛ پنل پاسخ نداد."
         except httpx.HTTPError as e:
-            return False, f"Ø®Ø·Ø§ÛŒ Ø´Ø¨Ú©Ù‡: {e}"
+            return False, f"خطای شبکه: {e}"
         except Exception:
             # A non-JSON body usually means 401/403 (wrong token) or wrong URL.
-            return False, "Ù¾Ø§Ø³Ø® Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø² Ù¾Ù†Ù„ (Ø¢Ø¯Ø±Ø³ ÛŒØ§ ØªÙˆÚ©Ù† Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª)."
+            return False, "پاسخ نامعتبر از پنل (آدرس یا توکن اشتباه است)."
         if not isinstance(data, dict):
-            return False, "Ù¾Ø§Ø³Ø® Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø² Ù¾Ù†Ù„."
+            return False, "پاسخ نامعتبر از پنل."
         if data.get("success") is False:
-            return False, str(data.get("msg") or "Ù¾Ù†Ù„ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø±Ø§ Ø±Ø¯ Ú©Ø±Ø¯.")
+            return False, str(data.get("msg") or "پنل درخواست را رد کرد.")
         return True, ""
 
     async def get_inbounds(self) -> list:
@@ -240,6 +240,57 @@ class XUIClient:
         )
         if not data.get("success"):
             raise Exception(f"Failed to add client: {data}")
+        return True
+
+    async def add_client_with_inbounds(self, email: str, inbound_ids: list, **kwargs) -> bool:
+        """Create a client and attach every configured inbound to it.
+
+        The panel is asked to create the client first (on one inbound), then the
+        remaining inbounds are attached explicitly.  This keeps account creation
+        working on panels that reject a multi-inbound ``clients/add`` body.
+        """
+        ids = []
+        for inbound_id in inbound_ids or []:
+            try:
+                inbound_id = int(inbound_id)
+            except (TypeError, ValueError):
+                continue
+            if inbound_id not in ids:
+                ids.append(inbound_id)
+
+        primary = ids[:1]
+        await self.add_client_full(
+            email=email,
+            inbound_id=primary[0] if primary else 0,
+            all_inbound_ids=primary or None,
+            **kwargs,
+        )
+
+        remaining = ids[1:]
+        if remaining and not await self.attach_client(email, remaining):
+            raise Exception(
+                "Failed to attach inbounds: " + ", ".join(str(i) for i in remaining)
+            )
+
+        try:
+            actual = set(await self.get_client_inbounds(email))
+        except Exception as e:
+            logger.warning("could not verify inbounds for %s: %s", email, e)
+            return True
+        missing = [i for i in ids if i not in actual]
+        if actual and missing:
+            # Some panel versions ignore inboundIds on the add call; attach
+            # whatever is still missing explicitly.
+            if await self.attach_client(email, missing):
+                try:
+                    actual = set(await self.get_client_inbounds(email))
+                except Exception:
+                    return True
+                missing = [i for i in ids if i not in actual]
+        if actual and missing:
+            raise Exception(
+                "Inbounds not attached: " + ", ".join(str(i) for i in missing)
+            )
         return True
 
     async def get_client_sub_id(self, email: str) -> str:
@@ -358,16 +409,6 @@ class XUIClient:
     async def get_inbound(self, inbound_id: int) -> dict:
         data = await self._request("GET", f"/panel/api/inbounds/get/{inbound_id}")
         return data.get("obj") or {}
-
-    async def find_wireguard_inbound(self) -> dict:
-        """Return the first WireGuard inbound (used as a schema template)."""
-        try:
-            for ib in await self.get_inbounds():
-                if (ib.get("protocol") or "").lower() == "wireguard":
-                    return ib
-        except Exception:
-            pass
-        return {}
 
     async def delete_inbound(self, inbound_id: int) -> bool:
         data = await self._request("POST", f"/panel/api/inbounds/del/{inbound_id}")

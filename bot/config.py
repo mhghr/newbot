@@ -54,34 +54,6 @@ BASE_URL = os.getenv("BASE_URL", "")
 SUB_HOST = os.getenv("SUB_HOST", "0.0.0.0")
 SUB_PORT = int(os.getenv("SUB_PORT", "8080"))
 
-# SoftEther VPN Server administrator password (same on all our nodes). Used by
-# the tunnel wizard to manage hubs/listeners/cascades.
-SOFTETHER_ADMIN_PASSWORD = os.getenv("SOFTETHER_ADMIN_PASSWORD", "SeAdmin-2026")
-
-# Outbound tag in the panel's Xray config that carries the working foreign exit.
-# Location inbounds are routed through this outbound so users exit abroad. When
-# the tag is absent from the panel the location falls back to its own per-tunnel
-# mark. Set to "direct" (or empty) to keep locations on the direct outbound.
-LOCATION_EXIT_OUTBOUND = os.getenv("LOCATION_EXIT_OUTBOUND", "softether-exit")
-
-# Public domain used as the client config endpoint (the entry A record). Every
-# location inbound gets a panel "host" pointing at this domain, so configs keep
-# working after the A record is switched. Overridable from the admin panel.
-ENDPOINT_DOMAIN = os.getenv("ENDPOINT_DOMAIN", "my.manointernet.ir")
-
-# MTU written into delivered WireGuard configs. 1420 can be too high on some
-# Iranian ISP paths (PPPoE etc.) and causes large packets to be dropped, which
-# shows up as pages/videos loading poorly. 1380 is a safe default.
-WG_MTU = int(os.getenv("WG_MTU", "1380"))
-
-# ArvanCloud CDN/DNS API — used to switch the entry domain's A record to the
-# currently active Iran node.
-ARVAN_API_KEY = os.getenv("ARVAN_API_KEY", "")
-ARVAN_API_BASE = os.getenv("ARVAN_API_BASE", "https://napi.arvancloud.ir/cdn/4.0")
-# Domain (e.g. manointernet.ir) and record name (e.g. res, or "@" for root).
-ARVAN_DOMAIN = os.getenv("ARVAN_DOMAIN", "")
-ARVAN_RECORD = os.getenv("ARVAN_RECORD", "")
-
 # Telethon userbot used to read proxy source channels the bot itself is not a
 # member of. Leave empty to disable the proxy relay entirely.
 try:

@@ -92,7 +92,7 @@ async def add_plan_start(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "new_plan_type:v2ray")
 async def add_plan_v2ray_compat(callback: CallbackQuery, state: FSMContext):
-    """Compatibility for keyboards sent before WireGuard was removed."""
+    """Compatibility for keyboards sent before service types were simplified."""
     if callback.from_user.id not in ADMIN_IDS:
         return
     await state.update_data(service_type="v2ray")

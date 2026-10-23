@@ -85,20 +85,19 @@ async def search_user(query: str):
                    OR c.sub_id ILIKE $1
                    OR pl.name ILIKE $1
                   OR s.name ILIKE $1
-                  OR s.location ILIKE $1
                ORDER BY u.id""",
             pattern,
         )
 
 
-async def add_server(name: str, url: str, location: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096, sub_domain: str = "", service_type: str = "v2ray"):
+async def add_server(name: str, url: str, api_token: str = "", username: str = "", password: str = "", inbound_id: int = 0, sub_port: int = 2096, sub_domain: str = "", service_type: str = "v2ray"):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
             """INSERT INTO servers
-                   (name, url, username, password, api_token, location, inbound_id,
+                   (name, url, username, password, api_token, inbound_id,
                     sub_port, sub_domain, service_type)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
-            name, url, username, password, api_token, location, inbound_id,
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""",
+            name, url, username, password, api_token, inbound_id,
             sub_port, sub_domain, service_type
         )
 
@@ -177,7 +176,7 @@ async def delete_server(server_id: int):
 
 async def update_server_field(server_id: int, field: str, value):
     allowed = {
-        "name", "url", "api_token", "location", "inbound_id", "sub_port", "sub_domain",
+        "name", "url", "api_token", "inbound_id", "sub_port", "sub_domain",
         "service_type", "api_port",
     }
     if field not in allowed:
@@ -244,13 +243,13 @@ async def delete_plan(plan_id: int):
 
 
 async def create_order(user_id: int, plan_id: int, receipt_photo_id: str, server_id: int = None,
-                       renew_config_id: int = None, service_type: str = "v2ray", tunnel_id: int = None,
+                       renew_config_id: int = None, service_type: str = "v2ray",
                        device_count: int = 1):
     async with models.pool.acquire() as conn:
         return await conn.fetchval(
-            """INSERT INTO orders (user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id, device_count)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
-            user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, tunnel_id, device_count
+            """INSERT INTO orders (user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, device_count)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            user_id, plan_id, server_id, receipt_photo_id, renew_config_id, service_type, device_count
         )
 
 
@@ -260,7 +259,7 @@ async def get_order(order_id: int):
             """SELECT o.*, u.telegram_id, u.username, u.first_name,
                       p.name as plan_name, p.traffic_gb, p.duration_days, p.price, p.max_users,
                       p.service_type as plan_service_type,
-                      s.name as server_name, s.location, s.url as server_url,
+                      s.name as server_name, s.url as server_url,
                       s.username as server_username, s.password as server_password,
                       s.api_token as server_api_token, s.inbound_id,
                       s.service_type as server_service_type, s.api_port
@@ -292,7 +291,7 @@ async def get_pending_orders():
         return await conn.fetch(
             """SELECT o.*, u.telegram_id, u.username, u.first_name,
                       p.name as plan_name, p.traffic_gb, p.duration_days, p.price,
-                      s.name as server_name, s.location
+                      s.name as server_name
                FROM orders o
                JOIN users u ON o.user_id = u.id
                JOIN plans p ON o.plan_id = p.id
@@ -318,7 +317,7 @@ async def add_config(user_id: int, order_id: int, server_id: int, client_email: 
 async def get_user_configs(user_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetch(
-            """SELECT c.*, s.name as server_name, s.location, s.url as server_url,
+            """SELECT c.*, s.name as server_name, s.url as server_url,
                       s.username as server_username, s.password as server_password,
                       s.api_token as server_api_token
                FROM configs c
@@ -332,7 +331,7 @@ async def get_user_configs(user_id: int):
 async def get_user_configs_by_telegram_id(telegram_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetch(
-            """SELECT c.*, s.name as server_name, s.location, s.url as server_url,
+            """SELECT c.*, s.name as server_name, s.url as server_url,
                       s.username as server_username, s.password as server_password,
                       s.api_token as server_api_token
                FROM configs c
@@ -348,7 +347,7 @@ async def get_user_orders(user_id: int):
     async with models.pool.acquire() as conn:
         return await conn.fetch(
             """SELECT o.*, p.name as plan_name, p.traffic_gb, p.duration_days, p.price,
-                      s.name as server_name, s.location
+                      s.name as server_name
                FROM orders o
                JOIN plans p ON o.plan_id = p.id
                LEFT JOIN servers s ON o.server_id = s.id
@@ -419,13 +418,8 @@ async def get_server_for_plan(plan_id: int, service_type: str = "v2ray"):
 
 
 # --------------------------------------------------------------------------- #
-# Physical nodes (Iran entry servers + foreign exit servers)
+# Physical nodes (server panels)
 # --------------------------------------------------------------------------- #
-
-def is_iran_location(location) -> bool:
-    v = (location or "").strip().lower()
-    return v in ("iran", "ir", "ایران") or v.startswith("iran") or v.startswith("ایران")
-
 
 async def add_node(name: str, ip: str, ssh_port: int = 22, ssh_user: str = "root",
                    ssh_pass: str = "", panel_url: str = "", panel_token: str = ""):
@@ -449,19 +443,11 @@ async def get_node(node_id: int):
 
 
 async def get_iran_nodes():
-    """Active entry servers (every node is an entry server now)."""
+    """Active server panels."""
     return [
         n for n in await get_all_nodes()
         if bool(n.get("is_active", True))
     ]
-
-
-async def get_foreign_nodes():
-    return []
-
-
-def is_iran_node(node) -> bool:
-    return True
 
 
 async def update_node_field(node_id: int, field: str, value):
@@ -518,104 +504,6 @@ async def delete_node(node_id: int):
         await conn.execute("DELETE FROM nodes WHERE id=$1", node_id)
 
 
-# --------------------------------------------------------------------------- #
-# Per-node location inbound mapping (tunnel -> inbound id on a specific node)
-# --------------------------------------------------------------------------- #
-
-async def upsert_node_inbound(node_id: int, tunnel_id: int, inbound_id: int,
-                              tag: str = "", location: str = ""):
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO node_inbounds (node_id, tunnel_id, inbound_id, tag, location)
-               VALUES ($1, $2, $3, $4, $5)
-               ON CONFLICT (node_id, tunnel_id)
-               DO UPDATE SET inbound_id=EXCLUDED.inbound_id, tag=EXCLUDED.tag,
-                             location=EXCLUDED.location, updated_at=NOW()""",
-            node_id, tunnel_id, inbound_id, tag, location,
-        )
-
-
-async def get_node_inbounds(node_id: int):
-    async with models.pool.acquire() as conn:
-        return await conn.fetch(
-            "SELECT * FROM node_inbounds WHERE node_id=$1 ORDER BY tunnel_id", node_id)
-
-
-async def get_tunnel_inbound_on_node(node_id: int, tunnel_id: int):
-    async with models.pool.acquire() as conn:
-        return await conn.fetchrow(
-            "SELECT * FROM node_inbounds WHERE node_id=$1 AND tunnel_id=$2",
-            node_id, tunnel_id)
-
-
-# --------------------------------------------------------------------------- #
-# Tunnels (Iran node <-> foreign node)
-# --------------------------------------------------------------------------- #
-
-async def add_tunnel(iran_node_id: int, foreign_node_id: int, panel_id: int = None, location: str = ""):
-    async with models.pool.acquire() as conn:
-        return await conn.fetchval(
-            """INSERT INTO tunnels (iran_node_id, foreign_node_id, panel_id, location)
-               VALUES ($1, $2, $3, $4) RETURNING id""",
-            iran_node_id, foreign_node_id, panel_id, location,
-        )
-
-
-async def update_tunnel(tunnel_id: int, status: str = None, detail: str = None,
-                        panel_id: int = None, inbound_id: int = None, location: str = None):
-    async with models.pool.acquire() as conn:
-        await conn.execute(
-            """UPDATE tunnels SET
-                   status = COALESCE($2, status),
-                   detail = COALESCE($3, detail),
-                   panel_id = COALESCE($4, panel_id),
-                   inbound_id = COALESCE($5, inbound_id),
-                   location = COALESCE($6, location)
-               WHERE id=$1""",
-            tunnel_id, status, detail, panel_id, inbound_id, location,
-        )
-
-
-async def get_tunnel(tunnel_id: int):
-    async with models.pool.acquire() as conn:
-        return await conn.fetchrow("SELECT * FROM tunnels WHERE id=$1", tunnel_id)
-
-
-async def get_all_tunnels():
-    async with models.pool.acquire() as conn:
-        return await conn.fetch("SELECT * FROM tunnels ORDER BY id")
-
-
-async def get_locations():
-    """Selectable locations: one entry per foreign server (location).
-
-    Several Iran nodes may each have a tunnel to the same foreign server; the
-    user/admin sees a single entry per location. The inbound for a given Iran
-    node is resolved from ``node_inbounds`` at creation time.
-    """
-    async with models.pool.acquire() as conn:
-        rows = await conn.fetch(
-            """SELECT t.id, t.inbound_id, t.location, t.iran_node_id, t.foreign_node_id,
-                      i.name AS iran_name, i.ip AS iran_ip,
-                      f.name AS foreign_name, f.location AS foreign_location
-               FROM tunnels t
-               LEFT JOIN nodes i ON t.iran_node_id = i.id
-               LEFT JOIN nodes f ON t.foreign_node_id = f.id
-               WHERE t.inbound_id IS NOT NULL AND t.status='up'
-               ORDER BY t.id"""
-        )
-    out = {}
-    for r in rows:
-        key = r["foreign_node_id"] or r["location"] or r["id"]
-        out.setdefault(key, r)
-    return list(out.values())
-
-
-async def delete_tunnel(tunnel_id: int):
-    async with models.pool.acquire() as conn:
-        await conn.execute("DELETE FROM tunnels WHERE id=$1", tunnel_id)
-
-
 async def ensure_user_sub_token(user_id: int) -> str:
     identity = await get_or_create_sub_identity(user_id)
     return identity["sub_token"]
@@ -630,7 +518,7 @@ async def set_user_sub_token(user_id: int, sub_token: str):
 
 async def create_config(user_id: int, order_id: int, plan_id: int, client_email: str,
                         sub_id: str, sub_url: str, traffic_gb: int, expire_date,
-                        server_id: int = None, tunnel_id: int = None, client_emails: str = "",
+                        server_id: int = None, client_emails: str = "",
                         node_id: int = None):
     if isinstance(expire_date, str):
         expire_date = datetime.fromisoformat(expire_date)
@@ -639,28 +527,13 @@ async def create_config(user_id: int, order_id: int, plan_id: int, client_email:
             """INSERT INTO configs
                    (user_id, order_id, plan_id, client_email, sub_id, config_link,
                     traffic_limit_gb, expire_date, server_id, service_type, is_active,
-                    reminder_traffic_sent, reminder_time_sent, tunnel_id, client_emails,
+                    reminder_traffic_sent, reminder_time_sent, client_emails,
                     node_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10, $11, $12)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'v2ray', TRUE, FALSE, FALSE, $10, $11)
                RETURNING id""",
             user_id, order_id, plan_id, client_email, sub_id, sub_url,
-            traffic_gb, expire_date, server_id, tunnel_id, client_emails, node_id
+            traffic_gb, expire_date, server_id, client_emails, node_id
         )
-
-
-async def update_config_tunnel(config_id: int, tunnel_id: int, config_link: str = None):
-    """Point a config at another location's tunnel (after a location switch)."""
-    async with models.pool.acquire() as conn:
-        if config_link is not None:
-            await conn.execute(
-                "UPDATE configs SET tunnel_id=$2, config_link=$3 WHERE id=$1",
-                config_id, tunnel_id, config_link,
-            )
-        else:
-            await conn.execute(
-                "UPDATE configs SET tunnel_id=$2 WHERE id=$1",
-                config_id, tunnel_id,
-            )
 
 
 async def get_config(config_id: int):

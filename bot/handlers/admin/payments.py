@@ -1,10 +1,11 @@
-﻿from aiogram import Router, F, Bot
+from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramNetworkError
 from datetime import datetime, timedelta
 import asyncio
 import httpx
 import logging
+import uuid
 
 from bot.config import ADMIN_IDS
 from bot.database import db
@@ -48,18 +49,18 @@ async def _send_config_to_user(bot: Bot, chat_id: int, qr_url: str, caption: str
 @router.callback_query(F.data.startswith("approve_order:"))
 async def approve_order(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("â›”ï¸ Ø¯Ø³ØªØ±Ø³ÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯!", show_alert=True)
+        await callback.answer("⛔️ دسترسی ندارید!", show_alert=True)
         return
 
     order_id = int(callback.data.split(":")[1])
     order = await db.get_order(order_id)
 
     if not order:
-        await callback.answer("âŒ Ø³ÙØ§Ø±Ø´ ÛŒØ§ÙØª Ù†Ø´Ø¯!", show_alert=True)
+        await callback.answer("❌ سفارش یافت نشد!", show_alert=True)
         return
 
     if order["status"] != "pending":
-        await callback.answer(f"âš ï¸ Ø§ÛŒÙ† Ø³ÙØ§Ø±Ø´ Ù‚Ø¨Ù„Ø§ {order['status']} Ø´Ø¯Ù‡!", show_alert=True)
+        await callback.answer(f"⚠️ این سفارش قبلا {order['status']} شده!", show_alert=True)
         return
 
     # A legacy renewal pointing at a non-V2Ray config is treated as a brand new
@@ -76,7 +77,7 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
     try:
         try:
             await callback.message.edit_caption(
-                caption=base_caption + "\n\nâ³ Ø¯Ø± Ø­Ø§Ù„ Ø³Ø§Ø®Øª Ú©Ø§Ù†ÙÛŒÚ¯...",
+                caption=base_caption + "\n\n⏳ در حال ساخت کانفیگ...",
                 reply_markup=order_approval_keyboard(order_id)
             )
         except Exception:
@@ -90,13 +91,13 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         if renew_config_id:
             config = await db.get_config(renew_config_id)
             if not config:
-                raise Exception("Ú©Ø§Ù†ÙÛŒÚ¯ Ø¨Ø±Ø§ÛŒ ØªÙ…Ø¯ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯")
+                raise Exception("کانفیگ برای تمدید یافت نشد")
 
             cfg_url, cfg_tok = await account_view._panel_for_config(config)
             if not cfg_url:
                 target = await panel_sync.active_panel_target()
                 if not target:
-                    raise Exception("Ù¾Ù†Ù„ Ú©Ø§Ù†ÙÛŒÚ¯ ÛŒØ§ Ø³Ø±ÙˆØ± ÙØ¹Ø§Ù„ ÛŒØ§ÙØª Ù†Ø´Ø¯")
+                    raise Exception("پنل کانفیگ یا سرور فعال یافت نشد")
                 cfg_url, cfg_tok, _, _ = target
             panel_url, panel_tok = cfg_url, cfg_tok or ""
             active = await panel_sync.active_node()
@@ -134,15 +135,21 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 logger.warning(f"failed to reset used traffic for {email}")
 
             # Some panel versions drop a client's inbound attachments on
-            # update. Re-attach the first WireGuard inbound when needed.
-            current = set(await xui.get_client_inbounds(email))
-            if not current:
-                try:
-                    ids = await xui.resolve_inbound_ids([])
+            # update. Re-attach the server's configured inbounds when needed.
+            try:
+                current = set(await xui.get_client_inbounds(email))
+                if not current:
+                    ids = []
+                    if node_id:
+                        node = await db.get_node(int(node_id))
+                        if node:
+                            ids = db.parse_inbound_ids(node.get("inbound_ids") or "")
+                    if not ids:
+                        ids = await xui.resolve_inbound_ids([])
                     if ids:
                         await xui.attach_client(email, ids)
-                except Exception as e:
-                    logger.warning(f"failed to re-attach inbounds for {email}: {e}")
+            except Exception as e:
+                logger.warning(f"failed to re-attach inbounds for {email}: {e}")
 
             link, _ = await account_view.fetch_delivery_link(
                 xui, email, sub_token, True, sub_base,
@@ -151,11 +158,11 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 renew_config_id, order_id, order["plan_id"],
                 order["traffic_gb"], new_expire
             )
-            action_word = "ØªÙ…Ø¯ÛŒØ¯"
+            action_word = "تمدید"
         else:
             target = await panel_sync.active_panel_target()
             if not target:
-                raise Exception("Ø³Ø±ÙˆØ± ÙØ¹Ø§Ù„ ÛŒØ§ Ø§ÛŒÙ†Ø¨Ø§Ù†Ø¯ Ù…Ø¹ØªØ¨Ø±ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯")
+                raise Exception("سرور فعال یا اینباند معتبری یافت نشد")
             panel_url, panel_tok, active, inbound_ids = target
             node_id = active["id"] if active else None
             node_name = active["name"] if active else "-"
@@ -168,13 +175,15 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             except Exception:
                 pass
 
+            sub_id = uuid.uuid4().hex[:16]
             try:
-                await xui.add_client_full(
+                await xui.add_client_with_inbounds(
                     email=email,
+                    inbound_ids=inbound_ids,
+                    sub_id=sub_id,
                     traffic_gb=order["traffic_gb"],
                     expire_days=order["duration_days"],
                     limit_ip=plan_max_users,
-                    all_inbound_ids=inbound_ids,
                     timeout=120,
                 )
             except httpx.ReadTimeout:
@@ -182,9 +191,9 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                     raise
                 logger.warning("add timed out but client %s exists; continuing", email)
 
-            sub_token = await xui.get_client_sub_id(email)
+            sub_token = await xui.get_client_sub_id(email) or sub_id
             if not sub_token:
-                raise Exception("subId Ø§Ø² Ù¾Ù†Ù„ Ø¯Ø±ÛŒØ§ÙØª Ù†Ø´Ø¯")
+                raise Exception("subId از پنل دریافت نشد")
 
             link, _ = await account_view.fetch_delivery_link(
                 xui, email, sub_token, True, sub_base,
@@ -198,69 +207,82 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
                 sub_token, link, order["traffic_gb"], expire_date,
                 server_id=None, node_id=node_id,
             )
-            action_word = "Ø³Ø§Ø®Øª"
+            action_word = "ساخت"
 
         if not link:
-            raise Exception("Ù„ÛŒÙ†Ú© Ø§Ø´ØªØ±Ø§Ú© Ø§Ø² Ù¾Ù†Ù„ Ø¯Ø±ÛŒØ§ÙØª Ù†Ø´Ø¯")
+            raise Exception("لینک اشتراک از پنل دریافت نشد")
 
-        await account_view.deliver_subscription(
-            bot, order["telegram_id"], link,
-            header=f"âœ… {action_word} Ø§Ø´ØªØ±Ø§Ú© Ø´Ù…Ø§ Ø§Ù†Ø¬Ø§Ù… Ø´Ø¯!\nðŸ–¥ Ø³Ø±ÙˆØ±: {node_name}",
-        )
+        delivered = True
+        try:
+            await account_view.deliver_subscription(
+                bot, order["telegram_id"], link,
+                header=f"✅ {action_word} اشتراک شما انجام شد!\n🖥 سرور: {node_name}",
+            )
+        except Exception as e:
+            delivered = False
+            logger.warning("delivering order #%s to user %s failed: %s",
+                           order_id, order["telegram_id"], e)
 
         await db.update_order_status(order_id, "approved", link)
 
         try:
+            if delivered:
+                result_caption = base_caption + f"\n\n✅ تایید و برای کاربر ارسال شد\n🔗 {link}"
+            else:
+                result_caption = (
+                    base_caption
+                    + f"\n\n⚠️ کانفیگ ساخته شد ولی ارسال به کاربر ناموفق بود\n🔗 {link}"
+                )
             await callback.message.edit_caption(
-                caption=base_caption + f"\n\nâœ… ØªØ§ÛŒÛŒØ¯ Ùˆ Ø¨Ø±Ø§ÛŒ Ú©Ø§Ø±Ø¨Ø± Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯\nðŸ”— {link}",
+                caption=result_caption,
                 reply_markup=None,
             )
         except Exception:
             pass
-        await callback.answer("âœ… Ú©Ø§Ù†ÙÛŒÚ¯ Ø³Ø§Ø®ØªÙ‡ Ùˆ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯!")
+        await callback.answer("✅ کانفیگ ساخته و ارسال شد!")
 
     except Exception as e:
         logger.exception(f"Order approval failed for #{order_id}: {e}")
         await db.update_order_status(order_id, "pending")
         try:
             await callback.message.edit_caption(
-                caption=base_caption + f"\n\nâŒ Ø®Ø·Ø§ (Ù…ÛŒâ€ŒØªÙˆØ§Ù†ÛŒØ¯ Ø¯ÙˆØ¨Ø§Ø±Ù‡ ØªØ§ÛŒÛŒØ¯ Ú©Ù†ÛŒØ¯):\n{str(e)[:250]}",
+                caption=base_caption + f"\n\n❌ خطا (می‌توانید دوباره تایید کنید):\n{str(e)[:250]}",
                 reply_markup=order_approval_keyboard(order_id),
             )
         except Exception:
             pass
-        await callback.answer("âŒ Ø®Ø·Ø§! Ø¯ÙˆØ¨Ø§Ø±Ù‡ ØªÙ„Ø§Ø´ Ú©Ù†ÛŒØ¯.", show_alert=True)
+        await callback.answer("❌ خطا! دوباره تلاش کنید.", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("reject_order:"))
 async def reject_order(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("â›”ï¸ Ø¯Ø³ØªØ±Ø³ÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯!", show_alert=True)
+        await callback.answer("⛔️ دسترسی ندارید!", show_alert=True)
         return
 
     order_id = int(callback.data.split(":")[1])
     order = await db.get_order(order_id)
 
     if not order:
-        await callback.answer("âŒ Ø³ÙØ§Ø±Ø´ ÛŒØ§ÙØª Ù†Ø´Ø¯!", show_alert=True)
+        await callback.answer("❌ سفارش یافت نشد!", show_alert=True)
         return
 
     if order["status"] != "pending":
-        await callback.answer(f"âš ï¸ Ø§ÛŒÙ† Ø³ÙØ§Ø±Ø´ Ù‚Ø¨Ù„Ø§ {order['status']} Ø´Ø¯Ù‡!", show_alert=True)
+        await callback.answer(f"⚠️ این سفارش قبلا {order['status']} شده!", show_alert=True)
         return
 
     await db.update_order_status(order_id, "rejected")
 
     await callback.message.edit_caption(
-        caption=callback.message.caption + "\n\nâŒ Ø±Ø¯ Ø´Ø¯ ØªÙˆØ³Ø· Ø§Ø¯Ù…ÛŒÙ†"
+        caption=callback.message.caption + "\n\n❌ رد شد توسط ادمین"
     )
 
     await bot.send_message(
         chat_id=order["telegram_id"],
         text=(
-            f"âŒ Ø³ÙØ§Ø±Ø´ #{order_id} Ø±Ø¯ Ø´Ø¯.\n\n"
-            "Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø² Ø¨Ø§ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ ØªÙ…Ø§Ø³ Ø¨Ú¯ÛŒØ±ÛŒØ¯."
+            f"❌ سفارش #{order_id} رد شد.\n\n"
+            "در صورت نیاز با پشتیبانی تماس بگیرید."
         ),
     )
 
-    await callback.answer("âŒ Ø³ÙØ§Ø±Ø´ Ø±Ø¯ Ø´Ø¯!")
+    await callback.answer("❌ سفارش رد شد!")

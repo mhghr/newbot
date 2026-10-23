@@ -172,7 +172,7 @@ def order_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
 def configs_keyboard(configs: list) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(
-            text=f"📍 {config['location']} | {config['server_name']}",
+            text=f"🔑 {config.get('server_name') or 'کانفیگ'}",
             callback_data=f"view_config:{config['id']}"
         )
         for config in configs
@@ -337,7 +337,6 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
     toggle_text = "🔴 غیرفعال کردن" if server["is_active"] else "🟢 فعال کردن"
     rows = [
         [InlineKeyboardButton(text=f"📛 نام سرور : {_trunc(server['name'])}", callback_data=f"admin:edit_server:{sid}:name")],
-        [InlineKeyboardButton(text=f"📍 لوکیشن : {_trunc(server['location'])}", callback_data=f"admin:edit_server:{sid}:location")],
     ]
     rows += [
         [InlineKeyboardButton(text=f"🔗 آدرس : {_trunc(server['url'])}", callback_data=f"admin:edit_server:{sid}:url")],
@@ -346,8 +345,6 @@ def server_actions_keyboard(server) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🔄 سینک اینباندها", callback_data=f"admin:sync_inbounds:{sid}")],
     ]
     rows += [
-        [InlineKeyboardButton(text="🌐 دامنه اندپوینت (هاست)", callback_data="admin:endpoint_domain")],
-        [InlineKeyboardButton(text="🌐 آی‌پی فعال (تغییر DNS آروان)", callback_data="admin:active_server")],
         [
             InlineKeyboardButton(text=toggle_text, callback_data=f"admin:toggle_server:{sid}"),
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"admin:delete_server:{sid}"),
@@ -375,10 +372,9 @@ def servers_list_keyboard(servers: list) -> InlineKeyboardMarkup:
     for s in servers:
         status = "🟢" if s["is_active"] else "🔴"
         rows.append([InlineKeyboardButton(
-            text=f"{status} {s['name']} - {s['location']}",
+            text=f"{status} {s['name']}",
             callback_data=f"admin:server_detail:{s['id']}"
         )])
-    rows.append([InlineKeyboardButton(text="🟢 سرور فعال", callback_data="admin:active_server")])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_server")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -393,8 +389,6 @@ def nodes_list_keyboard(nodes: list) -> InlineKeyboardMarkup:
             callback_data=f"admin:node_detail:{n['id']}",
         )])
     rows.append([InlineKeyboardButton(text="➕ افزودن سرور", callback_data="admin:add_node")])
-    rows.append([InlineKeyboardButton(text="🌐 آی‌پی فعال (تغییر DNS آروان)", callback_data="admin:active_server")])
-    rows.append([InlineKeyboardButton(text="🌐 دامنه اندپوینت (هاست)", callback_data="admin:endpoint_domain")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -509,7 +503,7 @@ def plan_server_select_keyboard(plan_id: int, servers: list) -> InlineKeyboardMa
     for s in servers:
         status = "🟢" if s["is_active"] else "🔴"
         rows.append([InlineKeyboardButton(
-            text=f"{status} {s['name']} - {s.get('location') or ''}".strip(),
+            text=f"{status} {s['name']}",
             callback_data=f"admin:set_plan_server:{plan_id}:{s['id']}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"admin:plan_detail:{plan_id}")])
@@ -524,7 +518,7 @@ def new_plan_server_keyboard(servers: list) -> InlineKeyboardMarkup:
     for s in servers:
         status = "🟢" if s["is_active"] else "🔴"
         rows.append([InlineKeyboardButton(
-            text=f"{status} {s['name']} - {s.get('location') or ''}".strip(),
+            text=f"{status} {s['name']}",
             callback_data=f"new_plan_server:{s['id']}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="cancel_action")])
