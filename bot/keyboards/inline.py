@@ -157,16 +157,51 @@ def _plan_duration(plan) -> str:
     return "نامحدود" if not days else f"{days} روز"
 
 
+_FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def _fa(value) -> str:
+    return str(value).translate(_FA_DIGITS)
+
+
+def _plan_traffic_label(plan) -> str:
+    gb = plan.get("traffic_gb") or 0
+    return "نامحدود" if not gb else f"{_fa(gb)} گیگ"
+
+
+def _plan_duration_label(plan) -> str:
+    days = plan.get("duration_days") or 0
+    if not days:
+        return "نامحدود"
+    names = {
+        30: "یک‌ماهه", 60: "دوماهه", 90: "سه‌ماهه",
+        120: "چهارماهه", 180: "شش‌ماهه", 365: "یک‌ساله",
+    }
+    return names.get(days, f"{_fa(days)} روزه")
+
+
+def _plan_users_label(plan) -> str:
+    users = plan.get("max_users") or 0
+    return "کاربر نامحدود" if not users else f"{_fa(users)} کاربر"
+
+
+def _plan_price_label(plan) -> str:
+    price = f"{plan['price']:,}"
+    return f"{_fa(price)} تومان"
+
+
+def _plan_button_label(plan) -> str:
+    return (
+        f"{_plan_traffic_label(plan)} | {_plan_duration_label(plan)} | "
+        f"{_plan_users_label(plan)} | {_plan_price_label(plan)}"
+    )
+
+
 def plans_keyboard(plans: list) -> InlineKeyboardMarkup:
     rows = []
     for plan in plans:
-        text = (
-            f"📦 {_trunc(plan.get('name'), 18)} | "
-            f"{_plan_traffic(plan)} | {_plan_duration(plan)} | "
-            f"{plan['price']:,} تومان"
-        )
         rows.append([InlineKeyboardButton(
-            text=text,
+            text=_plan_button_label(plan),
             callback_data=f"buy_plan:{plan['id']}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")])
@@ -229,13 +264,8 @@ def renew_choice_keyboard(config_id: int) -> InlineKeyboardMarkup:
 def renew_plans_keyboard(config_id: int, plans: list) -> InlineKeyboardMarkup:
     rows = []
     for plan in plans:
-        text = (
-            f"📦 {_trunc(plan.get('name'), 20)} | "
-            f"{_plan_traffic(plan)} | {_plan_duration(plan)} | "
-            f"{plan['price']:,} تومان"
-        )
         rows.append([InlineKeyboardButton(
-            text=text,
+            text=_plan_button_label(plan),
             callback_data=f"renew_plan:{config_id}:{plan['id']}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"renew:{config_id}")])
