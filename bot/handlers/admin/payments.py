@@ -213,7 +213,10 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         try:
             await account_view.deliver_subscription(
                 bot, order["telegram_id"], link,
-                header=f"✅ {action_word} اشتراک شما انجام شد!",
+                header=(
+                    f"✅ {action_word} اشتراک شما انجام شد!\n"
+                    f"📦 پلن: {order['plan_name']}"
+                ),
             )
         except Exception as e:
             delivered = False
