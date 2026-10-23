@@ -13,7 +13,7 @@ async def admin_menu(callback: CallbackQuery):
         await callback.answer("⛔️ دسترسی ندارید!", show_alert=True)
         return
 
-    await callback.message.edit_text("\u200b", reply_markup=admin_menu_keyboard())
+    await callback.message.edit_text("\u2063", reply_markup=admin_menu_keyboard())
     await callback.answer()
 
 
@@ -23,5 +23,5 @@ async def admin_back(callback: CallbackQuery):
         await callback.answer("⛔️ دسترسی ندارید!", show_alert=True)
         return
 
-    await callback.message.edit_text("\u200b", reply_markup=admin_menu_keyboard())
+    await callback.message.edit_text("\u2063", reply_markup=admin_menu_keyboard())
     await callback.answer()
