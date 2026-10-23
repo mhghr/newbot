@@ -147,15 +147,28 @@ def join_channel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def _plan_traffic(plan) -> str:
+    gb = plan.get("traffic_gb") or 0
+    return "نامحدود" if not gb else f"{gb}GB"
+
+
+def _plan_duration(plan) -> str:
+    days = plan.get("duration_days") or 0
+    return "نامحدود" if not days else f"{days} روز"
+
+
 def plans_keyboard(plans: list) -> InlineKeyboardMarkup:
-    buttons = [
-        InlineKeyboardButton(
-            text=f"{plan['name']} | {plan['price']:,} تومان",
-            callback_data=f"buy_plan:{plan['id']}"
+    rows = []
+    for plan in plans:
+        text = (
+            f"📦 {_trunc(plan.get('name'), 18)} | "
+            f"{_plan_traffic(plan)} | {_plan_duration(plan)} | "
+            f"{plan['price']:,} تومان"
         )
-        for plan in plans
-    ]
-    rows = _rows(buttons)
+        rows.append([InlineKeyboardButton(
+            text=text,
+            callback_data=f"buy_plan:{plan['id']}",
+        )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="main:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -214,14 +227,17 @@ def renew_choice_keyboard(config_id: int) -> InlineKeyboardMarkup:
 
 
 def renew_plans_keyboard(config_id: int, plans: list) -> InlineKeyboardMarkup:
-    buttons = [
-        InlineKeyboardButton(
-            text=f"{plan['name']} | {plan['price']:,} تومان",
-            callback_data=f"renew_plan:{config_id}:{plan['id']}"
+    rows = []
+    for plan in plans:
+        text = (
+            f"📦 {_trunc(plan.get('name'), 20)} | "
+            f"{_plan_traffic(plan)} | {_plan_duration(plan)} | "
+            f"{plan['price']:,} تومان"
         )
-        for plan in plans
-    ]
-    rows = _rows(buttons)
+        rows.append([InlineKeyboardButton(
+            text=text,
+            callback_data=f"renew_plan:{config_id}:{plan['id']}",
+        )])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=f"renew:{config_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -292,15 +308,18 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def create_account_plans_keyboard(plans: list) -> InlineKeyboardMarkup:
-    buttons = [
-        InlineKeyboardButton(
-            text=f"{plan['name']} | {plan['traffic_gb']}GB | {plan['duration_days']} روز",
-            callback_data=f"acc_plan:{plan['id']}"
+    rows = []
+    for plan in plans:
+        text = (
+            f"📦 {_trunc(plan.get('name'), 18)} | "
+            f"{_plan_traffic(plan)} | {_plan_duration(plan)} | "
+            f"{plan['price']:,} تومان"
         )
-        for plan in plans
-    ]
-    buttons.append(InlineKeyboardButton(text="🎛 پلن دلخواه", callback_data="acc_plan:custom"))
-    rows = _rows(buttons)
+        rows.append([InlineKeyboardButton(
+            text=text,
+            callback_data=f"acc_plan:{plan['id']}",
+        )])
+    rows.append([InlineKeyboardButton(text="🎛 پلن دلخواه", callback_data="acc_plan:custom")])
     rows.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="admin:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

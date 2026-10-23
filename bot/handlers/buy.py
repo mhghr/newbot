@@ -42,6 +42,33 @@ class BuyStates(StatesGroup):
 DEFAULT_SALES_DISABLED = "⛔️ فروش موقتاً غیرفعال است. لطفاً بعداً تلاش کنید."
 
 
+def _plan_field(plan, key, unlimited: str, suffix: str) -> str:
+    value = plan.get(key) or 0
+    return unlimited if not value else f"{value}{suffix}"
+
+
+def _plan_details(plan) -> str:
+    traffic = _plan_field(plan, "traffic_gb", "نامحدود", " GB")
+    duration = _plan_field(plan, "duration_days", "نامحدود", " روز")
+    users = _plan_field(plan, "max_users", "نامحدود", " کاربر")
+    return (
+        f"📦 {plan.get('name') or 'پلن'}\n"
+        f"📊 حجم: {traffic}\n"
+        f"📅 مدت: {duration}\n"
+        f"👥 تعداد کاربر: {users}\n"
+        f"💰 قیمت: {plan['price']:,} تومان"
+    )
+
+
+def plans_text(plans) -> str:
+    blocks = "\n\n".join(_plan_details(plan) for plan in plans)
+    return (
+        "🛒 خرید\n\n"
+        "پلن مورد نظر خود را انتخاب کنید:\n\n"
+        f"{blocks}"
+    )
+
+
 async def show_sales_disabled(callback: CallbackQuery):
     """Show the admin-configured (or default) notice when sales are disabled."""
     message = await db.get_setting("sales_disabled_message", "")
@@ -103,8 +130,7 @@ async def buy_config(callback: CallbackQuery, bot: Bot):
         return
 
     await _retry(lambda: callback.message.edit_text(
-        "🛒 خرید\n\n"
-        "پلن مورد نظر خود را انتخاب کنید:",
+        plans_text(plans),
         reply_markup=plans_keyboard(plans)
     ))
     await callback.answer()
@@ -123,7 +149,7 @@ async def buy_type(callback: CallbackQuery, state: FSMContext):
         return
 
     await _retry(lambda: callback.message.edit_text(
-        "📦 پلن‌ها:\nپلن مورد نظر خود را انتخاب کنید:",
+        plans_text(plans),
         reply_markup=plans_keyboard(plans)
     ))
     await callback.answer()
