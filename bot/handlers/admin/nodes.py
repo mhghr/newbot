@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from urllib.parse import urlparse
 import json
 import logging
+import re
 
 from bot.config import ADMIN_IDS
 from bot.database import db
@@ -311,12 +312,27 @@ async def node_sync_inbounds(callback: CallbackQuery, bot: Bot):
         await callback.answer()
         return
 
-    # Every client that lives on this node's panel.
+    # Only clients that were purchased through the bot (configs with an order).
+    # Match by the Telegram-id prefix used in panel emails so the new
+    # ``-master`` clients (not yet in the configs table) are included too.
+    purchased_ids = set()
+    async with db.models.pool.acquire() as conn:
+        for row in await conn.fetch(
+            """select distinct u.telegram_id
+               from configs c
+               join users u on u.id = c.user_id
+               where c.order_id is not null and u.telegram_id > 0"""
+        ):
+            purchased_ids.add(str(row["telegram_id"]))
+
+    def _email_prefix(email: str) -> str:
+        return re.split(r"[-_]", email, 1)[0]
+
     emails = []
     for ib in inbounds:
         for cs in (ib.get("clientStats") or []):
             em = (cs.get("email") or "").strip()
-            if em and em not in emails:
+            if em and _email_prefix(em) in purchased_ids and em not in emails:
                 emails.append(em)
         settings = ib.get("settings")
         if isinstance(settings, str):
@@ -327,8 +343,12 @@ async def node_sync_inbounds(callback: CallbackQuery, bot: Bot):
         if isinstance(settings, dict):
             for c in (settings.get("clients") or []):
                 em = (c.get("email") or "").strip()
-                if em and em not in emails:
+                if em and _email_prefix(em) in purchased_ids and em not in emails:
                     emails.append(em)
+    logger.info(
+        "inbound sync: %d purchased clients matched (purchased users: %d)",
+        len(emails), len(purchased_ids),
+    )
 
     panel = {
         "id": nid,
@@ -342,7 +362,7 @@ async def node_sync_inbounds(callback: CallbackQuery, bot: Bot):
     await callback.answer("🔄 سینک شروع شد")
     await callback.message.edit_text(
         f"🔄 سینک اینباندها: {', '.join(str(i) for i in ids)}\n"
-        "⏳ در حال اتچ کردن کلاینت‌ها..."
+        "⏳ در حال سینک کلاینت‌های خریداری‌شده..."
     )
     await _sync_clients_to_inbounds(
         panel, callback.from_user.id, bot,
