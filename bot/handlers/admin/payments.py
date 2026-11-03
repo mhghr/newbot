@@ -72,6 +72,12 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             order["renew_config_id"] = None
 
     await db.update_order_status(order_id, "processing")
+    try:
+        # Acknowledge the tap right away: creating the client + sending the
+        # subscription link can take longer than Telegram's callback timeout.
+        await callback.answer("⏳ در حال ساخت اکانت...")
+    except Exception:
+        pass
     base_caption = admin_order_caption(order, service_type="v2ray")
 
     try:
@@ -209,21 +215,26 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
         if not link:
             raise Exception("لینک اشتراک از پنل دریافت نشد")
 
+        # Approve before delivery: the account already exists, and a slow or
+        # failing Telegram send must not leave the order stuck on "processing".
+        await db.update_order_status(order_id, "approved", link)
+
         delivered = True
         try:
-            await account_view.deliver_subscription(
-                bot, order["telegram_id"], link,
-                header=(
-                    f"✅ {action_word} اشتراک شما انجام شد!\n"
-                    f"📦 پلن: {order['plan_name']}"
+            await asyncio.wait_for(
+                account_view.deliver_subscription(
+                    bot, order["telegram_id"], link,
+                    header=(
+                        f"✅ {action_word} اشتراک شما انجام شد!\n"
+                        f"📦 پلن: {order['plan_name']}"
+                    ),
                 ),
+                timeout=120,
             )
         except Exception as e:
             delivered = False
             logger.warning("delivering order #%s to user %s failed: %s",
                            order_id, order["telegram_id"], e)
-
-        await db.update_order_status(order_id, "approved", link)
 
         try:
             if delivered:
@@ -239,7 +250,6 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             )
         except Exception:
             pass
-        await callback.answer("✅ کانفیگ ساخته و ارسال شد!")
 
     except Exception as e:
         logger.exception(f"Order approval failed for #{order_id}: {e}")
@@ -251,7 +261,10 @@ async def approve_order(callback: CallbackQuery, bot: Bot):
             )
         except Exception:
             pass
-        await callback.answer("❌ خطا! دوباره تلاش کنید.", show_alert=True)
+        try:
+            await callback.answer("❌ خطا! دوباره تلاش کنید.", show_alert=True)
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("reject_order:"))
