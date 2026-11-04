@@ -91,7 +91,19 @@ class XUIClient:
     async def _request(self, method: str, path: str, **kwargs) -> dict:
         timeout = kwargs.pop("timeout", 60)
         if method.upper() == "POST" and self.api_token and "json" in kwargs:
-            return await self._curl_post(path, kwargs.pop("json"), timeout)
+            payload = kwargs.pop("json")
+            try:
+                return await self._curl_post(path, payload, timeout)
+            except Exception as e:
+                msg = str(e)
+                # curl's TLS handshake occasionally gets reset by the panel
+                # (SSL_ERROR_SYSCALL / error 35).  The request never reached
+                # the panel in that case, so retrying with httpx is safe.
+                if "SSL_connect" in msg or "(35)" in msg:
+                    logger.warning("curl POST failed (%s); retrying with httpx", msg[:160])
+                    kwargs["json"] = payload
+                else:
+                    raise
         headers = {"accept": "application/json"}
 
         if self.api_token:
